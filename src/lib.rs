@@ -47,6 +47,16 @@ pub fn atob(input: &str) /*-> &str*/ {
         output.push(b2 as u8);
         output.push(b3 as u8);
 
+        let x0 = bytes[i] >> 2;
+        let x1 = (bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f;
+        let x2 = (bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f;
+        let x3 = bytes[i+2] & 0x3f;
+
+        println!("{} {}", b0, x0);
+        println!("{} {}", b1, x1);
+        println!("{} {}", b2, x2);
+        println!("{} {}", b3, x3);
+
         i+=3;
     }
 
