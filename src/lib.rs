@@ -71,9 +71,22 @@ impl From<string::FromUtf8Error> for Base64Error {
 }
 
 pub fn atob(input: &str) -> Result<String, Base64Error> {
-    let bytes = input.as_bytes();
-    let rem = input.len() % 3;
-    let div = input.len() - rem;
+    match bintob(input.as_bytes()) {
+        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
+        Err(err) => Err(err)
+    }
+}
+
+pub fn btoa(input: &str) -> Result<String, Base64Error> {
+    match btobin(input.as_bytes()) {
+        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
+        Err(err) => Err(err)
+    }
+}
+
+pub fn bintob(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+    let rem = bytes.len() % 3;
+    let div = bytes.len() - rem;
 
     let mut raw = Vec::<u8>::with_capacity(4*div/3 + if rem == 0 {4} else {0});
     let mut i = 0;
@@ -100,16 +113,13 @@ pub fn atob(input: &str) -> Result<String, Base64Error> {
         raw.push(0x3d);
     }
 
-    Ok(try!(String::from_utf8(raw)))
+    Ok(raw)
 }
 
-pub fn btoa(input: &str) -> Result<String, Base64Error> {
-    let bytes = input.as_bytes();
+pub fn btobin(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+    let mut signif = Vec::<u8>::with_capacity(bytes.len());
 
-    //I don't particularly like allocating two vecs but not sure if avoidable
-    let mut signif = Vec::<u8>::new();//with_capacity(input.len());
-
-    for (offset, codepoint) in input.char_indices() {
+    for (offset, codepoint) in (bytes as &str).char_indices() {
         let c = codepoint as u32;
 
         println!("{:?} {:?}", offset, codepoint);
@@ -133,7 +143,6 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
             println!("line {:?}", line!());
         } else {
             println!("line {:?}", line!());
-            //let e = format!("char '{}' at byte offset {}", codepoint, offset);
             return Err(Base64Error::InvalidChar(offset, codepoint));
         }
     }
@@ -142,7 +151,6 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
 
     if rem == 1 {
         return Err(Base64Error::InvalidLength);
-        //panic!("this too");
     }
 
     let div = signif.len() - rem;
@@ -151,7 +159,7 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
     println!("rem: {:?}", rem);
     println!("signif: {:?}", signif);
 
-    let mut raw = Vec::<u8>::new();//::with_capacity(3*div/4 + rem);
+    let mut raw = Vec::<u8>::with_capacity(3*div/4 + rem);
     let mut i = 0;
 
     while i < div {
@@ -171,6 +179,5 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
 
     println!("raw: {:?}", raw);
 
-    //String::from_utf8(raw)
-    Ok(try!(String::from_utf8(raw)))
+    Ok(raw)
 }

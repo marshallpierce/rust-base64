@@ -14,15 +14,15 @@ fn main() {
 */
 
     //base64::btoa(&"abcd ef g     hi j=k=====l  =m == n=");
-    //let a = atob("ABCDEFabcdef01234567").unwrap();
+    let a = atob("A").unwrap();
     //println!("{}", a);
-    //let b = btoa(&a);
+    let b = btoa(&a);
 
-    let c = btoa(&"ABiCDE");
+    //let c = btoa(&"ABiCDE");
 
-    match c {
+    match b {
         Ok(s) => println!("ok! {}", s),
-        Err(e) => println!("err: {}\ndesc: {}", e, e.description())
+        Err(e) => println!("{}", e)
     }
         
 
