@@ -33,7 +33,7 @@ const CHARMAP: [u8; 64] = [
 #[derive(Debug)]
 pub enum Base64Error {
     Utf8(string::FromUtf8Error),
-    InvalidChar(usize, char),
+    InvalidByte(usize, u8),
     InvalidLength
 }
 
@@ -41,8 +41,10 @@ impl fmt::Display for Base64Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Base64Error::Utf8(ref err) => err.fmt(f),
-            Base64Error::InvalidChar(off, cp) => write!(f, "Invalid character {:?} offset {}.", cp, off),
-            Base64Error::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder.")
+            Base64Error::InvalidByte(index, byte) =>
+                write!(f, "Invalid byte {}, offset {}.", byte, index),
+            Base64Error::InvalidLength =>
+                write!(f, "Encoded text cannot have a 6-bit remainder.")
         }
     }
 }
@@ -51,7 +53,7 @@ impl error::Error for Base64Error {
     fn description(&self) -> &str {
         match *self {
             Base64Error::Utf8(ref err) => err.description(),
-            Base64Error::InvalidChar(_,_) => "invalid char",
+            Base64Error::InvalidByte(_,_) => "invalid byte",
             Base64Error::InvalidLength => "invalid length"
         }
     }
@@ -70,21 +72,23 @@ impl From<string::FromUtf8Error> for Base64Error {
     }
 }
 
-pub fn atob(input: &str) -> Result<String, Base64Error> {
-    match bintob(input.as_bytes()) {
+pub fn encode(input: &str) -> Result<String, Base64Error> {
+    match u8en(input.as_bytes()) {
         Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
         Err(err) => Err(err)
     }
 }
 
-pub fn btoa(input: &str) -> Result<String, Base64Error> {
-    match btobin(input.as_bytes()) {
+pub fn decode(input: &str) -> Result<String, Base64Error> {
+    match u8de(input.as_bytes()) {
         Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
         Err(err) => Err(err)
     }
 }
 
-pub fn bintob(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+//pub fn decode_mime(input: &str) -> Result<String, Base64Error> {
+
+pub fn u8en(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     let rem = bytes.len() % 3;
     let div = bytes.len() - rem;
 
@@ -116,65 +120,61 @@ pub fn bintob(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     Ok(raw)
 }
 
-pub fn btobin(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
-    let mut signif = Vec::<u8>::with_capacity(bytes.len());
+pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+    let mut buffer = Vec::<u8>::with_capacity(bytes.len());
 
-    for (offset, codepoint) in (bytes as &str).char_indices() {
-        let c = codepoint as u32;
-
-        println!("{:?} {:?}", offset, codepoint);
-
-        if c > 0x40 && c < 0x5b {
-            signif.push(bytes[offset] - 0x41);
+    for i in 0..bytes.len() {
+        if bytes[i] > 0x40 && bytes[i] < 0x5b {
+            buffer.push(bytes[i] - 0x41);
             println!("line {:?}", line!());
-        } else if c > 0x60 && c < 0x7b {
-            signif.push(bytes[offset] - 0x61 + 0x1a);
+        } else if bytes[i] > 0x60 && bytes[i] < 0x7b {
+            buffer.push(bytes[i] - 0x61 + 0x1a);
             println!("line {:?}", line!());
-        } else if c > 0x2f && c < 0x3a {
-            signif.push(bytes[offset] - 0x30 + 0x34);
+        } else if bytes[i] > 0x2f && bytes[i] < 0x3a {
+            buffer.push(bytes[i] - 0x30 + 0x34);
             println!("line {:?}", line!());
-        } else if c == 0x2b {
-            signif.push(0x3e);
+        } else if bytes[i] == 0x2b {
+            buffer.push(0x3e);
             println!("line {:?}", line!());
-        } else if c == 0x2f {
-            signif.push(0x3f);
+        } else if bytes[i] == 0x2f {
+            buffer.push(0x3f);
             println!("line {:?}", line!());
-        } else if codepoint.is_whitespace() || c == 0x3d {
+        } else if bytes[i] == 0x3d {
             println!("line {:?}", line!());
         } else {
             println!("line {:?}", line!());
-            return Err(Base64Error::InvalidChar(offset, codepoint));
+            return Err(Base64Error::InvalidByte(i, bytes[i]));
         }
     }
 
-    let rem = signif.len() % 4;
+    let rem = buffer.len() % 4;
 
     if rem == 1 {
         return Err(Base64Error::InvalidLength);
     }
 
-    let div = signif.len() - rem;
-    println!("len: {:?}", signif.len());
+    let div = buffer.len() - rem;
+    println!("len: {:?}", buffer.len());
     println!("div: {:?}", div);
     println!("rem: {:?}", rem);
-    println!("signif: {:?}", signif);
+    println!("buffer: {:?}", buffer);
 
     let mut raw = Vec::<u8>::with_capacity(3*div/4 + rem);
     let mut i = 0;
 
     while i < div {
-        raw.push(signif[i] << 2 | signif[i+1] >> 4);
-        raw.push(signif[i+1] << 4 | signif[i+2] >> 2);
-        raw.push(signif[i+2] << 6 | signif[i+3]);
+        raw.push(buffer[i] << 2 | buffer[i+1] >> 4);
+        raw.push(buffer[i+1] << 4 | buffer[i+2] >> 2);
+        raw.push(buffer[i+2] << 6 | buffer[i+3]);
 
         i+=4;
     }
 
     if rem > 1 {
-        raw.push(signif[div] << 2 | signif[div+1] >> 4);
+        raw.push(buffer[div] << 2 | buffer[div+1] >> 4);
     }
     if rem > 2 {
-        raw.push(signif[div+1] << 4 | signif[div+2] >> 2);
+        raw.push(buffer[div+1] << 4 | buffer[div+2] >> 2);
     }
 
     println!("raw: {:?}", raw);

@@ -14,9 +14,9 @@ fn main() {
 */
 
     //base64::btoa(&"abcd ef g     hi j=k=====l  =m == n=");
-    let a = atob("A").unwrap();
+    let a = encode("dhaskjdhaskjdhkjashd").unwrap();
     //println!("{}", a);
-    let b = btoa(&a);
+    let b = decode(&a);
 
     //let c = btoa(&"ABiCDE");
 
