@@ -31,60 +31,92 @@ pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
     let rem = input.len() % 3;
     let div = input.len() - rem;
 
-    let mut raw = Vec::<u8>::new();
+    let mut raw = Vec::<u8>::with_capacity(4*div/3 + if rem == 0 {4} else {0});
     let mut i = 0;
 
     while i < div {
-        raw.push(bytes[i] >> 2);
-        raw.push((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f);
-        raw.push((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f);
-        raw.push(bytes[i+2] & 0x3f);
-
-        raw.push(bytes[i] >> 2);
-        raw.push((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f);
-        raw.push((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f);
-        raw.push(bytes[i+2] & 0x3f);
+        raw.push(CHARMAP[(bytes[i] >> 2) as usize]);
+        raw.push(CHARMAP[((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f) as usize]);
+        raw.push(CHARMAP[((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f) as usize]);
+        raw.push(CHARMAP[(bytes[i+2] & 0x3f) as usize]);
 
         i+=3;
     }
 
     if rem == 2 {
-        raw.push(bytes[div] >> 2);
-        raw.push((bytes[div] << 4) + (bytes[div+1] >> 4) & 0x3f);
-        raw.push(bytes[div+1] << 2 & 0x3f);
+        raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
+        raw.push(CHARMAP[((bytes[div] << 4) + (bytes[div+1] >> 4) & 0x3f) as usize]);
+        raw.push(CHARMAP[(bytes[div+1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(bytes[div] >> 2);
-        raw.push(bytes[div] << 4 & 0x3f);
+        raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
+        raw.push(CHARMAP[(bytes[div] << 4 & 0x3f) as usize]);
     }
 
-    for i in 0..raw.len() {
-        raw[i] = CHARMAP[raw[i] as usize];
-    }
-
-    for _ in 0..rem {
+    for _ in 0..(3-rem)%3 {
         raw.push(0x3d);
     }
 
     String::from_utf8(raw)
 }
 
-    //ok if I have two bytes left I want to push...
-    //1111 1111, 1111 1111
-    //right shift first byte 2
-    //0011 1111
-    //left shift the first byte 4...
-    //1111 0000
-    //...right shift the second byte by 4...
-    //0000 1111
-    //...add and and 63
-    //0011 1111
-    //left shift 2 and 63
-    //0011 1100
-    //fourth byte is =, here aka 64
-    //
-    //with one byte
-    //1111 1111
-    //first right shift 2 second left shift 4 and 63
-        
+pub fn btoa(input: &str) {
+    let bytes = input.as_bytes();
+    //FIXME I don't really want to allocate twice
+    //could do work in the loop, but mixing validation with processing, so not langsec
+    //could keep a vec of "offsets to avoid" but that'd overcomplicate
+    //whatever whatever finish the damn thing first
+    let mut signif = Vec::<u8>::new();//with_capacity(input.len());
 
-    //println!("{:?}\n{:?}", bytes, raw);
+    for (offset, codepoint) in input.char_indices() {
+        let c = codepoint as u32;
+
+        if (c > 0x40 && c < 0x5b) || (c > 0x60 && c < 0x7b) ||
+        (c > 0x29 && c < 0x3a) || c == 0x2b || c == 0x2f {
+            signif.push(bytes[offset]);
+        } else if codepoint.is_whitespace() || c == 0x3d {
+            ;
+        } else {
+            panic!("change this to error when I add return type");
+        }
+    }
+
+    let rem = input.len() % 4;
+
+    if rem == 1 {
+        panic!("this too");
+    }
+
+    let div = signif.len() - rem;
+
+    let mut raw = Vec::<u8>::new();//::with_capacity(3*div/4 + rem);
+    let mut i = 0;
+
+    while i < div {
+        //FIXME this is horrible
+        //change the for loop to have an if for each range
+        //and push the indexes to signif rather than do this
+        let a = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i]).unwrap() as u8;
+        let b = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+1]).unwrap() as u8;
+        let c = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+2]).unwrap() as u8;
+        let d = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+3]).unwrap() as u8;
+
+        raw.push((a << 2) | (b >> 4));
+        raw.push((b << 4) | (c >> 2));
+        raw.push(c << 6 | d);
+
+        i+=4;
+    }
+
+
+    println!("len: {:?}", raw.len());
+    println!("test!\n{:?}", String::from_utf8(raw));
+        
+        
+    /*
+        println!("{}: {}", offset, codepoint);
+        println!("whitespace? {}", codepoint.is_whitespace());
+        println!("pad? {}", codepoint as u32 == 0x3d);
+    */
+}
+
+//0011 1111, 0011 1111, 0011 1111, 0011 1111
