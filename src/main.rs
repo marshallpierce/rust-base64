@@ -1,6 +1,6 @@
 extern crate base64;
 
-use std::error::Error;
+//use std::error::Error;
 use base64::*;
 
 fn main() {

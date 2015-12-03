@@ -1,20 +1,3 @@
-/*
-    generic notes for the program
-    atob() and btoa() are what we want to copy, perfectly, and nothing else. atob takes ascii, throws immediately if anything else. err. atob takes 0 through 0xff so I can't just assert 0x7f or below or go fuck yourself. assume clean input on that front for now, it's a one- or two-line fix.
-
-    https://html.spec.whatwg.org/multipage/webappapis.html#atob
-    https://tools.ietf.org/html/rfc4648#section-4
-
-    random things:
-    * Cursor, Seek, and Byte in std::io do what you'd expect. probably unecessary. ideally I'd like to be able to avoid depending on stdlib but I'm not sure what all is in there, like do programs depend on it to do for loops? iteration in general? I dunno. there's libcore but you don't want to use that in non-bare metal rust code. look into it
-    * obv I'm using u8 and str for everything
-    * b"hello" casts str to u8
-    * 65u8 as char does what it says
-    * 0x 0b 0o are all normal
-    * C-style bitwise ops thank the goddess
-    * js implementations of error-checking are untrustworthy, utf16
-*/
-
 use std::{fmt, error, string};
 use std::error::Error;
 use std::string::FromUtf8Error;
@@ -86,7 +69,22 @@ pub fn decode(input: &str) -> Result<String, Base64Error> {
     }
 }
 
-//pub fn decode_mime(input: &str) -> Result<String, Base64Error> {
+pub fn decode_ws(input: &str) -> Result<String, Base64Error> {
+    let bytes = input.as_bytes();
+    let mut raw = Vec::<u8>::with_capacity(input.len());
+
+    for i in 0..input.len() {
+        if !(bytes[i] == 0x20 || bytes[i] == 0x9 || bytes[i] == 0xa ||
+        bytes[i] == 0xc || bytes[i] == 0xd) {
+            raw.push(bytes[i]);
+        }
+    }
+
+    match u8de(&raw) {
+        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
+        Err(err) => Err(err)
+    }
+}
 
 pub fn u8en(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     let rem = bytes.len() % 3;
@@ -126,23 +124,17 @@ pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     for i in 0..bytes.len() {
         if bytes[i] > 0x40 && bytes[i] < 0x5b {
             buffer.push(bytes[i] - 0x41);
-            println!("line {:?}", line!());
         } else if bytes[i] > 0x60 && bytes[i] < 0x7b {
             buffer.push(bytes[i] - 0x61 + 0x1a);
-            println!("line {:?}", line!());
         } else if bytes[i] > 0x2f && bytes[i] < 0x3a {
             buffer.push(bytes[i] - 0x30 + 0x34);
-            println!("line {:?}", line!());
         } else if bytes[i] == 0x2b {
             buffer.push(0x3e);
-            println!("line {:?}", line!());
         } else if bytes[i] == 0x2f {
             buffer.push(0x3f);
-            println!("line {:?}", line!());
         } else if bytes[i] == 0x3d {
-            println!("line {:?}", line!());
+            ;
         } else {
-            println!("line {:?}", line!());
             return Err(Base64Error::InvalidByte(i, bytes[i]));
         }
     }
@@ -154,10 +146,6 @@ pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     }
 
     let div = buffer.len() - rem;
-    println!("len: {:?}", buffer.len());
-    println!("div: {:?}", div);
-    println!("rem: {:?}", rem);
-    println!("buffer: {:?}", buffer);
 
     let mut raw = Vec::<u8>::with_capacity(3*div/4 + rem);
     let mut i = 0;
@@ -176,8 +164,6 @@ pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
     if rem > 2 {
         raw.push(buffer[div+1] << 4 | buffer[div+2] >> 2);
     }
-
-    println!("raw: {:?}", raw);
 
     Ok(raw)
 }
