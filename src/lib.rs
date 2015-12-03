@@ -15,50 +15,58 @@
     * js implementations of error-checking are untrustworthy, utf16
 */
 
-pub fn atob(input: &str) /*-> &str*/ {
-    //TODO check latin1 here
-    //wait actually is that even possi
-    //come on of course it is rust has to provide a back door into its own abstraction
+const CHARMAP: [u8; 64] = [
+    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+    0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
+    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
+    0x59, 0x5A, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
+    0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E,
+    0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76,
+    0x77, 0x78, 0x79, 0x7A, 0x30, 0x31, 0x32, 0x33,
+    0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2B, 0x2F
+];
 
+pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
     let bytes = input.as_bytes();
-    let pad = input.len() % 3;
-    let block_len = input.len() - pad;
+    let rem = input.len() % 3;
+    let div = input.len() - rem;
 
-    let mut output = Vec::<u8>::new();
+    let mut raw = Vec::<u8>::new();
     let mut i = 0;
 
-    //FIXME this is kind of silly
-    //also those lets are probably all allocations which, do not want
-    //but I reaaally don't want to just make bytes a [u32] like an asshole
-    while i < block_len {
-        let a0 = (bytes[i] as u32) << 16;
-        let a1 = (bytes[i+1] as u32) << 8;
-        let a2 = bytes[i+2] as u32;
+    while i < div {
+        raw.push(bytes[i] >> 2);
+        raw.push((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f);
+        raw.push((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f);
+        raw.push(bytes[i+2] & 0x3f);
 
-        let block: u32 = a0+a1+a2;
-
-        let b0 = block >> 18 & 0x3f;
-        let b1 = block >> 12 & 0x3f;
-        let b2 = block >> 6 & 0x3f;
-        let b3 = block & 0x3f;
-
-        output.push(b0 as u8);
-        output.push(b1 as u8);
-        output.push(b2 as u8);
-        output.push(b3 as u8);
-
-        let x0 = bytes[i] >> 2;
-        let x1 = (bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f;
-        let x2 = (bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f;
-        let x3 = bytes[i+2] & 0x3f;
-
-        println!("{} {}", b0, x0);
-        println!("{} {}", b1, x1);
-        println!("{} {}", b2, x2);
-        println!("{} {}", b3, x3);
+        raw.push(bytes[i] >> 2);
+        raw.push((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f);
+        raw.push((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f);
+        raw.push(bytes[i+2] & 0x3f);
 
         i+=3;
     }
+
+    if rem == 2 {
+        raw.push(bytes[div] >> 2);
+        raw.push((bytes[div] << 4) + (bytes[div+1] >> 4) & 0x3f);
+        raw.push(bytes[div+1] << 2 & 0x3f);
+    } else if rem == 1 {
+        raw.push(bytes[div] >> 2);
+        raw.push(bytes[div] << 4 & 0x3f);
+    }
+
+    for i in 0..raw.len() {
+        raw[i] = CHARMAP[raw[i] as usize];
+    }
+
+    for _ in 0..rem {
+        raw.push(0x3d);
+    }
+
+    String::from_utf8(raw)
+}
 
     //ok if I have two bytes left I want to push...
     //1111 1111, 1111 1111
@@ -79,5 +87,4 @@ pub fn atob(input: &str) /*-> &str*/ {
     //first right shift 2 second left shift 4 and 63
         
 
-    println!("{:?}\n{:?}", bytes, output);
-}
+    //println!("{:?}\n{:?}", bytes, raw);
