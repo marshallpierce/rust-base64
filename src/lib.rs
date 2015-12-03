@@ -15,7 +15,9 @@
     * js implementations of error-checking are untrustworthy, utf16
 */
 
-//use std::collections::FromUtf8Error;
+use std::{fmt, error, string};
+use std::error::Error;
+use std::string::FromUtf8Error;
 
 const CHARMAP: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -29,9 +31,9 @@ const CHARMAP: [u8; 64] = [
 ];
 
 #[derive(Debug)]
-enum Base64Error {
-    Utf8(collections::string::FromUtf8Error),
-    BadChar,
+pub enum Base64Error {
+    Utf8(string::FromUtf8Error),
+    InvalidChar(usize, char),
     InvalidLength
 }
 
@@ -39,25 +41,32 @@ impl fmt::Display for Base64Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Base64Error::Utf8(ref err) => err.fmt(f),
-            Base64Error::BadChar => write!(f, "Excuse me this char is bad."),
-            Base64Error::InvalidLength => write!(f, "Excuse me the fuck is this.")
+            Base64Error::InvalidChar(off, cp) => write!(f, "Invalid character {:?} offset {}.", cp, off),
+            Base64Error::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder.")
         }
     }
 }
 
-impl Error for Base64Error {
+impl error::Error for Base64Error {
     fn description(&self) -> &str {
         match *self {
             Base64Error::Utf8(ref err) => err.description(),
-            Base64Error::BadChar => "bad char",
-            Base64Error::InvalidLength => "length sux"
+            Base64Error::InvalidChar(_,_) => "invalid char",
+            Base64Error::InvalidLength => "invalid length"
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Base64Error::Utf8(ref err) => Some(err as &error::Error),
+            _ => None
         }
     }
 }
 
-impl From<FromUtf8Error> for Base64Error {
-    fn from(err: FromUtf8Error) -> Base64Error {
-        Base64::Utf8(err)
+impl From<string::FromUtf8Error> for Base64Error {
+    fn from(err: string::FromUtf8Error) -> Base64Error {
+        Base64Error::Utf8(err)
     }
 }
 
@@ -91,7 +100,7 @@ pub fn atob(input: &str) -> Result<String, Base64Error> {
         raw.push(0x3d);
     }
 
-    String::from_utf8(raw)
+    Ok(try!(String::from_utf8(raw)))
 }
 
 pub fn btoa(input: &str) -> Result<String, Base64Error> {
@@ -103,34 +112,44 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
     for (offset, codepoint) in input.char_indices() {
         let c = codepoint as u32;
 
+        println!("{:?} {:?}", offset, codepoint);
+
         if c > 0x40 && c < 0x5b {
             signif.push(bytes[offset] - 0x41);
+            println!("line {:?}", line!());
         } else if c > 0x60 && c < 0x7b {
             signif.push(bytes[offset] - 0x61 + 0x1a);
-        } else if c > 0x29 && c < 0x3a {
+            println!("line {:?}", line!());
+        } else if c > 0x2f && c < 0x3a {
             signif.push(bytes[offset] - 0x30 + 0x34);
+            println!("line {:?}", line!());
         } else if c == 0x2b {
             signif.push(0x3e);
+            println!("line {:?}", line!());
         } else if c == 0x2f {
             signif.push(0x3f);
+            println!("line {:?}", line!());
         } else if codepoint.is_whitespace() || c == 0x3d {
-            ;
+            println!("line {:?}", line!());
         } else {
+            println!("line {:?}", line!());
             //let e = format!("char '{}' at byte offset {}", codepoint, offset);
-            return Err(Base64Error::BadChar);
+            return Err(Base64Error::InvalidChar(offset, codepoint));
         }
     }
 
     let rem = signif.len() % 4;
 
     if rem == 1 {
-        panic!("this too");
+        return Err(Base64Error::InvalidLength);
+        //panic!("this too");
     }
 
     let div = signif.len() - rem;
     println!("len: {:?}", signif.len());
     println!("div: {:?}", div);
     println!("rem: {:?}", rem);
+    println!("signif: {:?}", signif);
 
     let mut raw = Vec::<u8>::new();//::with_capacity(3*div/4 + rem);
     let mut i = 0;
@@ -150,5 +169,8 @@ pub fn btoa(input: &str) -> Result<String, Base64Error> {
         raw.push(signif[div+1] << 4 | signif[div+2] >> 2);
     }
 
-    String::from_utf8(raw)
+    println!("raw: {:?}", raw);
+
+    //String::from_utf8(raw)
+    Ok(try!(String::from_utf8(raw)))
 }

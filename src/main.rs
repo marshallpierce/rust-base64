@@ -1,5 +1,6 @@
 extern crate base64;
 
+use std::error::Error;
 use base64::*;
 
 fn main() {
@@ -17,11 +18,11 @@ fn main() {
     //println!("{}", a);
     //let b = btoa(&a);
 
-    let c = btoa("asdf*hy");
+    let c = btoa(&"ABiCDE");
 
     match c {
         Ok(s) => println!("ok! {}", s),
-        Err(e) => println!(e)
+        Err(e) => println!("err: {}\ndesc: {}", e, e.description())
     }
         
 
