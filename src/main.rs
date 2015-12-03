@@ -13,7 +13,17 @@ fn main() {
 */
 
     //base64::btoa(&"abcd ef g     hi j=k=====l  =m == n=");
-    btoa(&atob("helloooooo").unwrap());
+    //let a = atob("ABCDEFabcdef01234567").unwrap();
+    //println!("{}", a);
+    //let b = btoa(&a);
+
+    let c = btoa("asdf*hy");
+
+    match c {
+        Ok(s) => println!("ok! {}", s),
+        Err(e) => println!(e)
+    }
+        
 
 /*
     let tmp = "hello yes good this is a testtt ó żółć 한";

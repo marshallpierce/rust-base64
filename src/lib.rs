@@ -15,6 +15,8 @@
     * js implementations of error-checking are untrustworthy, utf16
 */
 
+//use std::collections::FromUtf8Error;
+
 const CHARMAP: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
     0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
@@ -26,7 +28,40 @@ const CHARMAP: [u8; 64] = [
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2B, 0x2F
 ];
 
-pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
+#[derive(Debug)]
+enum Base64Error {
+    Utf8(collections::string::FromUtf8Error),
+    BadChar,
+    InvalidLength
+}
+
+impl fmt::Display for Base64Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Base64Error::Utf8(ref err) => err.fmt(f),
+            Base64Error::BadChar => write!(f, "Excuse me this char is bad."),
+            Base64Error::InvalidLength => write!(f, "Excuse me the fuck is this.")
+        }
+    }
+}
+
+impl Error for Base64Error {
+    fn description(&self) -> &str {
+        match *self {
+            Base64Error::Utf8(ref err) => err.description(),
+            Base64Error::BadChar => "bad char",
+            Base64Error::InvalidLength => "length sux"
+        }
+    }
+}
+
+impl From<FromUtf8Error> for Base64Error {
+    fn from(err: FromUtf8Error) -> Base64Error {
+        Base64::Utf8(err)
+    }
+}
+
+pub fn atob(input: &str) -> Result<String, Base64Error> {
     let bytes = input.as_bytes();
     let rem = input.len() % 3;
     let div = input.len() - rem;
@@ -36,8 +71,8 @@ pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
 
     while i < div {
         raw.push(CHARMAP[(bytes[i] >> 2) as usize]);
-        raw.push(CHARMAP[((bytes[i] << 4) + (bytes[i+1] >> 4) & 0x3f) as usize]);
-        raw.push(CHARMAP[((bytes[i+1] << 2) + (bytes[i+2] >> 6) & 0x3f) as usize]);
+        raw.push(CHARMAP[((bytes[i] << 4 | bytes[i+1] >> 4) & 0x3f) as usize]);
+        raw.push(CHARMAP[((bytes[i+1] << 2 | bytes[i+2] >> 6) & 0x3f) as usize]);
         raw.push(CHARMAP[(bytes[i+2] & 0x3f) as usize]);
 
         i+=3;
@@ -45,7 +80,7 @@ pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
 
     if rem == 2 {
         raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
-        raw.push(CHARMAP[((bytes[div] << 4) + (bytes[div+1] >> 4) & 0x3f) as usize]);
+        raw.push(CHARMAP[((bytes[div] << 4 | bytes[div+1] >> 4) & 0x3f) as usize]);
         raw.push(CHARMAP[(bytes[div+1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
         raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
@@ -59,64 +94,61 @@ pub fn atob(input: &str) -> Result<String, std::string::FromUtf8Error> {
     String::from_utf8(raw)
 }
 
-pub fn btoa(input: &str) {
+pub fn btoa(input: &str) -> Result<String, Base64Error> {
     let bytes = input.as_bytes();
-    //FIXME I don't really want to allocate twice
-    //could do work in the loop, but mixing validation with processing, so not langsec
-    //could keep a vec of "offsets to avoid" but that'd overcomplicate
-    //whatever whatever finish the damn thing first
+
+    //I don't particularly like allocating two vecs but not sure if avoidable
     let mut signif = Vec::<u8>::new();//with_capacity(input.len());
 
     for (offset, codepoint) in input.char_indices() {
         let c = codepoint as u32;
 
-        if (c > 0x40 && c < 0x5b) || (c > 0x60 && c < 0x7b) ||
-        (c > 0x29 && c < 0x3a) || c == 0x2b || c == 0x2f {
-            signif.push(bytes[offset]);
+        if c > 0x40 && c < 0x5b {
+            signif.push(bytes[offset] - 0x41);
+        } else if c > 0x60 && c < 0x7b {
+            signif.push(bytes[offset] - 0x61 + 0x1a);
+        } else if c > 0x29 && c < 0x3a {
+            signif.push(bytes[offset] - 0x30 + 0x34);
+        } else if c == 0x2b {
+            signif.push(0x3e);
+        } else if c == 0x2f {
+            signif.push(0x3f);
         } else if codepoint.is_whitespace() || c == 0x3d {
             ;
         } else {
-            panic!("change this to error when I add return type");
+            //let e = format!("char '{}' at byte offset {}", codepoint, offset);
+            return Err(Base64Error::BadChar);
         }
     }
 
-    let rem = input.len() % 4;
+    let rem = signif.len() % 4;
 
     if rem == 1 {
         panic!("this too");
     }
 
     let div = signif.len() - rem;
+    println!("len: {:?}", signif.len());
+    println!("div: {:?}", div);
+    println!("rem: {:?}", rem);
 
     let mut raw = Vec::<u8>::new();//::with_capacity(3*div/4 + rem);
     let mut i = 0;
 
     while i < div {
-        //FIXME this is horrible
-        //change the for loop to have an if for each range
-        //and push the indexes to signif rather than do this
-        let a = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i]).unwrap() as u8;
-        let b = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+1]).unwrap() as u8;
-        let c = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+2]).unwrap() as u8;
-        let d = CHARMAP.iter().position(|v| CHARMAP[(*v - 1) as usize] == signif[i+3]).unwrap() as u8;
-
-        raw.push((a << 2) | (b >> 4));
-        raw.push((b << 4) | (c >> 2));
-        raw.push(c << 6 | d);
+        raw.push(signif[i] << 2 | signif[i+1] >> 4);
+        raw.push(signif[i+1] << 4 | signif[i+2] >> 2);
+        raw.push(signif[i+2] << 6 | signif[i+3]);
 
         i+=4;
     }
 
+    if rem > 1 {
+        raw.push(signif[div] << 2 | signif[div+1] >> 4);
+    }
+    if rem > 2 {
+        raw.push(signif[div+1] << 4 | signif[div+2] >> 2);
+    }
 
-    println!("len: {:?}", raw.len());
-    println!("test!\n{:?}", String::from_utf8(raw));
-        
-        
-    /*
-        println!("{}: {}", offset, codepoint);
-        println!("whitespace? {}", codepoint.is_whitespace());
-        println!("pad? {}", codepoint as u32 == 0x3d);
-    */
+    String::from_utf8(raw)
 }
-
-//0011 1111, 0011 1111, 0011 1111, 0011 1111
