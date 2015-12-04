@@ -6,6 +6,8 @@ It's base64. What more could anyone want?
 Example
 ---
 
+In Cargo.toml: `base64 = "~0.1.0"`
+
 ```rust
     extern crate base64;
 
@@ -43,3 +45,6 @@ It would be nice to give the user the choice to allocate their own memory. It is
 I have a fondness for small dependency footprints, ecosystems where you can pick and choose what functionality you need, and no more. Unix philosophy sort of thing I guess, many tiny utilities interoperating across a common interface. One time making a Twitter bot, I ran into the need to correctly pluralize arbitrary words. I found on npm a module that did nothing but pluralize words. Nothing else, just a couple of functions. I'd like for this to be that "just a couple of functions."
 
 Anyway. It's base64.
+
+(https://crates.io/crates/base64)[crates.io]
+
