@@ -5,6 +5,6 @@ authors = ["Alice Maz <alice@alicemaz.com>"]
 description = "encodes and decodes base64 as bytes or utf8"
 repository = "https://github.com/alicemaz/rust-base64"
 documentation = "https://github.com/alicemaz/rust-base64/blob/master/README.md"
-readme = "https://github.com/alicemaz/rust-base64/blob/master/README.md"
+readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode"]
 license = "MIT"
