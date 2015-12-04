@@ -46,4 +46,4 @@ I have a fondness for small dependency footprints, ecosystems where you can pick
 
 Anyway. It's base64.
 
-[https://crates.io/crates/base64](crates.io)
+[https://crates.io/crates/base64](https://crates.io/crates/base64)
