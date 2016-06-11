@@ -55,8 +55,8 @@ impl From<string::FromUtf8Error> for Base64Error {
     }
 }
 
-///Encode from string reference as base64.
-///Returns a Result containing a String.
+///Encode from octets as base64.
+///Returns a String.
 ///
 ///# Example
 ///
@@ -64,19 +64,16 @@ impl From<string::FromUtf8Error> for Base64Error {
 ///extern crate base64;
 ///
 ///fn main() {
-///    let b64 = base64::encode("hello world").unwrap();
+///    let b64 = base64::encode(b"hello world");
 ///    println!("{}", b64);
 ///}
 ///```
-pub fn encode(input: &str) -> Result<String, Base64Error> {
-    match u8en(input.as_bytes()) {
-        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
-        Err(err) => Err(err)
-    }
+pub fn encode(input: &[u8]) -> String {
+    String::from_utf8(u8en(input)).unwrap() //FIXME
 }
 
-///Decode from string reference as utf8.
-///Returns a Result containing a String.
+///Decode from string reference as octets.
+///Returns a Result containing a Vec<u8>.
 ///
 ///# Example
 ///
@@ -84,19 +81,16 @@ pub fn encode(input: &str) -> Result<String, Base64Error> {
 ///extern crate base64;
 ///
 ///fn main() {
-///    let text = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
-///    println!("{}", text);
+///    let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
+///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode(input: &str) -> Result<String, Base64Error> {
-    match u8de(input.as_bytes()) {
-        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
-        Err(err) => Err(err)
-    }
+pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
+    u8de(input.as_bytes())
 }
 
-///Decode from string reference as utf8.
-///Returns a Result containing a String.
+///Decode from string reference as octets.
+///Returns a Result containing a Vec<u8>.
 ///Ignores extraneous whitespace.
 ///
 ///# Example
@@ -105,11 +99,11 @@ pub fn decode(input: &str) -> Result<String, Base64Error> {
 ///extern crate base64;
 ///
 ///fn main() {
-///    let text = base64::decode_ws("aG VsbG8gd2\r\n9ybGQ=").unwrap();
-///    println!("{}", text);
+///    let bytes = base64::decode_ws("aG VsbG8gd2\r\n9ybGQ=").unwrap();
+///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode_ws(input: &str) -> Result<String, Base64Error> {
+pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
     let bytes = input.as_bytes();
     let mut raw = Vec::<u8>::with_capacity(input.len());
 
@@ -120,14 +114,11 @@ pub fn decode_ws(input: &str) -> Result<String, Base64Error> {
         }
     }
 
-    match u8de(&raw) {
-        Ok(bytes) => Ok(try!(String::from_utf8(bytes))),
-        Err(err) => Err(err)
-    }
+    u8de(&raw)
 }
 
 ///Encode arbitrary octets.
-///Returns a Result containing a Vec<u8>.
+///Returns a Vec<u8>.
 ///
 ///# Example
 ///
@@ -135,11 +126,11 @@ pub fn decode_ws(input: &str) -> Result<String, Base64Error> {
 ///extern crate base64;
 ///
 ///fn main() {
-///    let bytes = base64::u8en(&[104, 105]).unwrap();
+///    let bytes = base64::u8en(&[104, 105]);
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn u8en(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+pub fn u8en(bytes: &[u8]) -> Vec<u8> {
     let rem = bytes.len() % 3;
     let div = bytes.len() - rem;
 
@@ -168,7 +159,7 @@ pub fn u8en(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
         raw.push(0x3d);
     }
 
-    Ok(raw)
+    raw
 }
 
 ///Decode base64 as octets.
