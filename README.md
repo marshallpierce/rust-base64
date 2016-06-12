@@ -6,7 +6,7 @@ It's base64. What more could anyone want?
 Example
 ---
 
-In Cargo.toml: `base64 = "~0.1.0"`
+In Cargo.toml: `base64 = "~0.2.0"`
 
 ```rust
     extern crate base64;
@@ -14,28 +14,30 @@ In Cargo.toml: `base64 = "~0.1.0"`
     use base64::{encode, decode};
 
     fn main() {
-        let a = "hello world";
+        let a = b"hello world";
         let b = "aGVsbG8gd29ybGQ=";
 
-        assert_eq!(encode(a).unwrap(), b);
-        assert_eq!(a, decode(b).unwrap());
+        assert_eq!(encode(a), b);
+        assert_eq!(a, &decode(b).unwrap()[..]);
     }
 ```
 
 API
 ---
 
+NOTE: return types have changed from 0.1.x. `decode_ws` is deprecated, functionally equivalent to not-yet-implemented MIME mode which will replace it (or perhaps an alternate way of passing options if there is a usecase for whitespace-ignoring UrlSafe).
+
 rust-base64 exposes five functions:
 
 ```rust
-    encode(&str) -> Result<String, Base64Error>
-    decode(&str) -> Result<String, Base64Error>
-    u8en(&[u8]) -> Result<Vec<u8>, Base64Error>
-    u8de(&[u8]) -> Result<Vec<u8>, Base64Error>
-    decode_ws(&str) -> Result<String, Base64Error>
+    encode(&[u8]) -> String
+    decode(&str) -> Result<Vec<u8>, Base64Error>
+    encode_mode(&[u8], Base64Mode) -> String
+    decode_mode(&str, Base64Mode) -> Result<Vec<u8>, Base64Error>
+    decode_ws(&str) -> Result<Vec<u8>, Base64Error>
 ```
 
-But really, two functions and three convenience wrappers. `u8en()` and `u8de()` transform arbitrary octets and aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). `encode()` and `decode()` call the appropriate u8 function and return utf8. `decode_ws()` does the same as `decode()` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). In all cases when decoding, extraneous = characters are ignored.
+Valid modes are `Base64Mode::Standard` and `Base64Mode::UrlSafe`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_mode` functions called with `Base64Mode::Standard`. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). In all cases when decoding, extraneous = characters are ignored.
 
 Goals
 ---
