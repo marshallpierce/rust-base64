@@ -24,9 +24,9 @@ const URL_SAFE: [u8; 64] = [
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2D, 0x5F
 ];
 
-pub enum Mode {
+pub enum Base64Mode {
     Standard,
-    URLSafe,
+    UrlSafe,
     //TODO MIME
 }
 
@@ -72,8 +72,9 @@ impl From<string::FromUtf8Error> for Base64Error {
     }
 }
 
-///Encode from octets as base64.
+///Encode arbitrary octets as base64.
 ///Returns a String.
+///Convenience for `encode_mode(input, Base64Mode::Standard);`.
 ///
 ///# Example
 ///
@@ -86,11 +87,12 @@ impl From<string::FromUtf8Error> for Base64Error {
 ///}
 ///```
 pub fn encode(input: &[u8]) -> String {
-    encode_mode(input, Mode::Standard)
+    encode_mode(input, Base64Mode::Standard)
 }
 
 ///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
+///Convenience `decode_mode(input, Base64Mode::Standard);`.
 ///
 ///# Example
 ///
@@ -103,10 +105,11 @@ pub fn encode(input: &[u8]) -> String {
 ///}
 ///```
 pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
-    decode_mode(input, Mode::Standard)
+    decode_mode(input, Base64Mode::Standard)
 }
 
-/*
+///DEPRECATED -- will be replaced by `decode_mode(input, Base64Mode::MIME);`
+///
 ///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
 ///Ignores extraneous whitespace.
@@ -132,28 +135,32 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
         }
     }
 
-    u8de(&raw)
+    let sans_ws = String::from_utf8(raw).unwrap();
+    decode_mode(&sans_ws, Base64Mode::Standard)
 }
 
-///Encode arbitrary octets.
-///Returns a Vec<u8>.
+///Encode arbitrary octets as base64.
+///Returns a String.
 ///
 ///# Example
 ///
 ///```rust
 ///extern crate base64;
+///use base64::Base64Mode;
 ///
 ///fn main() {
-///    let bytes = base64::u8en(&[104, 105]);
-///    println!("{:?}", bytes);
+///    let b64 = base64::encode_mode(b"hello world~", Base64Mode::Standard);
+///    println!("{}", b64);
+///
+///    let b64_url = base64::encode_mode(b"hello internet~", Base64Mode::UrlSafe);
+///    println!("{}", b64_url);
 ///}
 ///```
-*/
-pub fn encode_mode(bytes: &[u8], mode: Mode) -> String {
-    let (ref charset, mime) = match mode {
-        Mode::Standard => (STANDARD, false),
-        Mode::URLSafe => (URL_SAFE, false),
-        //TODO Mode::MIME => (STANDARD, true)
+pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
+    let (ref charset, _) = match mode {
+        Base64Mode::Standard => (STANDARD, false),
+        Base64Mode::UrlSafe => (URL_SAFE, false),
+        //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
     let rem = bytes.len() % 3;
@@ -184,34 +191,34 @@ pub fn encode_mode(bytes: &[u8], mode: Mode) -> String {
         raw.push(0x3d);
     }
 
-    match String::from_utf8(raw) {
-        Ok(result) => result,
-        Err(_) => panic!("This shouldn't be possible?")
-    }
+    //this should never panic, all bytes from charset so always valid ascii
+    String::from_utf8(raw).unwrap()
 }
 
-/*
-///Decode base64 as octets.
+///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
 ///
 ///# Example
 ///
 ///```rust
 ///extern crate base64;
+///use base64::Base64Mode;
 ///
 ///fn main() {
-///    let bytes = base64::u8de(&[97, 71, 107, 61]).unwrap();
+///    let bytes = base64::decode_mode("aGVsbG8gd29ybGR+Cg==", Base64Mode::Standard).unwrap();
 ///    println!("{:?}", bytes);
+///
+///    let bytes_url = base64::decode_mode("aGVsbG8gaW50ZXJuZXR-Cg==", Base64Mode::UrlSafe).unwrap();
+///    println!("{:?}", bytes_url);
 ///}
 ///```
-*/
-pub fn decode_mode(input: &str, mode: Mode) -> Result<Vec<u8>, Base64Error> {
+pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error> {
     let bytes = input.as_bytes();
 
-    let (ref charset, mime) = match mode {
-        Mode::Standard => (STANDARD, false),
-        Mode::URLSafe => (URL_SAFE, false),
-        //TODO Mode::MIME => (STANDARD, true)
+    let (ref charset, _) = match mode {
+        Base64Mode::Standard => (STANDARD, false),
+        Base64Mode::UrlSafe => (URL_SAFE, false),
+        //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
     let (penult_byte, ult_byte) = (charset[62], charset[63]);

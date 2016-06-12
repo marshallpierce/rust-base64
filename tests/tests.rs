@@ -11,11 +11,9 @@ fn compare_decode(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode(target).unwrap()).unwrap());
 }
 
-/*
 fn compare_decode_ws(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode_ws(target).unwrap()).unwrap());
 }
-*/
 
 //-------
 //decode
@@ -108,13 +106,11 @@ fn decode_reject_null() {
 //TODO unicode tests
 //put in a seperate file so this remains valid ascii
 
-/*
 #[test]
 fn decode_ws_absurd_whitespace() {
     compare_decode_ws("how could you let this happen",
         "\n aG93I\n\nGNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ");
 }
-*/
 
 //-------
 //encode
@@ -186,7 +182,7 @@ fn encode_all_bytes_url() {
     }
     bytes.push(255); //bug with "overflowing" ranges?
 
-    assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_mode(&bytes, Mode::URLSafe));
+    assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_mode(&bytes, Base64Mode::UrlSafe));
 }
 
 #[test]
