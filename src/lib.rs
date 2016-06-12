@@ -2,7 +2,7 @@ use std::{fmt, error, string};
 use std::error::Error;
 use std::string::FromUtf8Error;
 
-const CHARMAP: [u8; 64] = [
+const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
     0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
     0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
@@ -12,6 +12,23 @@ const CHARMAP: [u8; 64] = [
     0x77, 0x78, 0x79, 0x7A, 0x30, 0x31, 0x32, 0x33,
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2B, 0x2F
 ];
+
+const URL_SAFE: [u8; 64] = [
+    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+    0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
+    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
+    0x59, 0x5A, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
+    0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E,
+    0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76,
+    0x77, 0x78, 0x79, 0x7A, 0x30, 0x31, 0x32, 0x33,
+    0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2D, 0x5F
+];
+
+pub enum Mode {
+    Standard,
+    URLSafe,
+    MIME,
+}
 
 #[derive(Debug)]
 pub enum Base64Error {
@@ -69,7 +86,7 @@ impl From<string::FromUtf8Error> for Base64Error {
 ///}
 ///```
 pub fn encode(input: &[u8]) -> String {
-    String::from_utf8(u8en(input)).unwrap() //FIXME
+    String::from_utf8(u8en(input, &STANDARD)).unwrap() //FIXME
 }
 
 ///Decode from string reference as octets.
@@ -130,7 +147,7 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn u8en(bytes: &[u8]) -> Vec<u8> {
+pub fn u8en(bytes: &[u8], charset: &[u8]) -> Vec<u8> {
     let rem = bytes.len() % 3;
     let div = bytes.len() - rem;
 
@@ -138,21 +155,21 @@ pub fn u8en(bytes: &[u8]) -> Vec<u8> {
     let mut i = 0;
 
     while i < div {
-        raw.push(CHARMAP[(bytes[i] >> 2) as usize]);
-        raw.push(CHARMAP[((bytes[i] << 4 | bytes[i+1] >> 4) & 0x3f) as usize]);
-        raw.push(CHARMAP[((bytes[i+1] << 2 | bytes[i+2] >> 6) & 0x3f) as usize]);
-        raw.push(CHARMAP[(bytes[i+2] & 0x3f) as usize]);
+        raw.push(charset[(bytes[i] >> 2) as usize]);
+        raw.push(charset[((bytes[i] << 4 | bytes[i+1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[((bytes[i+1] << 2 | bytes[i+2] >> 6) & 0x3f) as usize]);
+        raw.push(charset[(bytes[i+2] & 0x3f) as usize]);
 
         i+=3;
     }
 
     if rem == 2 {
-        raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
-        raw.push(CHARMAP[((bytes[div] << 4 | bytes[div+1] >> 4) & 0x3f) as usize]);
-        raw.push(CHARMAP[(bytes[div+1] << 2 & 0x3f) as usize]);
+        raw.push(charset[(bytes[div] >> 2) as usize]);
+        raw.push(charset[((bytes[div] << 4 | bytes[div+1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[(bytes[div+1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(CHARMAP[(bytes[div] >> 2) as usize]);
-        raw.push(CHARMAP[(bytes[div] << 4 & 0x3f) as usize]);
+        raw.push(charset[(bytes[div] >> 2) as usize]);
+        raw.push(charset[(bytes[div] << 4 & 0x3f) as usize]);
     }
 
     for _ in 0..(3-rem)%3 {
