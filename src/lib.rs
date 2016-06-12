@@ -27,7 +27,7 @@ const URL_SAFE: [u8; 64] = [
 pub enum Mode {
     Standard,
     URLSafe,
-    MIME,
+    //TODO MIME
 }
 
 #[derive(Debug)]
@@ -86,7 +86,7 @@ impl From<string::FromUtf8Error> for Base64Error {
 ///}
 ///```
 pub fn encode(input: &[u8]) -> String {
-    String::from_utf8(u8en(input, &STANDARD)).unwrap() //FIXME
+    encode_mode(input, Mode::Standard)
 }
 
 ///Decode from string reference as octets.
@@ -103,9 +103,10 @@ pub fn encode(input: &[u8]) -> String {
 ///}
 ///```
 pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
-    u8de(input.as_bytes())
+    decode_mode(input, Mode::Standard)
 }
 
+/*
 ///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
 ///Ignores extraneous whitespace.
@@ -147,7 +148,14 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn u8en(bytes: &[u8], charset: &[u8]) -> Vec<u8> {
+*/
+pub fn encode_mode(bytes: &[u8], mode: Mode) -> String {
+    let (ref charset, mime) = match mode {
+        Mode::Standard => (STANDARD, false),
+        Mode::URLSafe => (URL_SAFE, false),
+        //TODO Mode::MIME => (STANDARD, true)
+    };
+
     let rem = bytes.len() % 3;
     let div = bytes.len() - rem;
 
@@ -176,9 +184,13 @@ pub fn u8en(bytes: &[u8], charset: &[u8]) -> Vec<u8> {
         raw.push(0x3d);
     }
 
-    raw
+    match String::from_utf8(raw) {
+        Ok(result) => result,
+        Err(_) => panic!("This shouldn't be possible?")
+    }
 }
 
+/*
 ///Decode base64 as octets.
 ///Returns a Result containing a Vec<u8>.
 ///
@@ -192,7 +204,18 @@ pub fn u8en(bytes: &[u8], charset: &[u8]) -> Vec<u8> {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
+*/
+pub fn decode_mode(input: &str, mode: Mode) -> Result<Vec<u8>, Base64Error> {
+    let bytes = input.as_bytes();
+
+    let (ref charset, mime) = match mode {
+        Mode::Standard => (STANDARD, false),
+        Mode::URLSafe => (URL_SAFE, false),
+        //TODO Mode::MIME => (STANDARD, true)
+    };
+
+    let (penult_byte, ult_byte) = (charset[62], charset[63]);
+
     let mut buffer = Vec::<u8>::with_capacity(bytes.len());
 
     for i in 0..bytes.len() {
@@ -202,9 +225,9 @@ pub fn u8de(bytes: &[u8]) -> Result<Vec<u8>, Base64Error> {
             buffer.push(bytes[i] - 0x61 + 0x1a);
         } else if bytes[i] > 0x2f && bytes[i] < 0x3a {
             buffer.push(bytes[i] - 0x30 + 0x34);
-        } else if bytes[i] == 0x2b {
+        } else if bytes[i] == penult_byte {
             buffer.push(0x3e);
-        } else if bytes[i] == 0x2f {
+        } else if bytes[i] == ult_byte {
             buffer.push(0x3f);
         } else if bytes[i] == 0x3d {
             ;
