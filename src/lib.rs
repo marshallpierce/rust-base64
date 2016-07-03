@@ -125,15 +125,8 @@ pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///}
 ///```
 pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
-    let bytes = input.as_bytes();
     let mut raw = Vec::<u8>::with_capacity(input.len());
-
-    for i in 0..input.len() {
-        if !(bytes[i] == 0x20 || bytes[i] == 0x9 || bytes[i] == 0xa ||
-        bytes[i] == 0xc || bytes[i] == 0xd) {
-            raw.push(bytes[i]);
-        }
-    }
+    raw.extend(input.bytes().filter(|b| !b" \n\t\r\x0c".contains(b)));
 
     let sans_ws = String::from_utf8(raw).unwrap();
     decode_mode(&sans_ws, Base64Mode::Standard)
@@ -213,8 +206,6 @@ pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
 ///}
 ///```
 pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error> {
-    let bytes = input.as_bytes();
-
     let (ref charset, _) = match mode {
         Base64Mode::Standard => (STANDARD, false),
         Base64Mode::UrlSafe => (URL_SAFE, false),
@@ -223,23 +214,23 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
 
     let (penult_byte, ult_byte) = (charset[62], charset[63]);
 
-    let mut buffer = Vec::<u8>::with_capacity(bytes.len());
+    let mut buffer = Vec::<u8>::with_capacity(input.len());
 
-    for i in 0..bytes.len() {
-        if bytes[i] > 0x40 && bytes[i] < 0x5b {
-            buffer.push(bytes[i] - 0x41);
-        } else if bytes[i] > 0x60 && bytes[i] < 0x7b {
-            buffer.push(bytes[i] - 0x61 + 0x1a);
-        } else if bytes[i] > 0x2f && bytes[i] < 0x3a {
-            buffer.push(bytes[i] - 0x30 + 0x34);
-        } else if bytes[i] == penult_byte {
+    for (i, b) in input.bytes().enumerate() {
+        if b > 0x40 && b < 0x5b {
+            buffer.push(b - 0x41);
+        } else if b > 0x60 && b < 0x7b {
+            buffer.push(b - 0x61 + 0x1a);
+        } else if b > 0x2f && b < 0x3a {
+            buffer.push(b - 0x30 + 0x34);
+        } else if b == penult_byte {
             buffer.push(0x3e);
-        } else if bytes[i] == ult_byte {
+        } else if b == ult_byte {
             buffer.push(0x3f);
-        } else if bytes[i] == 0x3d {
+        } else if b == 0x3d {
             ;
         } else {
-            return Err(Base64Error::InvalidByte(i, bytes[i]));
+            return Err(Base64Error::InvalidByte(i, b));
         }
     }
 
