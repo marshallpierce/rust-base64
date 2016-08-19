@@ -220,7 +220,7 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
     };
     let (penult_byte, ult_byte) = (charset[62], charset[63]);
 
-    let convert = |byte: &u8| ->  Option<Result<u8, Base64Error>> {
+    let convert = |(index, byte): (usize, &u8)| ->  Option<Result<u8, Base64Error>> {
         if byte > &0x40 && byte < &0x5b {
             Some(Ok(byte - &0x41))
         } else if byte > &0x60 && byte < &0x7b {
@@ -235,18 +235,16 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
             None
         }
         else {
-            Some(Err(Base64Error::InvalidByte(0, *byte)))
+            Some(Err(Base64Error::InvalidByte(index, *byte)))
         }
     };
     let bytes = input.as_bytes();
     let bytes_len = bytes.iter().filter(|byte| {**byte != 0x3d}).count();
-    let mut bytes = bytes.iter().filter_map(convert);
-
+    let mut bytes = bytes.iter().enumerate().filter_map(convert);
 
     let mut raw = Vec::<u8>::with_capacity((3*bytes_len + 3)/4);
     let mut out_byte:u8;
     loop {
-        //println!("i: {}", i);
         if let Some(in_byte) = bytes.next() {
             let in_byte = try!(in_byte);
             out_byte = in_byte << 2;
