@@ -1,6 +1,4 @@
 use std::{fmt, error, string};
-use std::error::Error;
-use std::string::FromUtf8Error;
 
 const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -125,15 +123,8 @@ pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///}
 ///```
 pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
-    let bytes = input.as_bytes();
     let mut raw = Vec::<u8>::with_capacity(input.len());
-
-    for i in 0..input.len() {
-        if !(bytes[i] == 0x20 || bytes[i] == 0x9 || bytes[i] == 0xa ||
-        bytes[i] == 0xc || bytes[i] == 0xd) {
-            raw.push(bytes[i]);
-        }
-    }
+    raw.extend(input.bytes().filter(|b| !b" \n\t\r\x0c".contains(b)));
 
     let sans_ws = String::from_utf8(raw).unwrap();
     decode_mode(&sans_ws, Base64Mode::Standard)
