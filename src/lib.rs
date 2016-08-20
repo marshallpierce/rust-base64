@@ -1,6 +1,4 @@
 use std::{fmt, error, string};
-use std::error::Error;
-use std::string::FromUtf8Error;
 
 const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
