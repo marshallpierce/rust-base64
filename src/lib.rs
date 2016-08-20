@@ -209,53 +209,61 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
         Base64Mode::UrlSafe => (URL_SAFE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
-
     let (penult_byte, ult_byte) = (charset[62], charset[63]);
+    let bytes = input.as_bytes();
+    let bytes_len = bytes.iter().filter(|byte| {**byte != 0x3d}).count();
 
-    let mut buffer = Vec::<u8>::with_capacity(input.len());
-
-    for (i, b) in input.bytes().enumerate() {
-        if b > 0x40 && b < 0x5b {
-            buffer.push(b - 0x41);
-        } else if b > 0x60 && b < 0x7b {
-            buffer.push(b - 0x61 + 0x1a);
-        } else if b > 0x2f && b < 0x3a {
-            buffer.push(b - 0x30 + 0x34);
-        } else if b == penult_byte {
-            buffer.push(0x3e);
-        } else if b == ult_byte {
-            buffer.push(0x3f);
-        } else if b == 0x3d {
-            ;
-        } else {
-            return Err(Base64Error::InvalidByte(i, b));
+    let mut bytes = bytes.iter().enumerate().filter_map(|(index, byte)| {
+        if byte > &0x40 && byte < &0x5b {
+            Some(Ok(byte - &0x41))
+        } else if byte > &0x60 && byte < &0x7b {
+            Some(Ok(byte - &0x61 + &0x1a))
+        } else if byte > &0x2f && byte < &0x3a {
+            Some(Ok(byte - &0x30 + &0x34))
+        } else if byte == &penult_byte {
+            Some(Ok(0x3e))
+        } else if byte == &ult_byte {
+            Some(Ok(0x3f))
+        }  else if byte == &0x3d {
+            None
         }
-    }
+        else {
+            Some(Err(Base64Error::InvalidByte(index, *byte)))
+        }
+    });
 
-    let rem = buffer.len() % 4;
-
-    if rem == 1 {
-        return Err(Base64Error::InvalidLength);
-    }
-
-    let div = buffer.len() - rem;
-
-    let mut raw = Vec::<u8>::with_capacity(3*div/4 + rem);
-    let mut i = 0;
-
-    while i < div {
-        raw.push(buffer[i] << 2 | buffer[i+1] >> 4);
-        raw.push(buffer[i+1] << 4 | buffer[i+2] >> 2);
-        raw.push(buffer[i+2] << 6 | buffer[i+3]);
-
-        i+=4;
-    }
-
-    if rem > 1 {
-        raw.push(buffer[div] << 2 | buffer[div+1] >> 4);
-    }
-    if rem > 2 {
-        raw.push(buffer[div+1] << 4 | buffer[div+2] >> 2);
+    let mut raw = Vec::<u8>::with_capacity((3*bytes_len + 3)/4);
+    let mut out_byte:u8;
+    loop {
+        if let Some(in_byte) = bytes.next() {
+            let in_byte = try!(in_byte);
+            out_byte = in_byte << 2;
+        } else {
+            break
+        }
+        if let Some(in_byte) = bytes.next() {
+            let in_byte = try!(in_byte);
+            out_byte |= in_byte >> 4;
+            raw.push(out_byte);
+            out_byte = in_byte << 4;
+        } else {
+            return Err(Base64Error::InvalidLength)
+        }
+        if let Some(in_byte) = bytes.next() {
+            let in_byte = try!(in_byte);
+            out_byte |= in_byte >> 2;
+            raw.push(out_byte);
+            out_byte = in_byte << 6;
+        } else {
+            break;
+        }
+        if let Some(in_byte) = bytes.next() {
+            let in_byte = try!(in_byte);
+            out_byte |= in_byte;
+            raw.push(out_byte);
+        } else {
+            break;
+        }
     }
 
     Ok(raw)
