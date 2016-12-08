@@ -28,11 +28,11 @@ pub enum Base64Mode {
     //TODO MIME
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Base64Error {
-    Utf8(string::FromUtf8Error),
+    Utf8(str::Utf8Error),
     InvalidByte(usize, u8),
-    InvalidLength
+    InvalidLength,
 }
 
 impl fmt::Display for Base64Error {
@@ -64,8 +64,8 @@ impl error::Error for Base64Error {
     }
 }
 
-impl From<string::FromUtf8Error> for Base64Error {
-    fn from(err: string::FromUtf8Error) -> Base64Error {
+impl From<str::Utf8Error> for Base64Error {
+    fn from(err: str::Utf8Error) -> Base64Error {
         Base64Error::Utf8(err)
     }
 }
