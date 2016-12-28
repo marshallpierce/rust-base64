@@ -49,3 +49,12 @@ I have a fondness for small dependency footprints, ecosystems where you can pick
 Anyway. It's base64.
 
 [https://crates.io/crates/base64](https://crates.io/crates/base64)
+
+Developing
+---
+
+Benchmarks are in `benches/`. Running them requires nightly rust, but `rustup` makes it easy:
+
+```
+rustup run nightly cargo bench
+```
