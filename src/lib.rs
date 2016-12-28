@@ -148,16 +148,59 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///}
 ///```
 pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
+    let mut buf = String::with_capacity(encoded_size(bytes.len()));
+
+    encode_mode_buf(bytes, mode, &mut buf);
+
+    buf
+}
+
+/// calculate the base64 encoded string size
+fn encoded_size(bytes_len: usize) -> usize {
+    let rem = bytes_len % 3;
+    let div = bytes_len - rem;
+
+    return 4 * div / 3 + if rem == 0 { 4 } else { 0 };
+}
+
+///Encode arbitrary octets as base64.
+///Writes into the supplied buffer to avoid allocations.
+///
+///# Example
+///
+///```rust
+///extern crate base64;
+///use base64::Base64Mode;
+///
+///fn main() {
+///    let mut buf = String::new();
+///    base64::encode_mode_buf(b"hello world~", Base64Mode::Standard, &mut buf);
+///    println!("{}", buf);
+///
+///    buf.clear();
+///    base64::encode_mode_buf(b"hello internet~", Base64Mode::UrlSafe, &mut buf);
+///    println!("{}", buf);
+///}
+///```
+pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
     let (ref charset, _) = match mode {
         Base64Mode::Standard => (STANDARD, false),
         Base64Mode::UrlSafe => (URL_SAFE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
+    buf.reserve(encoded_size(bytes.len()));
+
     let rem = bytes.len() % 3;
     let div = bytes.len() - rem;
 
-    let mut raw = Vec::<u8>::with_capacity(4*div/3 + if rem == 0 {4} else {0});
+    let mut raw: &mut Vec<u8>;
+
+    unsafe {
+        // we're only going to insert valid utf8
+        raw = buf.as_mut_vec();
+    }
+
     let mut i = 0;
 
     while i < div {
@@ -181,9 +224,6 @@ pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
     for _ in 0..(3-rem)%3 {
         raw.push(0x3d);
     }
-
-    //this should never panic, all bytes from charset so always valid ascii
-    String::from_utf8(raw).unwrap()
 }
 
 ///Decode from string reference as octets.
