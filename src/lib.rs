@@ -246,13 +246,40 @@ pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
 ///}
 ///```
 pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error> {
+    let mut buffer = Vec::<u8>::with_capacity(input.len() * 4 / 3);
+
+    decode_mode_buf(input, mode, &mut buffer).map(|_| buffer)
+}
+
+///Decode from string reference as octets.
+///Writes into the supplied buffer to avoid allocation.
+///Returns a Result containing an empty tuple, aka ().
+///
+///# Example
+///
+///```rust
+///extern crate base64;
+///use base64::Base64Mode;
+///
+///fn main() {
+///    let mut buffer = Vec::<u8>::new();
+///    base64::decode_mode_buf("aGVsbG8gd29ybGR+Cg==", Base64Mode::Standard, &mut buffer).unwrap();
+///    println!("{:?}", buffer);
+///
+///    buffer.clear();
+///
+///    base64::decode_mode_buf("aGVsbG8gaW50ZXJuZXR-Cg==", Base64Mode::UrlSafe, &mut buffer).unwrap();
+///    println!("{:?}", buffer);
+///}
+///```
+pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
     let (ref decode_table, _) = match mode {
         Base64Mode::Standard => (decode_tables::STANDARD, false),
         Base64Mode::UrlSafe => (decode_tables::URL_SAFE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
-    let mut buffer = Vec::<u8>::with_capacity(input.len() * 3 / 4);
+    buffer.reserve(input.len() * 3 / 4);
 
     // the fast loop only handles complete blocks of 4 input morsels ("quads")
     let quad_rem = input.len() % 4;
@@ -359,5 +386,5 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
         leftover_bits_appended_to_buf += 8;
     }
 
-    Ok(buffer)
+    Ok(())
 }

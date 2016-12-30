@@ -4,7 +4,7 @@ extern crate base64;
 extern crate test;
 extern crate rand;
 
-use base64::{decode, encode, encode_mode_buf, Base64Mode};
+use base64::{decode, decode_mode_buf, encode, encode_mode_buf, Base64Mode};
 
 use test::Bencher;
 use rand::Rng;
@@ -95,8 +95,18 @@ fn decode_3b(b: &mut Bencher) {
 }
 
 #[bench]
+fn decode_3b_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 3)
+}
+
+#[bench]
 fn decode_50b(b: &mut Bencher) {
     do_decode_bench(b, 50)
+}
+
+#[bench]
+fn decode_50b_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 50)
 }
 
 #[bench]
@@ -105,8 +115,18 @@ fn decode_100b(b: &mut Bencher) {
 }
 
 #[bench]
+fn decode_100b_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 100)
+}
+
+#[bench]
 fn decode_500b(b: &mut Bencher) {
     do_decode_bench(b, 500)
+}
+
+#[bench]
+fn decode_500b_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 500)
 }
 
 #[bench]
@@ -115,8 +135,18 @@ fn decode_3kib(b: &mut Bencher) {
 }
 
 #[bench]
+fn decode_3kib_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 3 * 1024)
+}
+
+#[bench]
 fn decode_3mib(b: &mut Bencher) {
     do_decode_bench(b, 3 * 1024 * 1024)
+}
+
+#[bench]
+fn decode_3mib_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 3 * 1024 * 1024)
 }
 
 #[bench]
@@ -125,8 +155,18 @@ fn decode_10mib(b: &mut Bencher) {
 }
 
 #[bench]
+fn decode_10mib_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 10 * 1024 * 1024)
+}
+
+#[bench]
 fn decode_30mib(b: &mut Bencher) {
     do_decode_bench(b, 30 * 1024 * 1024)
+}
+
+#[bench]
+fn decode_30mib_reuse_buf(b: &mut Bencher) {
+    do_decode_bench_reuse_buf(b, 30 * 1024 * 1024)
 }
 
 fn do_decode_bench(b: &mut Bencher, size: usize) {
@@ -137,6 +177,19 @@ fn do_decode_bench(b: &mut Bencher, size: usize) {
     b.iter(|| {
         let orig = decode(&encoded);
         test::black_box(&orig);
+    });
+}
+
+fn do_decode_bench_reuse_buf(b: &mut Bencher, size: usize) {
+    let mut v: Vec<u8> = Vec::with_capacity(size);
+    fill(&mut v);
+    let encoded = encode(&v);
+
+    let mut buf = Vec::new();
+    b.iter(|| {
+        decode_mode_buf(&encoded, Base64Mode::Standard, &mut buf).unwrap();
+        test::black_box(&buf);
+        buf.clear();
     });
 }
 
