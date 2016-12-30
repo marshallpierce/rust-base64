@@ -22,6 +22,8 @@ const URL_SAFE: [u8; 64] = [
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2D, 0x5F
 ];
 
+mod decode_tables;
+
 pub enum Base64Mode {
     Standard,
     UrlSafe,
@@ -244,59 +246,118 @@ pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
 ///}
 ///```
 pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error> {
-    let (ref charset, _) = match mode {
-        Base64Mode::Standard => (STANDARD, false),
-        Base64Mode::UrlSafe => (URL_SAFE, false),
+    let (ref decode_table, _) = match mode {
+        Base64Mode::Standard => (decode_tables::STANDARD, false),
+        Base64Mode::UrlSafe => (decode_tables::URL_SAFE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
-    let (penult_byte, ult_byte) = (charset[62], charset[63]);
+    let mut buffer = Vec::<u8>::with_capacity(input.len() * 3 / 4);
 
-    let mut buffer = Vec::<u8>::with_capacity(input.len());
+    // the fast loop only handles complete blocks of 4 input morsels ("quads")
+    let quad_rem = input.len() % 4;
+    let trailing_bytes_to_skip = if quad_rem == 0 {
+        // if input is a multiple of 4, ignore the last quad as it may have padding
+        4
+    } else {
+        quad_rem
+    };
+    let length_of_full_quads = input.len().saturating_sub(trailing_bytes_to_skip);
 
-    for (i, b) in input.bytes().enumerate() {
-        if b > 0x40 && b < 0x5b {
-            buffer.push(b - 0x41);
-        } else if b > 0x60 && b < 0x7b {
-            buffer.push(b - 0x61 + 0x1a);
-        } else if b > 0x2f && b < 0x3a {
-            buffer.push(b - 0x30 + 0x34);
-        } else if b == penult_byte {
-            buffer.push(0x3e);
-        } else if b == ult_byte {
-            buffer.push(0x3f);
-        } else if b == 0x3d {
-            ;
-        } else {
-            return Err(Base64Error::InvalidByte(i, b));
-        }
-    }
+    let input_bytes = input.as_bytes();
 
-    let rem = buffer.len() % 4;
-
-    if rem == 1 {
-        return Err(Base64Error::InvalidLength);
-    }
-
-    let div = buffer.len() - rem;
-
-    let mut raw = Vec::<u8>::with_capacity(3*div/4 + rem);
     let mut i = 0;
 
-    while i < div {
-        raw.push(buffer[i] << 2 | buffer[i+1] >> 4);
-        raw.push(buffer[i+1] << 4 | buffer[i+2] >> 2);
-        raw.push(buffer[i+2] << 6 | buffer[i+3]);
+    while i < length_of_full_quads {
+        // decode tables all hold 256 elements; cannot overflow with a u8.
+        // it's not quite a byte; it's a morsel...
+        let morsel1 = decode_table[input_bytes[i] as usize];
+        let morsel2 = decode_table[input_bytes[i + 1] as usize];
+        let morsel3 = decode_table[input_bytes[i + 2] as usize];
+        let morsel4 = decode_table[input_bytes[i + 3] as usize];
 
-        i+=4;
+        // NB: this will detect an inner '=' as an error
+        if morsel1 == decode_tables::INVALID_VALUE {
+            return Err(Base64Error::InvalidByte(i, input_bytes[i]));
+        }
+        if morsel2 == decode_tables::INVALID_VALUE {
+            return Err(Base64Error::InvalidByte(i + 1, input_bytes[i + 1]));
+        }
+        if morsel3 == decode_tables::INVALID_VALUE {
+            return Err(Base64Error::InvalidByte(i + 2, input_bytes[i + 2]));
+        }
+        if morsel4 == decode_tables::INVALID_VALUE {
+            return Err(Base64Error::InvalidByte(i + 3, input_bytes[i + 3]));
+        }
+
+        // bit layout of 3 bytes into 4 morsels:
+        // 00111111 00112222 00222233 00333333
+
+        let b1 = morsel1 << 2 | morsel2 >> 4;
+        let b2 = morsel2 << 4 | morsel3 >> 2;
+        let b3 = morsel3 << 6 | morsel4;
+
+        buffer.push(b1);
+        buffer.push(b2);
+        buffer.push(b3);
+        i+= 4;
     }
 
-    if rem > 1 {
-        raw.push(buffer[div] << 2 | buffer[div+1] >> 4);
-    }
-    if rem > 2 {
-        raw.push(buffer[div+1] << 4 | buffer[div+2] >> 2);
+    // handle leftovers (at most 4 bytes).
+    // Use a u32 as a stack-resident 4-byte Vec.
+    let mut leftover_bits: u32 = 0;
+    let mut morsels_in_leftover = 0;
+    let mut seen_padding = false;
+    let mut first_padding_index: usize = 0;
+    for (i, b) in input.as_bytes()[length_of_full_quads..].iter().enumerate() {
+        // '=' padding
+        if *b == 0x3D {
+            if !seen_padding {
+                seen_padding = true;
+                first_padding_index = i;
+            }
+            continue;
+        }
+
+        // to make '=' handling consistent with the main loop, don't allow
+        // non-suffix '=' in trailing quad either. Report error as first
+        // erroneous padding.
+        if seen_padding {
+            return Err(Base64Error::InvalidByte(
+                length_of_full_quads + first_padding_index, 0x3D));
+        }
+
+
+        // can use up to 4 * 6 = 24 bits of the u32, if last quad has no padding.
+        // To minimize shifts, pack the u32 from left to right.
+        let shift = 32 - (morsels_in_leftover + 1) * 6;
+        // tables are all 256 elements, cannot overflow from a u8 index
+        let morsel = decode_table[*b as usize];
+        if morsel == decode_tables::INVALID_VALUE {
+            return Err(Base64Error::InvalidByte(length_of_full_quads + i, *b));
+        }
+
+        leftover_bits |= (morsel as u32) << shift;
+        morsels_in_leftover += 1;
     }
 
-    Ok(raw)
+    let leftover_bits_ready_to_append = match morsels_in_leftover {
+        0 => 0,
+        1 => return Err(Base64Error::InvalidLength),
+        2 => 8,
+        3 => 16,
+        4 => 24,
+        _ => panic!("Impossible: must only have 0 to 4 input bytes in last quad")
+    };
+
+    let mut leftover_bits_appended_to_buf = 0;
+    while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
+        // `as` simply truncates the higher bits, which is what we want here
+        let selected_bits = (leftover_bits >> (24 - leftover_bits_appended_to_buf)) as u8;
+        buffer.push(selected_bits);
+
+        leftover_bits_appended_to_buf += 8;
+    }
+
+    Ok(buffer)
 }

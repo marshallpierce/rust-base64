@@ -161,16 +161,57 @@ fn decode_rfc4648_6() {
     compare_decode("foobar", "Zm9vYmFy");
 }
 
-//this is a MAY in the rfc
+//this is a MAY in the rfc: https://tools.ietf.org/html/rfc4648#section-3.3
 #[test]
 fn decode_allow_extra_pad() {
-    compare_decode("alice", "YWxpY2U=====");
+    // can't PartialEq Base64Error, so we do this the hard way
+    match decode("YWxpY2U=====").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            assert_eq!(7, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
 }
 
 //same
 #[test]
 fn decode_allow_absurd_pad() {
-    compare_decode("alice", "==Y=Wx===pY=2U=====");
+    match decode("==Y=Wx===pY=2U=====").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            assert_eq!(0, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn decode_all_padding_single_quad_returns_empty() {
+    // pretty useless thing to do but we'll know if this behavior changes
+    assert_eq!(0, decode("====").unwrap().len());
+}
+
+#[test]
+fn decode_padding_in_quad_before_last_returns_error() {
+    match decode("zzz==").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            assert_eq!(3, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
+    match decode("zzzz===z").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            assert_eq!(4, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
 }
 
 #[test]
