@@ -1,5 +1,7 @@
-#[cfg(test)]
 extern crate base64;
+extern crate rand;
+
+use rand::Rng;
 
 use base64::*;
 
@@ -13,6 +15,92 @@ fn compare_decode(expected: &str, target: &str) {
 
 fn compare_decode_ws(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode_ws(target).unwrap()).unwrap());
+}
+
+// generate every possible byte string recursively and test encode/decode roundtrip
+fn roundtrip_append_recurse(byte_buf: &mut Vec<u8>, str_buf: &mut String, remaining_bytes: usize) {
+    let orig_length = byte_buf.len();
+    for b in 0..256 {
+        byte_buf.push(b as u8);
+
+        if remaining_bytes > 1 {
+            roundtrip_append_recurse(byte_buf, str_buf, remaining_bytes - 1)
+        } else {
+            encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+            let roundtrip_bytes = decode_mode(&str_buf, Base64Mode::Standard).unwrap();
+            assert_eq!(*byte_buf, roundtrip_bytes);
+
+            str_buf.clear();
+
+        }
+
+        byte_buf.truncate(orig_length);
+    }
+}
+
+// generate every possible byte string recursively and test encode/decode roundtrip with
+// padding removed
+fn roundtrip_append_recurse_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String,
+                                          remaining_bytes: usize) {
+    let orig_length = byte_buf.len();
+    for b in 0..256 {
+        byte_buf.push(b as u8);
+
+        if remaining_bytes > 1 {
+            roundtrip_append_recurse_strip_padding(byte_buf, str_buf, remaining_bytes - 1)
+        } else {
+            encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+            {
+                let trimmed = str_buf.trim_right_matches('=');
+                let roundtrip_bytes = decode_mode(&trimmed, Base64Mode::Standard).unwrap();
+                assert_eq!(*byte_buf, roundtrip_bytes);
+            }
+            str_buf.clear();
+        }
+
+        byte_buf.truncate(orig_length);
+    }
+}
+
+// generate random contents of the specified length and test encode/decode roundtrip
+fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
+                    approx_values_per_byte: u8) {
+    let num_rounds = (approx_values_per_byte as u32).pow(byte_len as u32);
+    let mut r = rand::weak_rng();
+
+    for _ in 0..num_rounds {
+        byte_buf.clear();
+        str_buf.clear();
+        while byte_buf.len() < byte_len {
+            byte_buf.push(r.gen::<u8>());
+        }
+
+        encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+        let roundtrip_bytes = decode_mode(&str_buf, Base64Mode::Standard).unwrap();
+
+        assert_eq!(*byte_buf, roundtrip_bytes);
+    }
+}
+
+// generate random contents of the specified length and test encode/decode roundtrip
+fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
+                    approx_values_per_byte: u8) {
+    let num_rounds = (approx_values_per_byte as u32).pow(byte_len as u32);
+    let mut r = rand::weak_rng();
+
+    for _ in 0..num_rounds {
+        byte_buf.clear();
+        str_buf.clear();
+        while byte_buf.len() < byte_len {
+            byte_buf.push(r.gen::<u8>());
+        }
+
+        encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+        let trimmed = str_buf.trim_right_matches('=');
+        let roundtrip_bytes = decode_mode(&trimmed, Base64Mode::Standard).unwrap();
+
+        assert_eq!(*byte_buf, roundtrip_bytes);
+    }
 }
 
 //-------
@@ -29,8 +117,18 @@ fn decode_rfc4648_1() {
 }
 
 #[test]
+fn decode_rfc4648_1_no_padding() {
+    compare_decode("f", "Zg");
+}
+
+#[test]
 fn decode_rfc4648_2() {
     compare_decode("fo", "Zm8=");
+}
+
+#[test]
+fn decode_rfc4648_2_no_padding() {
+    compare_decode("fo", "Zm8");
 }
 
 #[test]
@@ -44,8 +142,18 @@ fn decode_rfc4648_4() {
 }
 
 #[test]
+fn decode_rfc4648_4_no_padding() {
+    compare_decode("foob", "Zm9vYg");
+}
+
+#[test]
 fn decode_rfc4648_5() {
     compare_decode("fooba", "Zm9vYmE=");
+}
+
+#[test]
+fn decode_rfc4648_5_no_padding() {
+    compare_decode("fooba", "Zm9vYmE");
 }
 
 #[test]
@@ -63,6 +171,69 @@ fn decode_allow_extra_pad() {
 #[test]
 fn decode_allow_absurd_pad() {
     compare_decode("alice", "==Y=Wx===pY=2U=====");
+}
+
+#[test]
+fn roundtrip_random_short() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+
+    for input_len in 0..10 {
+        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4);
+    }
+}
+
+#[test]
+fn roundtrip_random_short_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+
+    for input_len in 0..10 {
+        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4);
+    }
+}
+
+#[test]
+fn roundtrip_all_1_byte() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, 1);
+}
+
+#[test]
+fn roundtrip_all_1_byte_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse_strip_padding(&mut byte_buf, &mut str_buf, 1);
+}
+
+#[test]
+fn roundtrip_all_2_byte() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, 2);
+}
+
+#[test]
+fn roundtrip_all_2_byte_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse_strip_padding(&mut byte_buf, &mut str_buf, 2);
+}
+
+#[test]
+fn roundtrip_all_3_byte() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, 3);
+}
+
+#[test]
+fn roundtrip_random_4_byte() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+
+    roundtrip_random(&mut byte_buf, &mut str_buf, 4, 48);
 }
 
 //TODO like, write a thing to test every ascii val lol
