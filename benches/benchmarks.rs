@@ -174,6 +174,7 @@ fn do_decode_bench(b: &mut Bencher, size: usize) {
     fill(&mut v);
     let encoded = encode(&v);
 
+    b.bytes = v.len() as u64;
     b.iter(|| {
         let orig = decode(&encoded);
         test::black_box(&orig);
@@ -186,6 +187,7 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, size: usize) {
     let encoded = encode(&v);
 
     let mut buf = Vec::new();
+    b.bytes = v.len() as u64;
     b.iter(|| {
         decode_mode_buf(&encoded, Base64Mode::Standard, &mut buf).unwrap();
         test::black_box(&buf);
@@ -197,6 +199,7 @@ fn do_encode_bench(b: &mut Bencher, size: usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
 
+    b.bytes = v.len() as u64;
     b.iter(|| {
         let e = encode(&v);
         test::black_box(&e);
@@ -209,6 +212,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, size: usize) {
 
     let mut buf = String::new();
 
+    b.bytes = v.len() as u64;
     b.iter(|| {
         let e = encode_mode_buf(&v, Base64Mode::Standard, &mut buf);
         test::black_box(&e);
