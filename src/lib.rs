@@ -2,7 +2,7 @@ extern crate byteorder;
 
 use std::{fmt, error, string};
 
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 
 const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -296,37 +296,52 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
     };
     let length_of_full_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
 
+    // make sure buffer can hold enough for the fast loop
+    let starting_index = buffer.len();
+    // need the extra two bytes because we write a full 8 bytes for the last chunk
+    // and then truncate off two
+    buffer.resize(starting_index + length_of_full_chunks / 8 * 6 + 2, 0);
+
+    let mut output_index = starting_index;
+
     let input_bytes = input.as_bytes();
+    {
+        let buffer_slice = buffer.as_mut_slice();
 
-    let mut i = 0;
+        let mut input_index = 0;
 
-//    println!("length of chunks {}", length_of_full_chunks);
-    while i < length_of_full_chunks {
-        let mut accum: u64;
-        let dec = decode_table_entry(input_bytes, *decode_table, i)?;
-        accum = (dec as u64) << 58;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 1)?;
-        accum |= (dec as u64) << 52;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 2)?;
-        accum |= (dec as u64) << 46;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 3)?;
-        accum |= (dec as u64) << 40;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 4)?;
-        accum |= (dec as u64) << 34;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 5)?;
-        accum |= (dec as u64) << 28;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 6)?;
-        accum |= (dec as u64) << 22;
-        let dec = decode_table_entry(input_bytes, *decode_table, i + 7)?;
-        accum |= (dec as u64) << 16;
+        //    println!("length of chunks {}", length_of_full_chunks);
+        while input_index < length_of_full_chunks {
+            let mut accum: u64;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index)?;
+            accum = (dec as u64) << 58;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 1)?;
+            accum |= (dec as u64) << 52;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 2)?;
+            accum |= (dec as u64) << 46;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 3)?;
+            accum |= (dec as u64) << 40;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 4)?;
+            accum |= (dec as u64) << 34;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 5)?;
+            accum |= (dec as u64) << 28;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 6)?;
+            accum |= (dec as u64) << 22;
+            let dec = decode_table_entry(input_bytes, *decode_table, input_index + 7)?;
+            accum |= (dec as u64) << 16;
 
-        buffer.write_u64::<BigEndian>(accum).unwrap();
-        // only keep 6 of the 8 bytes
-        let new_len = buffer.len();
-        buffer.truncate(new_len - 2);
+            BigEndian::write_u64(&mut buffer_slice[(output_index)..(output_index + 8)],
+                                 accum);
 
-        i += chunk_len;
-    };
+            output_index += 6;
+            input_index += chunk_len;
+        };
+    }
+
+    // Truncate off the last two bytes from writing the last u64.
+    // Unconditional because we added on the extra 2 bytes in the resize before the loop.
+    let new_len = buffer.len() - 2;
+    buffer.truncate(new_len);
 
     // handle leftovers (at most 8 bytes).
     // Use a u64 as a stack-resident 8-byte Vec.
