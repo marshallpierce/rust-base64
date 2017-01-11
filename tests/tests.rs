@@ -64,8 +64,8 @@ fn roundtrip_append_recurse_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut 
 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
-                    approx_values_per_byte: u8) {
-    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, 10);
+                    approx_values_per_byte: u8, max_rounds: u64) {
+    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, max_rounds);
     let mut r = rand::weak_rng();
 
     for _ in 0..num_rounds {
@@ -84,9 +84,9 @@ fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usiz
 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
-                    approx_values_per_byte: u8) {
+                    approx_values_per_byte: u8, max_rounds: u64) {
     // let the short ones be short but don't let it get too crazy large
-    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, 10);
+    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, max_rounds);
     let mut r = rand::weak_rng();
 
     for _ in 0..num_rounds {
@@ -108,7 +108,7 @@ fn calculate_number_of_rounds(byte_len: usize, approx_values_per_byte: u8, max: 
     // don't overflow
     let mut prod = approx_values_per_byte as u64;
 
-    for i in 0..byte_len {
+    for _ in 0..byte_len {
         if prod > max {
             return max;
         }
@@ -308,12 +308,35 @@ fn decode_too_short_second_quad_without_padding_error() {
 }
 
 #[test]
+fn decode_error_for_bogus_char_in_right_position() {
+    for length in 1..25 {
+        for error_position in 0_usize..length {
+            let prefix: String = std::iter::repeat("A").take(error_position).collect();
+            let suffix: String = std::iter::repeat("B").take(length - error_position - 1).collect();
+
+            let input = prefix + "%" + &suffix;
+            assert_eq!(length, input.len(),
+                "length {} error position {}", length, error_position);
+
+            match decode(&input).unwrap_err() {
+                Base64Error::InvalidByte(size, byte) => {
+                    assert_eq!(error_position, size,
+                        "length {} error position {}", length, error_position);
+                    assert_eq!(0x25, byte);
+                }
+                _ => assert!(false)
+            }
+        }
+    }
+}
+
+#[test]
 fn roundtrip_random_no_fast_loop() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
     for input_len in 0..9 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4);
+        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4, 10000);
     }
 }
 
@@ -323,7 +346,7 @@ fn roundtrip_random_with_fast_loop() {
     let mut str_buf = String::new();
 
     for input_len in 9..24 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4);
+        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
     }
 }
 
@@ -333,7 +356,7 @@ fn roundtrip_random_no_fast_loop_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 0..9 {
-        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4);
+        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4, 10000);
     }
 }
 
@@ -343,7 +366,7 @@ fn roundtrip_random_with_fast_loop_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 9..24 {
-        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4);
+        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
     }
 }
 
@@ -387,7 +410,7 @@ fn roundtrip_random_4_byte() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    roundtrip_random(&mut byte_buf, &mut str_buf, 4, 48);
+    roundtrip_random(&mut byte_buf, &mut str_buf, 4, 48, 10000);
 }
 
 //TODO like, write a thing to test every ascii val lol
