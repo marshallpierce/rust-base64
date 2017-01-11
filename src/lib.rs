@@ -309,50 +309,80 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         let buffer_slice = buffer.as_mut_slice();
 
         let mut input_index = 0;
+        // initial value is never used; always set if fast loop breaks
+        let mut bad_byte_index: usize = 0;
+        // initial value is never used; always set if fast loop breaks
+        let mut selected_input_byte: u64 = 0;
+        // a non-invalid value means it's not an error if fast loop never runs
+        let mut morsel: u8 = 0;
 
+        // fast loop of 8 bytes at a time
         while input_index < length_of_full_chunks {
             let mut accum: u64;
 
             let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
-            let morsel = decode_table[(input_chunk >> 56) as usize];
+            selected_input_byte = input_chunk >> 56;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index, (input_chunk >> 56) as u8));
-            }
+                bad_byte_index = input_index;
+                break;
+            };
             accum = (morsel as u64) << 58;
-            let morsel = decode_table[((input_chunk >> 48) & 0xFF) as usize];
+
+            selected_input_byte = (input_chunk >> 48) & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 1, (input_chunk >> 48) as u8));
-            }
+                bad_byte_index = input_index + 1;
+                break;
+            };
             accum |= (morsel as u64) << 52;
-            let morsel = decode_table[((input_chunk >> 40) & 0xFF) as usize];
+
+            selected_input_byte = (input_chunk >> 40) & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 2, (input_chunk >> 40) as u8));
-            }
+                bad_byte_index = input_index + 2;
+                break;
+            };
             accum |= (morsel as u64) << 46;
-            let morsel = decode_table[((input_chunk >> 32) & 0xFF) as usize];
+
+            selected_input_byte = input_chunk >> 32 & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 3, (input_chunk >> 32) as u8));
-            }
+                bad_byte_index = input_index + 3;
+                break;
+            };
             accum |= (morsel as u64) << 40;
-            let morsel = decode_table[((input_chunk >> 24) & 0xFF) as usize];
+
+            selected_input_byte = input_chunk >> 24 & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 4, (input_chunk >> 24) as u8));
-            }
+                bad_byte_index = input_index + 4;
+                break;
+            };
             accum |= (morsel as u64) << 34;
-            let morsel = decode_table[((input_chunk >> 16) & 0xFF) as usize];
+
+            selected_input_byte = input_chunk >> 16 & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 5, (input_chunk >> 16) as u8));
-            }
+                bad_byte_index = input_index + 5;
+                break;
+            };
             accum |= (morsel as u64) << 28;
-            let morsel = decode_table[((input_chunk >> 8) & 0xFF) as usize];
+
+            selected_input_byte = input_chunk >> 8 & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 6, (input_chunk >> 8) as u8));
-            }
+                bad_byte_index = input_index + 6;
+                break;
+            };
             accum |= (morsel as u64) << 22;
-            let morsel = decode_table[(input_chunk & 0xFF) as usize];
+
+            selected_input_byte = input_chunk & 0xFF;
+            morsel = decode_table[selected_input_byte as usize];
             if morsel == decode_tables::INVALID_VALUE {
-                return Err(Base64Error::InvalidByte(input_index + 7, (input_chunk & 0xFF) as u8));
-            }
+                bad_byte_index = input_index + 7;
+                break;
+            };
             accum |= (morsel as u64) << 16;
 
             BigEndian::write_u64(&mut buffer_slice[(output_index)..(output_index + 8)],
@@ -361,6 +391,11 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             output_index += 6;
             input_index += chunk_len;
         };
+
+        if morsel == decode_tables::INVALID_VALUE {
+            // we got here from a break
+            return Err(Base64Error::InvalidByte(bad_byte_index, (selected_input_byte & 0xFF) as u8));
+        }
     }
 
     // Truncate off the last two bytes from writing the last u64.
