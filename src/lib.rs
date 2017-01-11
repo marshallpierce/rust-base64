@@ -285,7 +285,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
     buffer.reserve(input.len() * 3 / 4);
 
-    // the fast loop only handles complete blocks of 4 input morsels
+    // the fast loop only handles complete blocks of 8 input morsels
     let chunk_len = std::mem::size_of::<u64>();
     let chunk_rem = input.len() % chunk_len;
     let trailing_bytes_to_skip = if chunk_rem == 0 {
