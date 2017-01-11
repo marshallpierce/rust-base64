@@ -170,11 +170,11 @@ fn decode_30mib_reuse_buf(b: &mut Bencher) {
 }
 
 fn do_decode_bench(b: &mut Bencher, size: usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
+    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
     let encoded = encode(&v);
 
-    b.bytes = v.len() as u64;
+    b.bytes = encoded.len() as u64;
     b.iter(|| {
         let orig = decode(&encoded);
         test::black_box(&orig);
@@ -182,12 +182,12 @@ fn do_decode_bench(b: &mut Bencher, size: usize) {
 }
 
 fn do_decode_bench_reuse_buf(b: &mut Bencher, size: usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
+    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
     let encoded = encode(&v);
 
     let mut buf = Vec::new();
-    b.bytes = v.len() as u64;
+    b.bytes = encoded.len() as u64;
     b.iter(|| {
         decode_mode_buf(&encoded, Base64Mode::Standard, &mut buf).unwrap();
         test::black_box(&buf);
