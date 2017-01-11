@@ -310,7 +310,6 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
         let mut input_index = 0;
 
-        //    println!("length of chunks {}", length_of_full_chunks);
         while input_index < length_of_full_chunks {
             let mut accum: u64;
 
@@ -387,7 +386,6 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             //     If it spreads from one quad to another, it will be caught by
             //     #2 in the second quad.
 
-//            println!("got {} padding at i {}", padding_bytes, i);
             if i % 4 < 2 {
                 // Check for case #2.
                 // TODO InvalidPadding error
@@ -402,7 +400,6 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             continue;
         };
 
-//        println!("not padding");
         // Check for case #1.
         // To make '=' handling consistent with the main loop, don't allow
         // non-suffix '=' in trailing chunk either. Report error as first
@@ -421,11 +418,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
         };
 
-//        println!("got morsel 0x{:X}, shift is {}, leftover currently 0x{:016X}",
-//                 morsel, shift, leftover_bits);
-
         leftover_bits |= (morsel as u64) << shift;
-//        println!("leftover now 0x{:016X}", leftover_bits);
         morsels_in_leftover += 1;
     };
 
@@ -442,7 +435,6 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         _ => panic!("Impossible: must only have 0 to 4 input bytes in last quad")
     };
 
-//    println!("lefover bits to append: {}", leftover_bits_ready_to_append);
     let mut leftover_bits_appended_to_buf = 0;
     while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
         // `as` simply truncates the higher bits, which is what we want here
