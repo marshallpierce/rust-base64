@@ -1,4 +1,9 @@
+extern crate byteorder;
+
 use std::{fmt, error, string};
+use std::io::Read;
+
+use byteorder::{BigEndian, ReadBytesExt};
 
 const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -281,92 +286,110 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
     buffer.reserve(input.len() * 3 / 4);
 
-    // the fast loop only handles complete blocks of 4 input morsels ("quads")
-    let quad_rem = input.len() % 4;
-    let trailing_bytes_to_skip = if quad_rem == 0 {
-        // if input is a multiple of 4, ignore the last quad as it may have padding
-        4
+    // the fast loop only handles complete blocks of 4 input morsels
+    let chunk_len = std::mem::size_of::<u64>();
+    let chunk_rem = input.len() % chunk_len;
+    let trailing_bytes_to_skip = if chunk_rem == 0 {
+        // if input is a multiple of the chunk size, ignore the last chunk as it may have padding
+        chunk_len
     } else {
-        quad_rem
+        chunk_rem
     };
-    let length_of_full_quads = input.len().saturating_sub(trailing_bytes_to_skip);
+    let length_of_full_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
 
     let input_bytes = input.as_bytes();
 
     let mut i = 0;
 
-    while i < length_of_full_quads {
-        // decode tables all hold 256 elements; cannot overflow with a u8.
-        // it's not quite a byte; it's a morsel...
-        let morsel1 = decode_table[input_bytes[i] as usize];
-        let morsel2 = decode_table[input_bytes[i + 1] as usize];
-        let morsel3 = decode_table[input_bytes[i + 2] as usize];
-        let morsel4 = decode_table[input_bytes[i + 3] as usize];
+//    println!("length of chunks {}", length_of_full_chunks);
+    while i < length_of_full_chunks {
+        let mut accum: u64;
+        let dec = decode_table_entry(input_bytes, *decode_table, i)?;
+        accum = (dec as u64) << 58;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 1)?;
+        accum |= (dec as u64) << 52;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 2)?;
+        accum |= (dec as u64) << 46;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 3)?;
+        accum |= (dec as u64) << 40;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 4)?;
+        accum |= (dec as u64) << 34;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 5)?;
+        accum |= (dec as u64) << 28;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 6)?;
+        accum |= (dec as u64) << 22;
+        let dec = decode_table_entry(input_bytes, *decode_table, i + 7)?;
+        accum |= (dec as u64) << 16;
 
-        // NB: this will detect an inner '=' as an error
-        if morsel1 == decode_tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(i, input_bytes[i]));
-        }
-        if morsel2 == decode_tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(i + 1, input_bytes[i + 1]));
-        }
-        if morsel3 == decode_tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(i + 2, input_bytes[i + 2]));
-        }
-        if morsel4 == decode_tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(i + 3, input_bytes[i + 3]));
-        }
+        buffer.push((accum >> 56) as u8);
+        buffer.push((accum >> 48) as u8);
+        buffer.push((accum >> 40) as u8);
+        buffer.push((accum >> 32) as u8);
+        buffer.push((accum >> 24) as u8);
+        buffer.push((accum >> 16) as u8);
 
-        // bit layout of 3 bytes into 4 morsels:
-        // 00111111 00112222 00222233 00333333
+        i+= chunk_len;
+    };
 
-        let b1 = morsel1 << 2 | morsel2 >> 4;
-        let b2 = morsel2 << 4 | morsel3 >> 2;
-        let b3 = morsel3 << 6 | morsel4;
-
-        buffer.push(b1);
-        buffer.push(b2);
-        buffer.push(b3);
-        i+= 4;
-    }
-
-    // handle leftovers (at most 4 bytes).
-    // Use a u32 as a stack-resident 4-byte Vec.
-    let mut leftover_bits: u32 = 0;
+    // handle leftovers (at most 8 bytes).
+    // Use a u64 as a stack-resident 8-byte Vec.
+    let mut leftover_bits: u64 = 0;
     let mut morsels_in_leftover = 0;
-    let mut seen_padding = false;
+    let mut padding_bytes = 0;
     let mut first_padding_index: usize = 0;
-    for (i, b) in input.as_bytes()[length_of_full_quads..].iter().enumerate() {
+    for (i, b) in input.as_bytes()[length_of_full_chunks..].iter().enumerate() {
         // '=' padding
         if *b == 0x3D {
-            if !seen_padding {
-                seen_padding = true;
+            // There can be bad padding in a few ways:
+            // 1 - Padding with non-padding characters after it
+            // 2 - Padding after zero or one non-padding characters before it
+            //     in the current quad.
+            // 3 - More than two characters of padding. If 3 or 4 padding chars
+            //     are in the same quad, that implies it will be caught by #2.
+            //     If it spreads from one quad to another, it will be caught by
+            //     #2 in the second quad.
+
+//            println!("got {} padding at i {}", padding_bytes, i);
+            if i % 4 < 2 {
+                // Check for case #2.
+                // TODO InvalidPadding error
+                return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
+            };
+
+            if padding_bytes == 0 {
                 first_padding_index = i;
-            }
+            };
+
+            padding_bytes += 1;
             continue;
-        }
+        };
 
-        // to make '=' handling consistent with the main loop, don't allow
-        // non-suffix '=' in trailing quad either. Report error as first
+//        println!("not padding");
+        // Check for case #1.
+        // To make '=' handling consistent with the main loop, don't allow
+        // non-suffix '=' in trailing chunk either. Report error as first
         // erroneous padding.
-        if seen_padding {
+        if padding_bytes > 0 {
             return Err(Base64Error::InvalidByte(
-                length_of_full_quads + first_padding_index, 0x3D));
-        }
+                length_of_full_chunks + first_padding_index, 0x3D));
+        };
 
-
-        // can use up to 4 * 6 = 24 bits of the u32, if last quad has no padding.
-        // To minimize shifts, pack the u32 from left to right.
-        let shift = 32 - (morsels_in_leftover + 1) * 6;
+        // can use up to 8 * 6 = 48 bits of the u64, if last chunk has no padding.
+        // To minimize shifts, pack the leftovers from left to right.
+        let shift = 64 - (morsels_in_leftover + 1) * 6;
         // tables are all 256 elements, cannot overflow from a u8 index
         let morsel = decode_table[*b as usize];
         if morsel == decode_tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(length_of_full_quads + i, *b));
-        }
+            return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
+        };
 
-        leftover_bits |= (morsel as u32) << shift;
+//        println!("got morsel 0x{:X}, shift is {}, leftover currently 0x{:016X}",
+//                 morsel, shift, leftover_bits);
+
+        leftover_bits |= (morsel as u64) << shift;
+//        println!("leftover now 0x{:016X}", leftover_bits);
         morsels_in_leftover += 1;
-    }
+    };
 
     let leftover_bits_ready_to_append = match morsels_in_leftover {
         0 => 0,
@@ -374,17 +397,33 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         2 => 8,
         3 => 16,
         4 => 24,
+        5 => return Err(Base64Error::InvalidLength),
+        6 => 32,
+        7 => 40,
+        8 => 48,
         _ => panic!("Impossible: must only have 0 to 4 input bytes in last quad")
     };
 
+//    println!("lefover bits to append: {}", leftover_bits_ready_to_append);
     let mut leftover_bits_appended_to_buf = 0;
     while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
         // `as` simply truncates the higher bits, which is what we want here
-        let selected_bits = (leftover_bits >> (24 - leftover_bits_appended_to_buf)) as u8;
+        let selected_bits = (leftover_bits >> (56 - leftover_bits_appended_to_buf)) as u8;
         buffer.push(selected_bits);
 
         leftover_bits_appended_to_buf += 8;
-    }
+    };
 
     Ok(())
+}
+
+#[inline]
+fn decode_table_entry(input: &[u8], decode_table: &[u8], index: usize) -> Result<u8, Base64Error> {
+    let morsel = decode_table[input[index] as usize];
+
+    if morsel == decode_tables::INVALID_VALUE {
+        return Err(Base64Error::InvalidByte(index, input[index]));
+    }
+
+    Ok(morsel)
 }

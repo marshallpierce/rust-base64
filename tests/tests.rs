@@ -65,7 +65,7 @@ fn roundtrip_append_recurse_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
                     approx_values_per_byte: u8) {
-    let num_rounds = (approx_values_per_byte as u32).pow(byte_len as u32);
+    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, 10);
     let mut r = rand::weak_rng();
 
     for _ in 0..num_rounds {
@@ -85,7 +85,8 @@ fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usiz
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
                     approx_values_per_byte: u8) {
-    let num_rounds = (approx_values_per_byte as u32).pow(byte_len as u32);
+    // let the short ones be short but don't let it get too crazy large
+    let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, 10);
     let mut r = rand::weak_rng();
 
     for _ in 0..num_rounds {
@@ -101,6 +102,21 @@ fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, 
 
         assert_eq!(*byte_buf, roundtrip_bytes);
     }
+}
+
+fn calculate_number_of_rounds(byte_len: usize, approx_values_per_byte: u8, max: u64) -> u64 {
+    // don't overflow
+    let mut prod = approx_values_per_byte as u64;
+
+    for i in 0..byte_len {
+        if prod > max {
+            return max;
+        }
+
+        prod = prod.saturating_mul(prod);
+    }
+
+    return prod;
 }
 
 //-------
@@ -163,20 +179,37 @@ fn decode_rfc4648_6() {
 
 //this is a MAY in the rfc: https://tools.ietf.org/html/rfc4648#section-3.3
 #[test]
-fn decode_allow_extra_pad() {
+fn decode_pad_inside_fast_loop_chunk_error() {
     // can't PartialEq Base64Error, so we do this the hard way
     match decode("YWxpY2U=====").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
-            assert_eq!(7, size);
+        Base64Error::InvalidByte(offset, byte) => {
+            // since the first 8 bytes are handled in the fast loop, the
+            // padding is an error. Could argue that the *next* padding
+            // byte is technically the first erroneous one, but reporting
+            // that accurately is more complex and probably nobody cares
+            assert_eq!(7, offset);
             assert_eq!(0x3D, byte);
         }
         _ => assert!(false)
     }
 }
 
+#[test]
+fn decode_extra_pad_after_fast_loop_chunk_error() {
+    match decode("YWxpY2UABB===").unwrap_err() {
+        Base64Error::InvalidByte(offset, byte) => {
+            // extraneous third padding byte
+            assert_eq!(12, offset);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    };
+}
+
+
 //same
 #[test]
-fn decode_allow_absurd_pad() {
+fn decode_absurd_pad_error() {
     match decode("==Y=Wx===pY=2U=====").unwrap_err() {
         Base64Error::InvalidByte(size, byte) => {
             assert_eq!(0, size);
@@ -187,16 +220,48 @@ fn decode_allow_absurd_pad() {
 }
 
 #[test]
-fn decode_all_padding_single_quad_returns_empty() {
-    // pretty useless thing to do but we'll know if this behavior changes
-    assert_eq!(0, decode("====").unwrap().len());
+fn decode_starts_with_padding_single_quad_error() {
+    match decode("====").unwrap_err() {
+        Base64Error::InvalidByte(offset, byte) => {
+            // with no real input, first padding byte is bogus
+            assert_eq!(0, offset);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
 }
 
 #[test]
-fn decode_padding_in_quad_before_last_returns_error() {
+fn decode_extra_padding_in_trailing_quad_returns_error() {
     match decode("zzz==").unwrap_err() {
         Base64Error::InvalidByte(size, byte) => {
-            assert_eq!(3, size);
+            // first unneeded padding byte
+            assert_eq!(4, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn decode_extra_padding_in_trailing_quad_2_returns_error() {
+    match decode("zz===").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            // first unneeded padding byte
+            assert_eq!(4, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
+}
+
+
+#[test]
+fn decode_start_second_quad_with_padding_returns_error() {
+    match decode("zzzz=").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            // first unneeded padding byte
+            assert_eq!(4, size);
             assert_eq!(0x3D, byte);
         }
         _ => assert!(false)
@@ -205,7 +270,7 @@ fn decode_padding_in_quad_before_last_returns_error() {
 
 #[test]
 fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
-    match decode("zzzz===z").unwrap_err() {
+    match decode("zzzz==z").unwrap_err() {
         Base64Error::InvalidByte(size, byte) => {
             assert_eq!(4, size);
             assert_eq!(0x3D, byte);
@@ -215,21 +280,69 @@ fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
 }
 
 #[test]
-fn roundtrip_random_short() {
+fn decode_too_short_with_padding_error() {
+    match decode("z==").unwrap_err() {
+        Base64Error::InvalidByte(size, byte) => {
+            // first unneeded padding byte
+            assert_eq!(1, size);
+            assert_eq!(0x3D, byte);
+        }
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn decode_too_short_without_padding_error() {
+    match decode("z").unwrap_err() {
+        Base64Error::InvalidLength => {}
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn decode_too_short_second_quad_without_padding_error() {
+    match decode("zzzzX").unwrap_err() {
+        Base64Error::InvalidLength => {}
+        _ => assert!(false)
+    }
+}
+
+#[test]
+fn roundtrip_random_no_fast_loop() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 0..10 {
+    for input_len in 0..9 {
         roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4);
     }
 }
 
 #[test]
-fn roundtrip_random_short_no_padding() {
+fn roundtrip_random_with_fast_loop() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 0..10 {
+    for input_len in 9..24 {
+        roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4);
+    }
+}
+
+#[test]
+fn roundtrip_random_no_fast_loop_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+
+    for input_len in 0..9 {
+        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4);
+    }
+}
+
+#[test]
+fn roundtrip_random_with_fast_loop_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+
+    for input_len in 9..24 {
         roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4);
     }
 }
