@@ -311,8 +311,6 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         let mut input_index = 0;
         // initial value is never used; always set if fast loop breaks
         let mut bad_byte_index: usize = 0;
-        // initial value is never used; always set if fast loop breaks
-        let mut selected_input_byte: u64 = 0;
         // a non-invalid value means it's not an error if fast loop never runs
         let mut morsel: u8 = 0;
 
@@ -321,64 +319,56 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             let mut accum: u64;
 
             let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
-            selected_input_byte = input_chunk >> 56;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 56) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index;
                 break;
             };
             accum = (morsel as u64) << 58;
 
-            selected_input_byte = (input_chunk >> 48) & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 48 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 1;
                 break;
             };
             accum |= (morsel as u64) << 52;
 
-            selected_input_byte = (input_chunk >> 40) & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 40 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 2;
                 break;
             };
             accum |= (morsel as u64) << 46;
 
-            selected_input_byte = input_chunk >> 32 & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 32 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 3;
                 break;
             };
             accum |= (morsel as u64) << 40;
 
-            selected_input_byte = input_chunk >> 24 & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 24 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 4;
                 break;
             };
             accum |= (morsel as u64) << 34;
 
-            selected_input_byte = input_chunk >> 16 & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 16 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 5;
                 break;
             };
             accum |= (morsel as u64) << 28;
 
-            selected_input_byte = input_chunk >> 8 & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk >> 16 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 6;
                 break;
             };
             accum |= (morsel as u64) << 22;
 
-            selected_input_byte = input_chunk & 0xFF;
-            morsel = decode_table[selected_input_byte as usize];
+            morsel = decode_table[(input_chunk & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 7;
                 break;
@@ -394,7 +384,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
         if morsel == decode_tables::INVALID_VALUE {
             // we got here from a break
-            return Err(Base64Error::InvalidByte(bad_byte_index, (selected_input_byte & 0xFF) as u8));
+            return Err(Base64Error::InvalidByte(bad_byte_index, input_bytes[bad_byte_index]));
         }
     }
 
