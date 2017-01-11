@@ -1,9 +1,8 @@
 extern crate byteorder;
 
 use std::{fmt, error, string};
-use std::io::Read;
 
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, WriteBytesExt};
 
 const STANDARD: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -321,14 +320,12 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         let dec = decode_table_entry(input_bytes, *decode_table, i + 7)?;
         accum |= (dec as u64) << 16;
 
-        buffer.push((accum >> 56) as u8);
-        buffer.push((accum >> 48) as u8);
-        buffer.push((accum >> 40) as u8);
-        buffer.push((accum >> 32) as u8);
-        buffer.push((accum >> 24) as u8);
-        buffer.push((accum >> 16) as u8);
+        buffer.write_u64::<BigEndian>(accum).unwrap();
+        // only keep 6 of the 8 bytes
+        let new_len = buffer.len();
+        buffer.truncate(new_len - 2);
 
-        i+= chunk_len;
+        i += chunk_len;
     };
 
     // handle leftovers (at most 8 bytes).
