@@ -361,7 +361,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             };
             accum |= (morsel as u64) << 28;
 
-            morsel = decode_table[(input_chunk >> 16 & 0xFF) as usize];
+            morsel = decode_table[(input_chunk >> 8 & 0xFF) as usize];
             if morsel == decode_tables::INVALID_VALUE {
                 bad_byte_index = input_index + 6;
                 break;

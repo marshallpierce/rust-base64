@@ -131,6 +131,11 @@ fn decode_rfc4648_0() {
 fn decode_rfc4648_1() {
     compare_decode("f", "Zg==");
 }
+#[test]
+fn decode_rfc4648_1_just_a_bit_of_padding() {
+    // allows less padding than required
+    compare_decode("f", "Zg=");
+}
 
 #[test]
 fn decode_rfc4648_1_no_padding() {
