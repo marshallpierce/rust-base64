@@ -285,24 +285,28 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
     buffer.reserve(input.len() * 3 / 4);
 
-    // the fast loop only handles complete blocks of 8 input morsels
-    let chunk_len = std::mem::size_of::<u64>();
-    let chunk_rem = input.len() % chunk_len;
-    let trailing_bytes_to_skip = if chunk_rem == 0 {
+    // the fast loop only handles complete chunks of 8 input bytes without padding
+    let chunk_len = 8;
+    let decoded_chunk_len = 6;
+    let remainder_len = input.len() % chunk_len;
+    let trailing_bytes_to_skip = if remainder_len == 0 {
         // if input is a multiple of the chunk size, ignore the last chunk as it may have padding
         chunk_len
     } else {
-        chunk_rem
+        remainder_len
     };
+
     let length_of_full_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
 
-    // make sure buffer can hold enough for the fast loop
-    let starting_index = buffer.len();
-    // need the extra two bytes because we write a full 8 bytes for the last chunk
-    // and then truncate off two
-    buffer.resize(starting_index + length_of_full_chunks / 8 * 6 + 2, 0);
+    let starting_output_index = buffer.len();
+    // Resize to hold decoded output from fast loop. Need the extra two bytes because
+    // we write a full 8 bytes for the last 6-byte decoded chunk and then truncate off two
+    let new_size = starting_output_index
+        + length_of_full_chunks / chunk_len * decoded_chunk_len
+        + (chunk_len - decoded_chunk_len);
+    buffer.resize(new_size, 0);
 
-    let mut output_index = starting_index;
+    let mut output_index = starting_output_index;
 
     let input_bytes = input.as_bytes();
     {
@@ -389,12 +393,13 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
     }
 
     // Truncate off the last two bytes from writing the last u64.
-    // Unconditional because we added on the extra 2 bytes in the resize before the loop.
-    let new_len = buffer.len() - 2;
+    // Unconditional because we added on the extra 2 bytes in the resize before the loop,
+    // so it will never underflow.
+    let new_len = buffer.len() - (chunk_len - decoded_chunk_len);
     buffer.truncate(new_len);
 
-    // handle leftovers (at most 8 bytes).
-    // Use a u64 as a stack-resident 8-byte Vec.
+    // handle leftovers (at most 8 bytes, decoded to 6).
+    // Use a u64 as a stack-resident 8 bytes buffer.
     let mut leftover_bits: u64 = 0;
     let mut morsels_in_leftover = 0;
     let mut padding_bytes = 0;

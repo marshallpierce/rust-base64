@@ -17,6 +17,14 @@ fn compare_decode_ws(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode_ws(target).unwrap()).unwrap());
 }
 
+fn push_rand(buf: &mut Vec<u8>, len: usize) {
+    let mut r = rand::weak_rng();
+
+    for _ in 0..len {
+        buf.push(r.gen::<u8>());
+    }
+}
+
 // generate every possible byte string recursively and test encode/decode roundtrip
 fn roundtrip_append_recurse(byte_buf: &mut Vec<u8>, str_buf: &mut String, remaining_bytes: usize) {
     let orig_length = byte_buf.len();
@@ -336,6 +344,57 @@ fn decode_error_for_bogus_char_in_right_position() {
 }
 
 #[test]
+fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
+    let mut orig_data = Vec::new();
+    let mut encoded_data = String::new();
+    let mut decoded_with_prefix = Vec::new();
+    let mut decoded_without_prefix = Vec::new();
+    let mut prefix = Vec::new();
+    for encoded_length in 0_usize..25 {
+        if encoded_length % 4 == 1 {
+            // can't have a lone byte in a quad of input
+            continue;
+        };
+
+        let raw_data_byte_triples = encoded_length / 4;
+        // 4 base64 bytes -> 3 input bytes, 3 -> 2, 2 -> 1, 0 -> 0
+        let raw_data_byte_leftovers = (encoded_length % 4).saturating_sub(1);
+
+        // we'll borrow buf to make some data to encode
+        orig_data.clear();
+        push_rand(&mut orig_data, raw_data_byte_triples * 3 + raw_data_byte_leftovers);
+
+        encoded_data.clear();
+        encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_data);
+
+        assert_eq!(encoded_length, encoded_data.trim_right_matches('=').len());
+
+        for prefix_length in 1..25 {
+            decoded_with_prefix.clear();
+            decoded_without_prefix.clear();
+            prefix.clear();
+
+            // fill the buf with a prefix
+            push_rand(&mut prefix, prefix_length);
+            decoded_with_prefix.resize(prefix_length, 0);
+            decoded_with_prefix.copy_from_slice(&prefix);
+
+            // decode into the non-empty buf
+            decode_mode_buf(&encoded_data, Base64Mode::Standard, &mut decoded_with_prefix).unwrap();
+            // also decode into the empty buf
+            decode_mode_buf(&encoded_data, Base64Mode::Standard, &mut decoded_without_prefix).unwrap();
+
+            assert_eq!(prefix_length + decoded_without_prefix.len(), decoded_with_prefix.len());
+
+            // append plain decode onto prefix
+            prefix.append(&mut decoded_without_prefix);
+
+            assert_eq!(prefix, decoded_with_prefix);
+        }
+    }
+}
+
+#[test]
 fn roundtrip_random_no_fast_loop() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
@@ -537,6 +596,44 @@ fn encode_all_bytes_url() {
 
     assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_mode(&bytes, Base64Mode::UrlSafe));
 }
+
+#[test]
+fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
+    let mut orig_data = Vec::new();
+    let mut encoded_with_prefix = String::new();
+    let mut encoded_without_prefix = String::new();
+    let mut prefix = String::new();
+    for orig_data_length in 0_usize..25 {
+        // we'll borrow buf to make some data to encode
+        orig_data.clear();
+        push_rand(&mut orig_data, orig_data_length);
+
+        for prefix_length in 1..25 {
+            encoded_with_prefix.clear();
+            encoded_without_prefix.clear();
+            prefix.clear();
+
+            for _ in 0..prefix_length {
+                prefix.push('~');
+            }
+
+            encoded_with_prefix.push_str(&prefix);
+
+            // encode into the non-empty buf
+            encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_with_prefix);
+            // also encode into the empty buf
+            encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_without_prefix);
+
+            assert_eq!(prefix_length + encoded_without_prefix.len(), encoded_with_prefix.len());
+
+            // append plain decode onto prefix
+            prefix.push_str(&mut encoded_without_prefix);
+
+            assert_eq!(prefix, encoded_with_prefix);
+        }
+    }
+}
+
 
 #[test]
 fn because_we_can() {
