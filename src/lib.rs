@@ -161,12 +161,19 @@ pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
     buf
 }
 
-/// calculate the base64 encoded string size
+/// calculate the base64 encoded string size, including padding
 fn encoded_size(bytes_len: usize) -> usize {
     let rem = bytes_len % 3;
-    let div = bytes_len - rem;
 
-    return 4 * div / 3 + if rem == 0 { 4 } else { 0 };
+    let complete_input_chunks = bytes_len / 3;
+    let complete_output_chars = complete_input_chunks * 4;
+    let leftover_output_chars = if rem == 0 {
+        0
+    } else {
+        4
+    };
+
+    return complete_output_chars + leftover_output_chars;
 }
 
 ///Encode arbitrary octets as base64.
@@ -475,4 +482,26 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
     };
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encoded_size;
+
+    #[test]
+    fn encoded_size_correct() {
+        assert_eq!(0, encoded_size(0));
+
+        assert_eq!(4, encoded_size(1));
+        assert_eq!(4, encoded_size(2));
+        assert_eq!(4, encoded_size(3));
+
+        assert_eq!(8, encoded_size(4));
+        assert_eq!(8, encoded_size(5));
+        assert_eq!(8, encoded_size(6));
+
+        assert_eq!(12, encoded_size(7));
+        assert_eq!(12, encoded_size(8));
+        assert_eq!(12, encoded_size(9));
+    }
 }
