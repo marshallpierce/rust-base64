@@ -1,6 +1,6 @@
 extern crate byteorder;
 
-use std::{fmt, error, string};
+use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
 
