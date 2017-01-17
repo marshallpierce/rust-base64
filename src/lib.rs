@@ -26,7 +26,7 @@ const URL_SAFE: [u8; 64] = [
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2D, 0x5F
 ];
 
-mod decode_tables;
+mod tables;
 
 pub enum Base64Mode {
     Standard,
@@ -285,8 +285,8 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
 ///```
 pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
     let (ref decode_table, _) = match mode {
-        Base64Mode::Standard => (decode_tables::STANDARD, false),
-        Base64Mode::UrlSafe => (decode_tables::URL_SAFE, false),
+        Base64Mode::Standard => (tables::STANDARD_DECODE, false),
+        Base64Mode::UrlSafe => (tables::URL_SAFE_DECODE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
@@ -331,56 +331,56 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
             let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
             morsel = decode_table[(input_chunk >> 56) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index;
                 break;
             };
             accum = (morsel as u64) << 58;
 
             morsel = decode_table[(input_chunk >> 48 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 1;
                 break;
             };
             accum |= (morsel as u64) << 52;
 
             morsel = decode_table[(input_chunk >> 40 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 2;
                 break;
             };
             accum |= (morsel as u64) << 46;
 
             morsel = decode_table[(input_chunk >> 32 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 3;
                 break;
             };
             accum |= (morsel as u64) << 40;
 
             morsel = decode_table[(input_chunk >> 24 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 4;
                 break;
             };
             accum |= (morsel as u64) << 34;
 
             morsel = decode_table[(input_chunk >> 16 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 5;
                 break;
             };
             accum |= (morsel as u64) << 28;
 
             morsel = decode_table[(input_chunk >> 8 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 6;
                 break;
             };
             accum |= (morsel as u64) << 22;
 
             morsel = decode_table[(input_chunk & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 7;
                 break;
             };
@@ -393,7 +393,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             input_index += chunk_len;
         };
 
-        if morsel == decode_tables::INVALID_VALUE {
+        if morsel == tables::INVALID_VALUE {
             // we got here from a break
             return Err(Base64Error::InvalidByte(bad_byte_index, input_bytes[bad_byte_index]));
         }
@@ -451,7 +451,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         let shift = 64 - (morsels_in_leftover + 1) * 6;
         // tables are all 256 elements, cannot overflow from a u8 index
         let morsel = decode_table[*b as usize];
-        if morsel == decode_tables::INVALID_VALUE {
+        if morsel == tables::INVALID_VALUE {
             return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
         };
 

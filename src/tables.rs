@@ -1,5 +1,5 @@
 pub const INVALID_VALUE: u8 = 255;
-pub const STANDARD: &'static [u8; 256] = &[
+pub const STANDARD_DECODE: &'static [u8; 256] = &[
     INVALID_VALUE, // input 0 (0x0)
     INVALID_VALUE, // input 1 (0x1)
     INVALID_VALUE, // input 2 (0x2)
@@ -257,7 +257,7 @@ pub const STANDARD: &'static [u8; 256] = &[
     INVALID_VALUE, // input 254 (0xFE)
     INVALID_VALUE, // input 255 (0xFF)
 ];
-pub const URL_SAFE: &'static [u8; 256] = &[
+pub const URL_SAFE_DECODE: &'static [u8; 256] = &[
     INVALID_VALUE, // input 0 (0x0)
     INVALID_VALUE, // input 1 (0x1)
     INVALID_VALUE, // input 2 (0x2)

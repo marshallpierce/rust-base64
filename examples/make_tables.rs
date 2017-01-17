@@ -4,25 +4,35 @@ use std::iter::Iterator;
 fn main() {
     println!("pub const INVALID_VALUE: u8 = 255;");
 
+    // A-Z
     let standard_alphabet: Vec<u8> = (0x41..0x5B)
+        // a-z
         .chain(0x61..0x7B)
+        // 0-9
         .chain(0x30..0x3A)
+        // +
         .chain(0x2B..0x2C)
+        // /
         .chain(0x2F..0x30)
         .collect();
-    print_table(&standard_alphabet, "STANDARD", 0);
+    print_decode_table(&standard_alphabet, "STANDARD_DECODE", 0);
 
+    // A-Z
     let url_alphabet: Vec<u8> = (0x41..0x5B)
+        // a-z
         .chain(0x61..0x7B)
+        // 0-9
         .chain(0x30..0x3A)
+        // -
         .chain(0x2D..0x2E)
+        // _s
         .chain(0x5F..0x60)
         .collect();
-    print_table(&url_alphabet, "URL_SAFE", 0);
+    print_decode_table(&url_alphabet, "URL_SAFE_DECODE", 0);
 
 }
 
-fn print_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
+fn print_decode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
     // map of alphabet bytes to 6-bit morsels
     let mut input_to_morsel = HashMap::<u8, u8>::new();
 
