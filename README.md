@@ -34,14 +34,14 @@ rust-base64 exposes seven functions:
 ```rust
     encode(&[u8]) -> String
     decode(&str) -> Result<Vec<u8>, Base64Error>
-    encode_mode(&[u8], Base64Mode) -> String
-    decode_mode(&str, Base64Mode) -> Result<Vec<u8>, Base64Error>
-    encode_mode_buf(&[u8], Base64Mode, &mut String)
-    decode_mode_buf(&str, Base64Mode, &mut Vec<u8>) -> Result<(), Base64Error>
+    encode_config(&[u8], Config) -> String
+    decode_config(&str, Config) -> Result<Vec<u8>, Base64Error>
+    encode_config_buf(&[u8], Config, &mut String)
+    decode_config_buf(&str, Config, &mut Vec<u8>) -> Result<(), Base64Error>
     decode_ws(&str) -> Result<Vec<u8>, Base64Error>
 ```
 
-Valid modes are `Base64Mode::Standard` and `Base64Mode::UrlSafe`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_mode` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
+Config supported out of the box are `STANDARD`, `URL_SAFE` and `URL_SAFE_NO_PAD`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_mode` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
 
 Goals
 ---

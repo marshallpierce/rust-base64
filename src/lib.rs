@@ -4,7 +4,7 @@ use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
 
-const STANDARD: [u8; 64] = [
+const STANDARD_CHARSET: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
     0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
     0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
@@ -15,7 +15,7 @@ const STANDARD: [u8; 64] = [
     0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2B, 0x2F
 ];
 
-const URL_SAFE: [u8; 64] = [
+const URL_SAFE_CHARSET: [u8; 64] = [
     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
     0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
     0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
@@ -28,11 +28,28 @@ const URL_SAFE: [u8; 64] = [
 
 mod decode_tables;
 
-pub enum Base64Mode {
+/// Available encoding character sets
+#[derive(Clone, Copy, Debug)]
+pub enum CharacterSet {
+    /// The standard character set (uses `+` and `/`)
     Standard,
-    UrlSafe,
-    //TODO MIME
+    /// The URL safe character set (uses `-` and `_`)
+    UrlSafe
 }
+
+/// Contains configuration parameters for base64 encoding
+#[derive(Clone, Copy, Debug)]
+pub struct Config {
+    /// Character set to use
+    pub char_set: CharacterSet,
+    /// True to pad output with `=` characters
+    pub pad: bool,
+}
+
+pub static STANDARD: Config = Config {char_set: CharacterSet::Standard, pad: true};
+pub static URL_SAFE: Config = Config {char_set: CharacterSet::UrlSafe, pad: true};
+pub static URL_SAFE_NO_PAD: Config = Config {char_set: CharacterSet::UrlSafe, pad: false};
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Base64Error {
@@ -78,7 +95,7 @@ impl From<str::Utf8Error> for Base64Error {
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
-///Convenience for `encode_mode(input, Base64Mode::Standard);`.
+///Convenience for `encode_config(input, base64::STANDARD);`.
 ///
 ///# Example
 ///
@@ -91,12 +108,12 @@ impl From<str::Utf8Error> for Base64Error {
 ///}
 ///```
 pub fn encode(input: &[u8]) -> String {
-    encode_mode(input, Base64Mode::Standard)
+    encode_config(input, STANDARD)
 }
 
 ///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
-///Convenience `decode_mode(input, Base64Mode::Standard);`.
+///Convenience `decode_config(input, base64::STANDARD);`.
 ///
 ///# Example
 ///
@@ -109,10 +126,10 @@ pub fn encode(input: &[u8]) -> String {
 ///}
 ///```
 pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
-    decode_mode(input, Base64Mode::Standard)
+    decode_config(input, STANDARD)
 }
 
-///DEPRECATED -- will be replaced by `decode_mode(input, Base64Mode::MIME);`
+///DEPRECATED -- will be replaced by `decode_config(input, Base64Mode::MIME);`
 ///
 ///Decode from string reference as octets.
 ///Returns a Result containing a Vec<u8>.
@@ -133,7 +150,7 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
     raw.extend(input.bytes().filter(|b| !b" \n\t\r\x0c".contains(b)));
 
     let sans_ws = String::from_utf8(raw).unwrap();
-    decode_mode(&sans_ws, Base64Mode::Standard)
+    decode_config(&sans_ws, STANDARD)
 }
 
 ///Encode arbitrary octets as base64.
@@ -143,20 +160,19 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
 ///
 ///```rust
 ///extern crate base64;
-///use base64::Base64Mode;
 ///
 ///fn main() {
-///    let b64 = base64::encode_mode(b"hello world~", Base64Mode::Standard);
+///    let b64 = base64::encode_config(b"hello world~", base64::STANDARD);
 ///    println!("{}", b64);
 ///
-///    let b64_url = base64::encode_mode(b"hello internet~", Base64Mode::UrlSafe);
+///    let b64_url = base64::encode_config(b"hello internet~", base64::URL_SAFE);
 ///    println!("{}", b64_url);
 ///}
 ///```
-pub fn encode_mode(bytes: &[u8], mode: Base64Mode) -> String {
+pub fn encode_config(bytes: &[u8], config: Config) -> String {
     let mut buf = String::with_capacity(encoded_size(bytes.len()));
 
-    encode_mode_buf(bytes, mode, &mut buf);
+    encode_config_buf(bytes, config, &mut buf);
 
     buf
 }
@@ -183,23 +199,21 @@ fn encoded_size(bytes_len: usize) -> usize {
 ///
 ///```rust
 ///extern crate base64;
-///use base64::Base64Mode;
 ///
 ///fn main() {
 ///    let mut buf = String::new();
-///    base64::encode_mode_buf(b"hello world~", Base64Mode::Standard, &mut buf);
+///    base64::encode_config_buf(b"hello world~", base64::STANDARD, &mut buf);
 ///    println!("{}", buf);
 ///
 ///    buf.clear();
-///    base64::encode_mode_buf(b"hello internet~", Base64Mode::UrlSafe, &mut buf);
+///    base64::encode_config_buf(b"hello internet~", base64::URL_SAFE, &mut buf);
 ///    println!("{}", buf);
 ///}
 ///```
-pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
-    let (ref charset, _) = match mode {
-        Base64Mode::Standard => (STANDARD, false),
-        Base64Mode::UrlSafe => (URL_SAFE, false),
-        //TODO Base64Mode::MIME => (STANDARD, true)
+pub fn encode_config_buf(bytes: &[u8], config: Config, buf: &mut String) {
+    let charset = match config.char_set {
+        CharacterSet::Standard => STANDARD_CHARSET,
+        CharacterSet::UrlSafe => URL_SAFE_CHARSET,
     };
 
     buf.reserve(encoded_size(bytes.len()));
@@ -237,6 +251,12 @@ pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
     for _ in 0..(3-rem)%3 {
         raw.push(0x3d);
     }
+
+    if !config.pad {
+        while let Some(&b'=') = raw.last() {
+            raw.pop();
+        }
+    }
 }
 
 ///Decode from string reference as octets.
@@ -246,20 +266,19 @@ pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
 ///
 ///```rust
 ///extern crate base64;
-///use base64::Base64Mode;
 ///
 ///fn main() {
-///    let bytes = base64::decode_mode("aGVsbG8gd29ybGR+Cg==", Base64Mode::Standard).unwrap();
+///    let bytes = base64::decode_config("aGVsbG8gd29ybGR+Cg==", base64::STANDARD).unwrap();
 ///    println!("{:?}", bytes);
 ///
-///    let bytes_url = base64::decode_mode("aGVsbG8gaW50ZXJuZXR-Cg==", Base64Mode::UrlSafe).unwrap();
+///    let bytes_url = base64::decode_config("aGVsbG8gaW50ZXJuZXR-Cg==", base64::URL_SAFE).unwrap();
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error> {
+pub fn decode_config(input: &str, config: Config) -> Result<Vec<u8>, Base64Error> {
     let mut buffer = Vec::<u8>::with_capacity(input.len() * 4 / 3);
 
-    decode_mode_buf(input, mode, &mut buffer).map(|_| buffer)
+    decode_config_buf(input, config, &mut buffer).map(|_| buffer)
 }
 
 ///Decode from string reference as octets.
@@ -270,24 +289,22 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
 ///
 ///```rust
 ///extern crate base64;
-///use base64::Base64Mode;
 ///
 ///fn main() {
 ///    let mut buffer = Vec::<u8>::new();
-///    base64::decode_mode_buf("aGVsbG8gd29ybGR+Cg==", Base64Mode::Standard, &mut buffer).unwrap();
+///    base64::decode_config_buf("aGVsbG8gd29ybGR+Cg==", base64::STANDARD, &mut buffer).unwrap();
 ///    println!("{:?}", buffer);
 ///
 ///    buffer.clear();
 ///
-///    base64::decode_mode_buf("aGVsbG8gaW50ZXJuZXR-Cg==", Base64Mode::UrlSafe, &mut buffer).unwrap();
+///    base64::decode_config_buf("aGVsbG8gaW50ZXJuZXR-Cg==", base64::URL_SAFE, &mut buffer).unwrap();
 ///    println!("{:?}", buffer);
 ///}
 ///```
-pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
-    let (ref decode_table, _) = match mode {
-        Base64Mode::Standard => (decode_tables::STANDARD, false),
-        Base64Mode::UrlSafe => (decode_tables::URL_SAFE, false),
-        //TODO Base64Mode::MIME => (STANDARD, true)
+pub fn decode_config_buf(input: &str, config: Config, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
+    let decode_table = match config.char_set {
+        CharacterSet::Standard => decode_tables::STANDARD,
+        CharacterSet::UrlSafe => decode_tables::URL_SAFE,
     };
 
     buffer.reserve(input.len() * 3 / 4);

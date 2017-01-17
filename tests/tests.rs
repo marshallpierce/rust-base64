@@ -34,8 +34,8 @@ fn roundtrip_append_recurse(byte_buf: &mut Vec<u8>, str_buf: &mut String, remain
         if remaining_bytes > 1 {
             roundtrip_append_recurse(byte_buf, str_buf, remaining_bytes - 1)
         } else {
-            encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
-            let roundtrip_bytes = decode_mode(&str_buf, Base64Mode::Standard).unwrap();
+            encode_config_buf(&byte_buf, STANDARD, str_buf);
+            let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
             assert_eq!(*byte_buf, roundtrip_bytes);
 
             str_buf.clear();
@@ -57,10 +57,10 @@ fn roundtrip_append_recurse_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut 
         if remaining_bytes > 1 {
             roundtrip_append_recurse_strip_padding(byte_buf, str_buf, remaining_bytes - 1)
         } else {
-            encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+            encode_config_buf(&byte_buf, STANDARD, str_buf);
             {
                 let trimmed = str_buf.trim_right_matches('=');
-                let roundtrip_bytes = decode_mode(&trimmed, Base64Mode::Standard).unwrap();
+                let roundtrip_bytes = decode_config(&trimmed, STANDARD).unwrap();
                 assert_eq!(*byte_buf, roundtrip_bytes);
             }
             str_buf.clear();
@@ -83,8 +83,8 @@ fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usiz
             byte_buf.push(r.gen::<u8>());
         }
 
-        encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
-        let roundtrip_bytes = decode_mode(&str_buf, Base64Mode::Standard).unwrap();
+        encode_config_buf(&byte_buf, STANDARD, str_buf);
+        let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
 
         assert_eq!(*byte_buf, roundtrip_bytes);
     }
@@ -104,9 +104,9 @@ fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, 
             byte_buf.push(r.gen::<u8>());
         }
 
-        encode_mode_buf(&byte_buf, Base64Mode::Standard, str_buf);
+        encode_config_buf(&byte_buf, STANDARD, str_buf);
         let trimmed = str_buf.trim_right_matches('=');
-        let roundtrip_bytes = decode_mode(&trimmed, Base64Mode::Standard).unwrap();
+        let roundtrip_bytes = decode_config(&trimmed, STANDARD).unwrap();
 
         assert_eq!(*byte_buf, roundtrip_bytes);
     }
@@ -365,7 +365,7 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
         push_rand(&mut orig_data, raw_data_byte_triples * 3 + raw_data_byte_leftovers);
 
         encoded_data.clear();
-        encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_data);
+        encode_config_buf(&orig_data, STANDARD, &mut encoded_data);
 
         assert_eq!(encoded_length, encoded_data.trim_right_matches('=').len());
 
@@ -380,9 +380,9 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
             decoded_with_prefix.copy_from_slice(&prefix);
 
             // decode into the non-empty buf
-            decode_mode_buf(&encoded_data, Base64Mode::Standard, &mut decoded_with_prefix).unwrap();
+            decode_config_buf(&encoded_data, STANDARD, &mut decoded_with_prefix).unwrap();
             // also decode into the empty buf
-            decode_mode_buf(&encoded_data, Base64Mode::Standard, &mut decoded_without_prefix).unwrap();
+            decode_config_buf(&encoded_data, STANDARD, &mut decoded_without_prefix).unwrap();
 
             assert_eq!(prefix_length + decoded_without_prefix.len(), decoded_with_prefix.len());
 
@@ -576,7 +576,7 @@ fn encode_all_ascii() {
 #[test]
 fn encode_all_bytes() {
     let mut bytes = Vec::<u8>::with_capacity(256);
-    
+
     for i in 0..255 {
         bytes.push(i);
     }
@@ -588,13 +588,13 @@ fn encode_all_bytes() {
 #[test]
 fn encode_all_bytes_url() {
     let mut bytes = Vec::<u8>::with_capacity(256);
-    
+
     for i in 0..255 {
         bytes.push(i);
     }
     bytes.push(255); //bug with "overflowing" ranges?
 
-    assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_mode(&bytes, Base64Mode::UrlSafe));
+    assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_config(&bytes, URL_SAFE));
 }
 
 #[test]
@@ -620,9 +620,9 @@ fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
             encoded_with_prefix.push_str(&prefix);
 
             // encode into the non-empty buf
-            encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_with_prefix);
+            encode_config_buf(&orig_data, STANDARD, &mut encoded_with_prefix);
             // also encode into the empty buf
-            encode_mode_buf(&orig_data, Base64Mode::Standard, &mut encoded_without_prefix);
+            encode_config_buf(&orig_data, STANDARD, &mut encoded_without_prefix);
 
             assert_eq!(prefix_length + encoded_without_prefix.len(), encoded_with_prefix.len());
 
@@ -640,4 +640,12 @@ fn because_we_can() {
     compare_decode("alice", "YWxpY2U=");
     compare_decode("alice", &encode(b"alice"));
     compare_decode("alice", &encode(&decode(&encode(b"alice")).unwrap()));
+}
+
+
+#[test]
+fn encode_url_safe_without_padding() {
+    let encoded = encode_config(b"alice", URL_SAFE_NO_PAD);
+    assert_eq!(&encoded, "YWxpY2U");
+    assert_eq!(String::from_utf8(decode(&encoded).unwrap()).unwrap(), "alice");
 }
