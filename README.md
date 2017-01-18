@@ -77,10 +77,10 @@ debug = true
 
 Then compile the benchmarks. (Just re-run them and ^C once the benchmarks start running; all that's needed is to recompile them.)
 
-Run the benchmark binary with `perf` (shown here filtering to one particular benchmark, which will make the results easier to read). `perf` is only available to the root user on most systems as it fiddles with event counters in your CPU, so use `sudo`. We need to run the actual benchmark binary, hence the path into `target`. You can see the actual full path with `rustup run nightly cargo bench -v`; it will print out the commands it runs. If you use the exact path that `bench` outputs, make sure you get the one that's for the benchmarks, not the tests.:
+Run the benchmark binary with `perf` (shown here filtering to one particular benchmark, which will make the results easier to read). `perf` is only available to the root user on most systems as it fiddles with event counters in your CPU, so use `sudo`. We need to run the actual benchmark binary, hence the path into `target`. You can see the actual full path with `rustup run nightly cargo bench -v`; it will print out the commands it runs. If you use the exact path that `bench` outputs, make sure you get the one that's for the benchmarks, not the tests. You may also want to `cargo clean` so you have only one `benchmarks-` binary (they tend to accumulate).
 
 ```
-sudo perf record target/release/deps/benchmarks-* decode_10mib_reuse
+sudo perf record target/release/deps/benchmarks-* --bench decode_10mib_reuse
 ```
 
 Then analyze the results, again with perf:

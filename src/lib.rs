@@ -173,46 +173,85 @@ fn encoded_size(bytes_len: usize) -> usize {
 ///    println!("{}", buf);
 ///}
 ///```
-pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
+pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
     let (ref charset, _) = match mode {
         Base64Mode::Standard => (tables::STANDARD_ENCODE, false),
         Base64Mode::UrlSafe => (tables::URL_SAFE_ENCODE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
-    buf.reserve(encoded_size(bytes.len()));
+    buf.reserve(encoded_size(input.len()));
 
-    let rem = bytes.len() % 3;
-    let div = bytes.len() - rem;
+    let mut fast_loop_len = buf.len();
 
-    let mut raw: &mut Vec<u8>;
+    let input_chunk_len = 6;
 
-    unsafe {
-        // we're only going to insert valid utf8
-        raw = buf.as_mut_vec();
+    let last_fast_index = input.len().saturating_sub(8);
+
+    // we're only going to insert valid utf8
+    let mut raw = unsafe { buf.as_mut_vec() };
+    // start at the first free part of the output buf
+    let mut output_ptr = unsafe { raw.as_mut_ptr().offset(fast_loop_len as isize) };
+    let mut input_index = 0;
+    if input.len() >= 8 {
+        while input_index <= last_fast_index {
+            let input_chunk = BigEndian::read_u64(&input[input_index..(input_index + 8)]);
+
+            // strip off 6 bits at a time for the first 6 bytes
+            unsafe {
+                std::ptr::write(output_ptr, charset[((input_chunk >> 58) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(1), charset[((input_chunk >> 52) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(2), charset[((input_chunk >> 46) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(3), charset[((input_chunk >> 40) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(4), charset[((input_chunk >> 34) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(5), charset[((input_chunk >> 28) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(6), charset[((input_chunk >> 22) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(7), charset[((input_chunk >> 16) & 0x3F) as usize]);
+                output_ptr = output_ptr.offset(8);
+            }
+
+            input_index += input_chunk_len;
+            fast_loop_len += 8;
+        }
     }
 
-    let mut i = 0;
+    unsafe {
+        raw.set_len(fast_loop_len);
+    }
 
-    while i < div {
-        raw.push(charset[(bytes[i] >> 2) as usize]);
-        raw.push(charset[((bytes[i] << 4 | bytes[i+1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[((bytes[i+1] << 2 | bytes[i+2] >> 6) & 0x3f) as usize]);
-        raw.push(charset[(bytes[i+2] & 0x3f) as usize]);
+    let rem = input.len() % 3;
+    let end_of_last_triple = input.len() - rem;
 
-        i+=3;
+    let first_leftover_index = if input_index > 0 {
+        // fast loop has run. This will always be a multiple of input_chunk_len.
+        // Between 2 (because last 6 bytes were the first of 8) and 7 (if there was
+        // 8, fast loop would have run again) bytes left over.
+        input_index
+    } else {
+        0
+    };
+
+    let mut leftover_index = first_leftover_index;
+
+    while leftover_index < end_of_last_triple {
+        raw.push(charset[(input[leftover_index] >> 2) as usize]);
+        raw.push(charset[((input[leftover_index] << 4 | input[leftover_index + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[((input[leftover_index + 1] << 2 | input[leftover_index + 2] >> 6) & 0x3f) as usize]);
+        raw.push(charset[(input[leftover_index + 2] & 0x3f) as usize]);
+
+        leftover_index += 3;
     }
 
     if rem == 2 {
-        raw.push(charset[(bytes[div] >> 2) as usize]);
-        raw.push(charset[((bytes[div] << 4 | bytes[div+1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[(bytes[div+1] << 2 & 0x3f) as usize]);
+        raw.push(charset[(input[end_of_last_triple] >> 2) as usize]);
+        raw.push(charset[((input[end_of_last_triple] << 4 | input[end_of_last_triple + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[(input[end_of_last_triple + 1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(charset[(bytes[div] >> 2) as usize]);
-        raw.push(charset[(bytes[div] << 4 & 0x3f) as usize]);
+        raw.push(charset[(input[end_of_last_triple] >> 2) as usize]);
+        raw.push(charset[(input[end_of_last_triple] << 4 & 0x3f) as usize]);
     }
 
-    for _ in 0..(3-rem)%3 {
+    for _ in 0..((3 - rem) % 3) {
         raw.push(0x3d);
     }
 }
