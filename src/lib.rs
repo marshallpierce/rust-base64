@@ -219,8 +219,10 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
         raw.set_len(fast_loop_len);
     }
 
+    // encode the 0 to 7 bytes left after the fast loop
+
     let rem = input.len() % 3;
-    let end_of_last_triple = input.len() - rem;
+    let start_of_rem = input.len() - rem;
 
     let first_leftover_index = if input_index > 0 {
         // fast loop has run. This will always be a multiple of input_chunk_len.
@@ -233,7 +235,7 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
 
     let mut leftover_index = first_leftover_index;
 
-    while leftover_index < end_of_last_triple {
+    while leftover_index < start_of_rem {
         raw.push(charset[(input[leftover_index] >> 2) as usize]);
         raw.push(charset[((input[leftover_index] << 4 | input[leftover_index + 1] >> 4) & 0x3f) as usize]);
         raw.push(charset[((input[leftover_index + 1] << 2 | input[leftover_index + 2] >> 6) & 0x3f) as usize]);
@@ -243,12 +245,12 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
     }
 
     if rem == 2 {
-        raw.push(charset[(input[end_of_last_triple] >> 2) as usize]);
-        raw.push(charset[((input[end_of_last_triple] << 4 | input[end_of_last_triple + 1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[(input[end_of_last_triple + 1] << 2 & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
+        raw.push(charset[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem + 1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(charset[(input[end_of_last_triple] >> 2) as usize]);
-        raw.push(charset[(input[end_of_last_triple] << 4 & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
+        raw.push(charset[(input[start_of_rem] << 4 & 0x3f) as usize]);
     }
 
     for _ in 0..((3 - rem) % 3) {
