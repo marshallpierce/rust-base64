@@ -180,9 +180,11 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
+    // reserve to make sure the memory we'll be writing to with unsafe is allocated
     buf.reserve(encoded_size(input.len()));
 
-    let mut fast_loop_len = buf.len();
+    let orig_buf_len = buf.len();
+    let mut fast_loop_output_buf_len = orig_buf_len;
 
     let input_chunk_len = 6;
 
@@ -191,8 +193,8 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
     // we're only going to insert valid utf8
     let mut raw = unsafe { buf.as_mut_vec() };
     // start at the first free part of the output buf
-    let mut output_ptr = unsafe { raw.as_mut_ptr().offset(fast_loop_len as isize) };
-    let mut input_index = 0;
+    let mut output_ptr = unsafe { raw.as_mut_ptr().offset(orig_buf_len as isize) };
+    let mut input_index: usize = 0;
     if input.len() >= 8 {
         while input_index <= last_fast_index {
             let input_chunk = BigEndian::read_u64(&input[input_index..(input_index + 8)]);
@@ -211,12 +213,13 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
             }
 
             input_index += input_chunk_len;
-            fast_loop_len += 8;
+            fast_loop_output_buf_len += 8;
         }
     }
 
     unsafe {
-        raw.set_len(fast_loop_len);
+        // expand len to include the bytes we just wrote
+        raw.set_len(fast_loop_output_buf_len);
     }
 
     // encode the 0 to 7 bytes left after the fast loop
@@ -224,16 +227,8 @@ pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
     let rem = input.len() % 3;
     let start_of_rem = input.len() - rem;
 
-    let first_leftover_index = if input_index > 0 {
-        // fast loop has run. This will always be a multiple of input_chunk_len.
-        // Between 2 (because last 6 bytes were the first of 8) and 7 (if there was
-        // 8, fast loop would have run again) bytes left over.
-        input_index
-    } else {
-        0
-    };
-
-    let mut leftover_index = first_leftover_index;
+    // start at the first index not handled by fast loop, which may be 0.
+    let mut leftover_index = input_index;
 
     while leftover_index < start_of_rem {
         raw.push(charset[(input[leftover_index] >> 2) as usize]);

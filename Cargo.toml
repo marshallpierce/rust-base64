@@ -15,6 +15,6 @@ byteorder = "1.0.0"
 [dev-dependencies]
 rand = "=0.3.15"
 
-[profile.release]
+[profile.bench]
 # Uncomment when using `perf record`
 #debug = true
