@@ -350,7 +350,7 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let mut decoded_with_prefix = Vec::new();
     let mut decoded_without_prefix = Vec::new();
     let mut prefix = Vec::new();
-    for encoded_length in 0_usize..25 {
+    for encoded_length in 0_usize..26 {
         if encoded_length % 4 == 1 {
             // can't have a lone byte in a quad of input
             continue;
@@ -369,7 +369,7 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
 
         assert_eq!(encoded_length, encoded_data.trim_right_matches('=').len());
 
-        for prefix_length in 1..25 {
+        for prefix_length in 1..26 {
             decoded_with_prefix.clear();
             decoded_without_prefix.clear();
             prefix.clear();
@@ -409,7 +409,7 @@ fn roundtrip_random_with_fast_loop() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 9..24 {
+    for input_len in 9..26 {
         roundtrip_random(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
     }
 }
@@ -429,7 +429,7 @@ fn roundtrip_random_with_fast_loop_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 9..24 {
+    for input_len in 9..26 {
         roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
     }
 }
@@ -603,12 +603,12 @@ fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let mut encoded_with_prefix = String::new();
     let mut encoded_without_prefix = String::new();
     let mut prefix = String::new();
-    for orig_data_length in 0_usize..25 {
+    for orig_data_length in 0_usize..26 {
         // we'll borrow buf to make some data to encode
         orig_data.clear();
         push_rand(&mut orig_data, orig_data_length);
 
-        for prefix_length in 1..25 {
+        for prefix_length in 1..26 {
             encoded_with_prefix.clear();
             encoded_without_prefix.clear();
             prefix.clear();

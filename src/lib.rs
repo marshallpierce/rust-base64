@@ -4,29 +4,7 @@ use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
 
-const STANDARD: [u8; 64] = [
-    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
-    0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
-    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
-    0x59, 0x5A, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-    0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E,
-    0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76,
-    0x77, 0x78, 0x79, 0x7A, 0x30, 0x31, 0x32, 0x33,
-    0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2B, 0x2F
-];
-
-const URL_SAFE: [u8; 64] = [
-    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
-    0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
-    0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
-    0x59, 0x5A, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-    0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E,
-    0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76,
-    0x77, 0x78, 0x79, 0x7A, 0x30, 0x31, 0x32, 0x33,
-    0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x2D, 0x5F
-];
-
-mod decode_tables;
+mod tables;
 
 pub enum Base64Mode {
     Standard,
@@ -195,46 +173,82 @@ fn encoded_size(bytes_len: usize) -> usize {
 ///    println!("{}", buf);
 ///}
 ///```
-pub fn encode_mode_buf(bytes: &[u8], mode: Base64Mode, buf: &mut String) {
+pub fn encode_mode_buf(input: &[u8], mode: Base64Mode, buf: &mut String) {
     let (ref charset, _) = match mode {
-        Base64Mode::Standard => (STANDARD, false),
-        Base64Mode::UrlSafe => (URL_SAFE, false),
+        Base64Mode::Standard => (tables::STANDARD_ENCODE, false),
+        Base64Mode::UrlSafe => (tables::URL_SAFE_ENCODE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
-    buf.reserve(encoded_size(bytes.len()));
+    // reserve to make sure the memory we'll be writing to with unsafe is allocated
+    buf.reserve(encoded_size(input.len()));
 
-    let rem = bytes.len() % 3;
-    let div = bytes.len() - rem;
+    let orig_buf_len = buf.len();
+    let mut fast_loop_output_buf_len = orig_buf_len;
 
-    let mut raw: &mut Vec<u8>;
+    let input_chunk_len = 6;
 
-    unsafe {
-        // we're only going to insert valid utf8
-        raw = buf.as_mut_vec();
+    let last_fast_index = input.len().saturating_sub(8);
+
+    // we're only going to insert valid utf8
+    let mut raw = unsafe { buf.as_mut_vec() };
+    // start at the first free part of the output buf
+    let mut output_ptr = unsafe { raw.as_mut_ptr().offset(orig_buf_len as isize) };
+    let mut input_index: usize = 0;
+    if input.len() >= 8 {
+        while input_index <= last_fast_index {
+            let input_chunk = BigEndian::read_u64(&input[input_index..(input_index + 8)]);
+
+            // strip off 6 bits at a time for the first 6 bytes
+            unsafe {
+                std::ptr::write(output_ptr, charset[((input_chunk >> 58) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(1), charset[((input_chunk >> 52) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(2), charset[((input_chunk >> 46) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(3), charset[((input_chunk >> 40) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(4), charset[((input_chunk >> 34) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(5), charset[((input_chunk >> 28) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(6), charset[((input_chunk >> 22) & 0x3F) as usize]);
+                std::ptr::write(output_ptr.offset(7), charset[((input_chunk >> 16) & 0x3F) as usize]);
+                output_ptr = output_ptr.offset(8);
+            }
+
+            input_index += input_chunk_len;
+            fast_loop_output_buf_len += 8;
+        }
     }
 
-    let mut i = 0;
+    unsafe {
+        // expand len to include the bytes we just wrote
+        raw.set_len(fast_loop_output_buf_len);
+    }
 
-    while i < div {
-        raw.push(charset[(bytes[i] >> 2) as usize]);
-        raw.push(charset[((bytes[i] << 4 | bytes[i+1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[((bytes[i+1] << 2 | bytes[i+2] >> 6) & 0x3f) as usize]);
-        raw.push(charset[(bytes[i+2] & 0x3f) as usize]);
+    // encode the 0 to 7 bytes left after the fast loop
 
-        i+=3;
+    let rem = input.len() % 3;
+    let start_of_rem = input.len() - rem;
+
+    // start at the first index not handled by fast loop, which may be 0.
+    let mut leftover_index = input_index;
+
+    while leftover_index < start_of_rem {
+        raw.push(charset[(input[leftover_index] >> 2) as usize]);
+        raw.push(charset[((input[leftover_index] << 4 | input[leftover_index + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[((input[leftover_index + 1] << 2 | input[leftover_index + 2] >> 6) & 0x3f) as usize]);
+        raw.push(charset[(input[leftover_index + 2] & 0x3f) as usize]);
+
+        leftover_index += 3;
     }
 
     if rem == 2 {
-        raw.push(charset[(bytes[div] >> 2) as usize]);
-        raw.push(charset[((bytes[div] << 4 | bytes[div+1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[(bytes[div+1] << 2 & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
+        raw.push(charset[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem + 1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(charset[(bytes[div] >> 2) as usize]);
-        raw.push(charset[(bytes[div] << 4 & 0x3f) as usize]);
+        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
+        raw.push(charset[(input[start_of_rem] << 4 & 0x3f) as usize]);
     }
 
-    for _ in 0..(3-rem)%3 {
+    for _ in 0..((3 - rem) % 3) {
         raw.push(0x3d);
     }
 }
@@ -285,8 +299,8 @@ pub fn decode_mode(input: &str, mode: Base64Mode) -> Result<Vec<u8>, Base64Error
 ///```
 pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
     let (ref decode_table, _) = match mode {
-        Base64Mode::Standard => (decode_tables::STANDARD, false),
-        Base64Mode::UrlSafe => (decode_tables::URL_SAFE, false),
+        Base64Mode::Standard => (tables::STANDARD_DECODE, false),
+        Base64Mode::UrlSafe => (tables::URL_SAFE_DECODE, false),
         //TODO Base64Mode::MIME => (STANDARD, true)
     };
 
@@ -331,56 +345,56 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
 
             let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
             morsel = decode_table[(input_chunk >> 56) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index;
                 break;
             };
             accum = (morsel as u64) << 58;
 
             morsel = decode_table[(input_chunk >> 48 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 1;
                 break;
             };
             accum |= (morsel as u64) << 52;
 
             morsel = decode_table[(input_chunk >> 40 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 2;
                 break;
             };
             accum |= (morsel as u64) << 46;
 
             morsel = decode_table[(input_chunk >> 32 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 3;
                 break;
             };
             accum |= (morsel as u64) << 40;
 
             morsel = decode_table[(input_chunk >> 24 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 4;
                 break;
             };
             accum |= (morsel as u64) << 34;
 
             morsel = decode_table[(input_chunk >> 16 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 5;
                 break;
             };
             accum |= (morsel as u64) << 28;
 
             morsel = decode_table[(input_chunk >> 8 & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 6;
                 break;
             };
             accum |= (morsel as u64) << 22;
 
             morsel = decode_table[(input_chunk & 0xFF) as usize];
-            if morsel == decode_tables::INVALID_VALUE {
+            if morsel == tables::INVALID_VALUE {
                 bad_byte_index = input_index + 7;
                 break;
             };
@@ -393,7 +407,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
             input_index += chunk_len;
         };
 
-        if morsel == decode_tables::INVALID_VALUE {
+        if morsel == tables::INVALID_VALUE {
             // we got here from a break
             return Err(Base64Error::InvalidByte(bad_byte_index, input_bytes[bad_byte_index]));
         }
@@ -451,7 +465,7 @@ pub fn decode_mode_buf(input: &str, mode: Base64Mode, buffer: &mut Vec<u8>) -> R
         let shift = 64 - (morsels_in_leftover + 1) * 6;
         // tables are all 256 elements, cannot overflow from a u8 index
         let morsel = decode_table[*b as usize];
-        if morsel == decode_tables::INVALID_VALUE {
+        if morsel == tables::INVALID_VALUE {
             return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
         };
 
