@@ -262,13 +262,9 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
         raw.push(charset[(input[start_of_rem] << 4 & 0x3f) as usize]);
     }
 
-    for _ in 0..((3 - rem) % 3) {
-        raw.push(0x3d);
-    }
-
-    if !config.pad {
-        while let Some(&b'=') = raw.last() {
-            raw.pop();
+    if config.pad {
+        for _ in 0..((3 - rem) % 3) {
+            raw.push(0x3d);
         }
     }
 }
