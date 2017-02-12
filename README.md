@@ -6,7 +6,7 @@ It's base64. What more could anyone want?
 Example
 ---
 
-In Cargo.toml: `base64 = "~0.3.0"`
+In Cargo.toml: `base64 = "~0.4.0"`
 
 ```rust
     extern crate base64;
@@ -41,7 +41,7 @@ rust-base64 exposes seven functions:
     decode_ws(&str) -> Result<Vec<u8>, Base64Error>
 ```
 
-Config supported out of the box are `STANDARD`, `URL_SAFE` and `URL_SAFE_NO_PAD`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_mode` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
+Config supported out of the box are `STANDARD`, `URL_SAFE` and `URL_SAFE_NO_PAD`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_config` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
 
 Goals
 ---
@@ -108,5 +108,5 @@ You'll see a bunch of interleaved rust source and assembly like this. The sectio
          :                  morsel = decode_table[(input_chunk >> 56) as usize];
  lib.rs:322    3.68 :     106a4:       cmp    $0xff,%r15
          :                  if morsel == decode_tables::INVALID_VALUE {
-    0.00 :        106ab:       je     1090e <base64::decode_mode_buf::hbf68a45fefa299c1+0x46e>
+    0.00 :        106ab:       je     1090e <base64::decode_config_buf::hbf68a45fefa299c1+0x46e>
 ```
