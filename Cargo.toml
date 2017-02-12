@@ -7,6 +7,7 @@ repository = "https://github.com/alicemaz/rust-base64"
 documentation = "https://github.com/alicemaz/rust-base64/blob/master/README.md"
 readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode"]
+categories = ["encoding"]
 license = "MIT"
 
 [dependencies]
