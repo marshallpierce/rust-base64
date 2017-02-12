@@ -4,7 +4,7 @@ extern crate base64;
 extern crate test;
 extern crate rand;
 
-use base64::{decode, decode_mode_buf, encode, encode_mode_buf, Base64Mode};
+use base64::{decode, decode_config_buf, encode, encode_config_buf, STANDARD};
 
 use test::Bencher;
 use rand::Rng;
@@ -189,7 +189,7 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, size: usize) {
     let mut buf = Vec::new();
     b.bytes = encoded.len() as u64;
     b.iter(|| {
-        decode_mode_buf(&encoded, Base64Mode::Standard, &mut buf).unwrap();
+        decode_config_buf(&encoded, STANDARD, &mut buf).unwrap();
         test::black_box(&buf);
         buf.clear();
     });
@@ -214,7 +214,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, size: usize) {
 
     b.bytes = v.len() as u64;
     b.iter(|| {
-        let e = encode_mode_buf(&v, Base64Mode::Standard, &mut buf);
+        let e = encode_config_buf(&v, STANDARD, &mut buf);
         test::black_box(&e);
         buf.clear();
     });
