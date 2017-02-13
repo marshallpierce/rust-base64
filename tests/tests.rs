@@ -649,3 +649,10 @@ fn encode_url_safe_without_padding() {
     assert_eq!(&encoded, "YWxpY2U");
     assert_eq!(String::from_utf8(decode(&encoded).unwrap()).unwrap(), "alice");
 }
+
+#[test]
+fn encode_decode_using_traits() {
+    assert_eq!("alice".as_bytes().to_base64(URL_SAFE_NO_PAD), "YWxpY2U");
+    assert_eq!("alice", String::from_utf8("YWxpY2U".from_base64().unwrap()).unwrap());
+
+}

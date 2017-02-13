@@ -1,6 +1,6 @@
 extern crate byteorder;
 
-use std::{fmt, error, str};
+use std::{fmt, error, str, string};
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -28,10 +28,10 @@ pub static STANDARD: Config = Config {char_set: CharacterSet::Standard, pad: tru
 pub static URL_SAFE: Config = Config {char_set: CharacterSet::UrlSafe, pad: true};
 pub static URL_SAFE_NO_PAD: Config = Config {char_set: CharacterSet::UrlSafe, pad: false};
 
-
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Base64Error {
     Utf8(str::Utf8Error),
+    FromUtf8(string::FromUtf8Error),
     InvalidByte(usize, u8),
     InvalidLength,
 }
@@ -40,6 +40,7 @@ impl fmt::Display for Base64Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Base64Error::Utf8(ref err) => err.fmt(f),
+            Base64Error::FromUtf8(ref err) => err.fmt(f),
             Base64Error::InvalidByte(index, byte) =>
                 write!(f, "Invalid byte {}, offset {}.", byte, index),
             Base64Error::InvalidLength =>
@@ -52,6 +53,7 @@ impl error::Error for Base64Error {
     fn description(&self) -> &str {
         match *self {
             Base64Error::Utf8(ref err) => err.description(),
+            Base64Error::FromUtf8(ref err) => err.description(),
             Base64Error::InvalidByte(_,_) => "invalid byte",
             Base64Error::InvalidLength => "invalid length"
         }
@@ -60,6 +62,7 @@ impl error::Error for Base64Error {
     fn cause(&self) -> Option<&error::Error> {
         match *self {
             Base64Error::Utf8(ref err) => Some(err as &error::Error),
+            Base64Error::FromUtf8(ref err) => err.cause(),
             _ => None
         }
     }
@@ -68,6 +71,63 @@ impl error::Error for Base64Error {
 impl From<str::Utf8Error> for Base64Error {
     fn from(err: str::Utf8Error) -> Base64Error {
         Base64Error::Utf8(err)
+    }
+}
+impl From<string::FromUtf8Error> for Base64Error {
+    fn from(err: string::FromUtf8Error) -> Base64Error {
+        Base64Error::FromUtf8(err)
+    }
+}
+
+/// A trait for converting a value to base64 encoding.
+pub trait ToBase64 {
+    /// Converts the value of `self` to a base64 value following the specified
+    /// format configuration, returning the owned string.
+    fn to_base64(&self, config: Config) -> String;
+}
+
+
+impl ToBase64 for [u8] {
+    /// Turn a vector of `u8` bytes into a base64 string.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// extern crate base64;
+    /// use base64::{ToBase64, STANDARD};
+    ///
+    /// fn main () {
+    ///     let str = [52,32].to_base64(STANDARD);
+    ///     println!("base 64 output: {:?}", str);
+    /// }
+    /// ```
+    fn to_base64(&self, config: Config) -> String {
+        encode_config(self, config)
+    }
+}
+
+impl<'a, T: ?Sized + ToBase64> ToBase64 for &'a T {
+    fn to_base64(&self, config: Config) -> String {
+        (**self).to_base64(config)
+    }
+}
+
+/// A trait for converting from base64 encoded values.
+pub trait FromBase64 {
+    /// Converts the value of `self`, interpreted as base64 encoded data, into
+    /// an owned vector of bytes, returning the vector.
+    fn from_base64(&self) -> Result<Vec<u8>, Base64Error>;
+}
+
+impl FromBase64 for str {
+    fn from_base64(&self) -> Result<Vec<u8>, Base64Error> {
+        decode(self)
+    }
+}
+
+impl FromBase64 for [u8] {
+    fn from_base64(&self) -> Result<Vec<u8>, Base64Error> {
+        decode(&String::from_utf8(self.to_vec())?)
     }
 }
 
