@@ -196,7 +196,7 @@ fn decode_rfc4648_6() {
 fn decode_pad_inside_fast_loop_chunk_error() {
     // can't PartialEq Base64Error, so we do this the hard way
     match decode("YWxpY2U=====").unwrap_err() {
-        Base64Error::InvalidByte(offset, byte) => {
+        DecodeError::InvalidByte(offset, byte) => {
             // since the first 8 bytes are handled in the fast loop, the
             // padding is an error. Could argue that the *next* padding
             // byte is technically the first erroneous one, but reporting
@@ -211,7 +211,7 @@ fn decode_pad_inside_fast_loop_chunk_error() {
 #[test]
 fn decode_extra_pad_after_fast_loop_chunk_error() {
     match decode("YWxpY2UABB===").unwrap_err() {
-        Base64Error::InvalidByte(offset, byte) => {
+        DecodeError::InvalidByte(offset, byte) => {
             // extraneous third padding byte
             assert_eq!(12, offset);
             assert_eq!(0x3D, byte);
@@ -225,7 +225,7 @@ fn decode_extra_pad_after_fast_loop_chunk_error() {
 #[test]
 fn decode_absurd_pad_error() {
     match decode("==Y=Wx===pY=2U=====").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             assert_eq!(0, size);
             assert_eq!(0x3D, byte);
         }
@@ -236,7 +236,7 @@ fn decode_absurd_pad_error() {
 #[test]
 fn decode_starts_with_padding_single_quad_error() {
     match decode("====").unwrap_err() {
-        Base64Error::InvalidByte(offset, byte) => {
+        DecodeError::InvalidByte(offset, byte) => {
             // with no real input, first padding byte is bogus
             assert_eq!(0, offset);
             assert_eq!(0x3D, byte);
@@ -248,7 +248,7 @@ fn decode_starts_with_padding_single_quad_error() {
 #[test]
 fn decode_extra_padding_in_trailing_quad_returns_error() {
     match decode("zzz==").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             // first unneeded padding byte
             assert_eq!(4, size);
             assert_eq!(0x3D, byte);
@@ -260,7 +260,7 @@ fn decode_extra_padding_in_trailing_quad_returns_error() {
 #[test]
 fn decode_extra_padding_in_trailing_quad_2_returns_error() {
     match decode("zz===").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             // first unneeded padding byte
             assert_eq!(4, size);
             assert_eq!(0x3D, byte);
@@ -273,7 +273,7 @@ fn decode_extra_padding_in_trailing_quad_2_returns_error() {
 #[test]
 fn decode_start_second_quad_with_padding_returns_error() {
     match decode("zzzz=").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             // first unneeded padding byte
             assert_eq!(4, size);
             assert_eq!(0x3D, byte);
@@ -285,7 +285,7 @@ fn decode_start_second_quad_with_padding_returns_error() {
 #[test]
 fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
     match decode("zzzz==z").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             assert_eq!(4, size);
             assert_eq!(0x3D, byte);
         }
@@ -296,7 +296,7 @@ fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
 #[test]
 fn decode_too_short_with_padding_error() {
     match decode("z==").unwrap_err() {
-        Base64Error::InvalidByte(size, byte) => {
+        DecodeError::InvalidByte(size, byte) => {
             // first unneeded padding byte
             assert_eq!(1, size);
             assert_eq!(0x3D, byte);
@@ -308,7 +308,7 @@ fn decode_too_short_with_padding_error() {
 #[test]
 fn decode_too_short_without_padding_error() {
     match decode("z").unwrap_err() {
-        Base64Error::InvalidLength => {}
+        DecodeError::InvalidLength => {}
         _ => assert!(false)
     }
 }
@@ -316,7 +316,7 @@ fn decode_too_short_without_padding_error() {
 #[test]
 fn decode_too_short_second_quad_without_padding_error() {
     match decode("zzzzX").unwrap_err() {
-        Base64Error::InvalidLength => {}
+        DecodeError::InvalidLength => {}
         _ => assert!(false)
     }
 }
@@ -333,7 +333,7 @@ fn decode_error_for_bogus_char_in_right_position() {
                 "length {} error position {}", length, error_position);
 
             match decode(&input).unwrap_err() {
-                Base64Error::InvalidByte(size, byte) => {
+                DecodeError::InvalidByte(size, byte) => {
                     assert_eq!(error_position, size,
                         "length {} error position {}", length, error_position);
                     assert_eq!(0x25, byte);

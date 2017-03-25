@@ -30,44 +30,32 @@ pub static URL_SAFE_NO_PAD: Config = Config {char_set: CharacterSet::UrlSafe, pa
 
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Base64Error {
-    Utf8(str::Utf8Error),
+pub enum DecodeError {
     InvalidByte(usize, u8),
     InvalidLength,
 }
 
-impl fmt::Display for Base64Error {
+impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Base64Error::Utf8(ref err) => err.fmt(f),
-            Base64Error::InvalidByte(index, byte) =>
+            DecodeError::InvalidByte(index, byte) =>
                 write!(f, "Invalid byte {}, offset {}.", byte, index),
-            Base64Error::InvalidLength =>
+            DecodeError::InvalidLength =>
                 write!(f, "Encoded text cannot have a 6-bit remainder.")
         }
     }
 }
 
-impl error::Error for Base64Error {
+impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
-            Base64Error::Utf8(ref err) => err.description(),
-            Base64Error::InvalidByte(_,_) => "invalid byte",
-            Base64Error::InvalidLength => "invalid length"
+            DecodeError::InvalidByte(_, _) => "invalid byte",
+            DecodeError::InvalidLength => "invalid length"
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Base64Error::Utf8(ref err) => Some(err as &error::Error),
-            _ => None
-        }
-    }
-}
-
-impl From<str::Utf8Error> for Base64Error {
-    fn from(err: str::Utf8Error) -> Base64Error {
-        Base64Error::Utf8(err)
+        None
     }
 }
 
@@ -103,7 +91,7 @@ pub fn encode(input: &[u8]) -> String {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, Base64Error> {
+pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
     decode_config(input, STANDARD)
 }
 
@@ -123,7 +111,7 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, Base64Error
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode_ws(input: &str) -> Result<Vec<u8>, Base64Error> {
+pub fn decode_ws(input: &str) -> Result<Vec<u8>, DecodeError> {
     let mut raw = Vec::<u8>::with_capacity(input.len());
     raw.extend(input.bytes().filter(|b| !b" \n\t\r\x0c".contains(b)));
 
@@ -285,7 +273,7 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Result<Vec<u8>, Base64Error> {
+pub fn decode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Result<Vec<u8>, DecodeError> {
     let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
@@ -314,7 +302,7 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Resu
 pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
                                                   config: Config,
                                                   buffer: &mut Vec<u8>)
-                                                  -> Result<(), Base64Error> {
+                                                  -> Result<(), DecodeError> {
     let input_bytes = input.as_ref();
     let ref decode_table = match config.char_set {
         CharacterSet::Standard => tables::STANDARD_DECODE,
@@ -425,7 +413,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
 
         if morsel == tables::INVALID_VALUE {
             // we got here from a break
-            return Err(Base64Error::InvalidByte(bad_byte_index, input_bytes[bad_byte_index]));
+            return Err(DecodeError::InvalidByte(bad_byte_index, input_bytes[bad_byte_index]));
         }
     }
 
@@ -456,7 +444,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
             if i % 4 < 2 {
                 // Check for case #2.
                 // TODO InvalidPadding error
-                return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
+                return Err(DecodeError::InvalidByte(length_of_full_chunks + i, *b));
             };
 
             if padding_bytes == 0 {
@@ -472,7 +460,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
         // non-suffix '=' in trailing chunk either. Report error as first
         // erroneous padding.
         if padding_bytes > 0 {
-            return Err(Base64Error::InvalidByte(
+            return Err(DecodeError::InvalidByte(
                 length_of_full_chunks + first_padding_index, 0x3D));
         };
 
@@ -482,7 +470,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
         // tables are all 256 elements, cannot overflow from a u8 index
         let morsel = decode_table[*b as usize];
         if morsel == tables::INVALID_VALUE {
-            return Err(Base64Error::InvalidByte(length_of_full_chunks + i, *b));
+            return Err(DecodeError::InvalidByte(length_of_full_chunks + i, *b));
         };
 
         leftover_bits |= (morsel as u64) << shift;
@@ -491,11 +479,11 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
 
     let leftover_bits_ready_to_append = match morsels_in_leftover {
         0 => 0,
-        1 => return Err(Base64Error::InvalidLength),
+        1 => return Err(DecodeError::InvalidLength),
         2 => 8,
         3 => 16,
         4 => 24,
-        5 => return Err(Base64Error::InvalidLength),
+        5 => return Err(DecodeError::InvalidLength),
         6 => 32,
         7 => 40,
         8 => 48,
