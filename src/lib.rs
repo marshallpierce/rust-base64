@@ -103,7 +103,7 @@ pub fn encode(input: &[u8]) -> String {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode(input: &str) -> Result<Vec<u8>, Base64Error> {
+pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, Base64Error> {
     decode_config(input, STANDARD)
 }
 
@@ -285,8 +285,8 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_config(input: &str, config: Config) -> Result<Vec<u8>, Base64Error> {
-    let mut buffer = Vec::<u8>::with_capacity(input.len() * 4 / 3);
+pub fn decode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Result<Vec<u8>, Base64Error> {
+    let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
 }
@@ -311,18 +311,22 @@ pub fn decode_config(input: &str, config: Config) -> Result<Vec<u8>, Base64Error
 ///    println!("{:?}", buffer);
 ///}
 ///```
-pub fn decode_config_buf(input: &str, config: Config, buffer: &mut Vec<u8>) -> Result<(), Base64Error> {
+pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
+                                                  config: Config,
+                                                  buffer: &mut Vec<u8>)
+                                                  -> Result<(), Base64Error> {
+    let input_bytes = input.as_ref();
     let ref decode_table = match config.char_set {
         CharacterSet::Standard => tables::STANDARD_DECODE,
         CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
     };
 
-    buffer.reserve(input.len() * 3 / 4);
+    buffer.reserve(input_bytes.len() * 3 / 4);
 
     // the fast loop only handles complete chunks of 8 input bytes without padding
     let chunk_len = 8;
     let decoded_chunk_len = 6;
-    let remainder_len = input.len() % chunk_len;
+    let remainder_len = input_bytes.len() % chunk_len;
     let trailing_bytes_to_skip = if remainder_len == 0 {
         // if input is a multiple of the chunk size, ignore the last chunk as it may have padding
         chunk_len
@@ -330,7 +334,7 @@ pub fn decode_config_buf(input: &str, config: Config, buffer: &mut Vec<u8>) -> R
         remainder_len
     };
 
-    let length_of_full_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
+    let length_of_full_chunks = input_bytes.len().saturating_sub(trailing_bytes_to_skip);
 
     let starting_output_index = buffer.len();
     // Resize to hold decoded output from fast loop. Need the extra two bytes because
@@ -342,7 +346,6 @@ pub fn decode_config_buf(input: &str, config: Config, buffer: &mut Vec<u8>) -> R
 
     let mut output_index = starting_output_index;
 
-    let input_bytes = input.as_bytes();
     {
         let buffer_slice = buffer.as_mut_slice();
 
@@ -438,7 +441,7 @@ pub fn decode_config_buf(input: &str, config: Config, buffer: &mut Vec<u8>) -> R
     let mut morsels_in_leftover = 0;
     let mut padding_bytes = 0;
     let mut first_padding_index: usize = 0;
-    for (i, b) in input.as_bytes()[length_of_full_chunks..].iter().enumerate() {
+    for (i, b) in input_bytes[length_of_full_chunks..].iter().enumerate() {
         // '=' padding
         if *b == 0x3D {
             // There can be bad padding in a few ways:
