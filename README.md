@@ -43,6 +43,15 @@ rust-base64 exposes seven functions:
 
 Config supported out of the box are `STANDARD`, `URL_SAFE` and `URL_SAFE_NO_PAD`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_config` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
 
+rust-base64 also exposes 2 traits: `FromBase64` and `ToBase64` and implements them
+for the basic usecase:
+
+```rust
+use base64::{FromBase64, ToBase64, STANDARD};
+
+assert_eq!("alice".as_bytes().to_base64(STANDARD), String::from_utf8("YWxpY2U".from_base64().unwrap()).unwrap());
+```
+
 Goals
 ---
 
