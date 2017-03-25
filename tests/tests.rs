@@ -11,6 +11,7 @@ fn compare_encode(expected: &str, target: &[u8]) {
 
 fn compare_decode(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode(target).unwrap()).unwrap());
+    assert_eq!(expected, String::from_utf8(decode(target.as_bytes()).unwrap()).unwrap());
 }
 
 fn compare_decode_ws(expected: &str, target: &str) {
