@@ -21,51 +21,70 @@ pub enum LineEnding {
     CRLF,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum LineWrap {
+    NoWrap,
+    Wrap(usize, LineEnding)
+}
+
 /// Contains configuration parameters for base64 encoding
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     /// Character set to use
-    pub char_set: CharacterSet,
+    char_set: CharacterSet,
     /// True to pad output with `=` characters
-    pub pad: bool,
+    pad: bool,
     /// Remove whitespace before decoding, at the cost of an allocation
-    pub strip_whitespace: bool,
-    /// Characters per line, None (or Some(0), but less "proper") for no linebreaks
-    pub line_size: Option<usize>,
-    /// Unix or Windows line endings, ignored if above None/Some(0)
-    pub line_ending: LineEnding,
+    strip_whitespace: bool,
+    /// ADT signifying whether to linewrap output, and if so by how many characters and with what ending
+    line_wrap: LineWrap,
+}
+
+impl Config {
+    pub fn new(char_set: CharacterSet,
+               pad: bool,
+               strip_whitespace: bool,
+               input_line_wrap: LineWrap) -> Config {
+        let line_wrap = match input_line_wrap  {
+            LineWrap::Wrap(0, _) => LineWrap::NoWrap,
+            _ => input_line_wrap,
+        };
+
+        Config {
+            char_set: char_set,
+            pad: pad,
+            strip_whitespace: strip_whitespace,
+            line_wrap: line_wrap,
+        }
+    }
 }
 
 pub static STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: false,
-    line_size: None,
-    line_ending: LineEnding::LF,
+    line_wrap: LineWrap::NoWrap,
 };
 
 pub static MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: true,
-    line_size: Some(76),
-    line_ending: LineEnding::CRLF,
+    line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
 };
 
 pub static URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
     strip_whitespace: false,
-    line_size: None,
-    line_ending: LineEnding::LF,
+    line_wrap: LineWrap::NoWrap,
 };
 
 pub static URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
     strip_whitespace: false,
-    line_size: None,
-    line_ending: LineEnding::LF,
+    line_wrap: LineWrap::NoWrap,
 };
 
 
@@ -170,13 +189,10 @@ fn encoded_size(bytes_len: usize, config: Config) -> usize {
     } else {
         complete_output_chars + 4
     };
-    let line_ending_length = match config.line_ending {
-        LineEnding::CRLF => 2,
-        LineEnding::LF => 1,
-    };
-    let line_ending_output_chars = match config.line_size {
-        Some(0) | None => 0,
-        Some(n) => printing_output_chars / n * line_ending_length,
+    let line_ending_output_chars = match config.line_wrap {
+        LineWrap::NoWrap => 0,
+        LineWrap::Wrap(n, LineEnding::CRLF) => printing_output_chars / n * 2,
+        LineWrap::Wrap(n, LineEnding::LF) => printing_output_chars / n,
     };
 
     return printing_output_chars + line_ending_output_chars;
@@ -280,15 +296,14 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
         }
     }
 
-    if config.line_size.is_some() && config.line_size.unwrap() > 0 {
-        let line_size = config.line_size.unwrap();
+    if let LineWrap::Wrap(line_size, line_end) = config.line_wrap {
         let len = raw.len();
         let mut i = 0;
         let mut j = 0;
 
         while i < len {
             if i > 0 && i % line_size == 0 {
-                match config.line_ending {
+                match line_end {
                     LineEnding::LF => { raw.insert(j, b'\n'); j += 1; }
                     LineEnding::CRLF => { raw.insert(j, b'\r'); raw.insert(j + 1, b'\n'); j += 2; }
                 }
@@ -556,7 +571,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
 
 #[cfg(test)]
 mod tests {
-    use super::{encoded_size, STANDARD, MIME, Config, CharacterSet, LineEnding};
+    use super::*;
 
     #[test]
     fn encoded_size_correct() {
@@ -610,13 +625,12 @@ mod tests {
 
     #[test]
     fn encoded_size_correct_lf() {
-        let config = Config {
-            char_set: CharacterSet::Standard,
-            pad: true,
-            strip_whitespace: false,
-            line_size: Some(76),
-            line_ending: LineEnding::LF,
-        };
+        let config = Config::new(
+            CharacterSet::Standard,
+            true,
+            false,
+            LineWrap::Wrap(76, LineEnding::LF)
+        );
 
         assert_eq!(0, encoded_size(0, config));
 
