@@ -132,7 +132,7 @@ impl error::Error for DecodeError {
 ///    println!("{}", b64);
 ///}
 ///```
-pub fn encode(input: &[u8]) -> String {
+pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
     encode_config(input, STANDARD)
 }
 
@@ -170,8 +170,8 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{}", b64_url);
 ///}
 ///```
-pub fn encode_config(input: &[u8], config: Config) -> String {
-    let mut buf = String::with_capacity(encoded_size(input.len(), config));
+pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
+    let mut buf = String::with_capacity(encoded_size(input.as_ref().len(), config));
 
     encode_config_buf(input, config, &mut buf);
 
@@ -216,30 +216,31 @@ fn encoded_size(bytes_len: usize, config: Config) -> usize {
 ///    println!("{}", buf);
 ///}
 ///```
-pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
+pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
+    let input_bytes = input.as_ref();
     let ref charset = match config.char_set {
         CharacterSet::Standard => tables::STANDARD_ENCODE,
         CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
     };
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
-    buf.reserve(encoded_size(input.len(), config));
+    buf.reserve(encoded_size(input_bytes.len(), config));
 
     let orig_buf_len = buf.len();
     let mut fast_loop_output_buf_len = orig_buf_len;
 
     let input_chunk_len = 6;
 
-    let last_fast_index = input.len().saturating_sub(8);
+    let last_fast_index = input_bytes.len().saturating_sub(8);
 
     // we're only going to insert valid utf8
     let mut raw = unsafe { buf.as_mut_vec() };
     // start at the first free part of the output buf
     let mut output_ptr = unsafe { raw.as_mut_ptr().offset(orig_buf_len as isize) };
     let mut input_index: usize = 0;
-    if input.len() >= 8 {
+    if input_bytes.len() >= 8 {
         while input_index <= last_fast_index {
-            let input_chunk = BigEndian::read_u64(&input[input_index..(input_index + 8)]);
+            let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
 
             // strip off 6 bits at a time for the first 6 bytes
             unsafe {
@@ -266,28 +267,28 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
 
     // encode the 0 to 7 bytes left after the fast loop
 
-    let rem = input.len() % 3;
-    let start_of_rem = input.len() - rem;
+    let rem = input_bytes.len() % 3;
+    let start_of_rem = input_bytes.len() - rem;
 
     // start at the first index not handled by fast loop, which may be 0.
     let mut leftover_index = input_index;
 
     while leftover_index < start_of_rem {
-        raw.push(charset[(input[leftover_index] >> 2) as usize]);
-        raw.push(charset[((input[leftover_index] << 4 | input[leftover_index + 1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[((input[leftover_index + 1] << 2 | input[leftover_index + 2] >> 6) & 0x3f) as usize]);
-        raw.push(charset[(input[leftover_index + 2] & 0x3f) as usize]);
+        raw.push(charset[(input_bytes[leftover_index] >> 2) as usize]);
+        raw.push(charset[((input_bytes[leftover_index] << 4 | input_bytes[leftover_index + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[((input_bytes[leftover_index + 1] << 2 | input_bytes[leftover_index + 2] >> 6) & 0x3f) as usize]);
+        raw.push(charset[(input_bytes[leftover_index + 2] & 0x3f) as usize]);
 
         leftover_index += 3;
     }
 
     if rem == 2 {
-        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
-        raw.push(charset[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[(input[start_of_rem + 1] << 2 & 0x3f) as usize]);
+        raw.push(charset[(input_bytes[start_of_rem] >> 2) as usize]);
+        raw.push(charset[((input_bytes[start_of_rem] << 4 | input_bytes[start_of_rem + 1] >> 4) & 0x3f) as usize]);
+        raw.push(charset[(input_bytes[start_of_rem + 1] << 2 & 0x3f) as usize]);
     } else if rem == 1 {
-        raw.push(charset[(input[start_of_rem] >> 2) as usize]);
-        raw.push(charset[(input[start_of_rem] << 4 & 0x3f) as usize]);
+        raw.push(charset[(input_bytes[start_of_rem] >> 2) as usize]);
+        raw.push(charset[(input_bytes[start_of_rem] << 4 & 0x3f) as usize]);
     }
 
     if config.pad {
