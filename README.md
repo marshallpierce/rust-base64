@@ -1,4 +1,4 @@
-[rust-base64](https://crates.io/crates/base64)
+[base64](https://crates.io/crates/base64)
 ===
 
 It's base64. What more could anyone want?
@@ -6,47 +6,42 @@ It's base64. What more could anyone want?
 Example
 ---
 
-In Cargo.toml: `base64 = "~0.4.0"`
+In Cargo.toml: `base64 = "~0.5.0"`
 
 ```rust
-    extern crate base64;
+extern crate base64;
 
-    use base64::{encode, decode};
+use base64::{encode, decode};
 
-    fn main() {
-        let a = b"hello world";
-        let b = "aGVsbG8gd29ybGQ=";
+fn main() {
+    let a = b"hello world";
+    let b = "aGVsbG8gd29ybGQ=";
 
-        assert_eq!(encode(a), b);
-        assert_eq!(a, &decode(b).unwrap()[..]);
-    }
+    assert_eq!(encode(a), b);
+    assert_eq!(a, &decode(b).unwrap()[..]);
+}
 ```
 
 API
 ---
 
-NOTE: return types have changed from 0.1.x. `decode_ws` is deprecated, functionally equivalent to not-yet-implemented MIME mode which will replace it (or perhaps an alternate way of passing options if there is a usecase for whitespace-ignoring UrlSafe).
-
-NOTE: previously (<= 0.2.x) decoding would ignore extraneous padding bytes; this is no longer the case, and such input will produce an InvalidByte error.
-
-rust-base64 exposes seven functions:
+base64 exposes six functions:
 
 ```rust
-    encode(&[u8]) -> String
-    decode(&str) -> Result<Vec<u8>, Base64Error>
-    encode_config(&[u8], Config) -> String
-    decode_config(&str, Config) -> Result<Vec<u8>, Base64Error>
-    encode_config_buf(&[u8], Config, &mut String)
-    decode_config_buf(&str, Config, &mut Vec<u8>) -> Result<(), Base64Error>
-    decode_ws(&str) -> Result<Vec<u8>, Base64Error>
+encode<T: ?Sized + AsRef<[u8]>>(&T) -> String
+decode<T: ?Sized + AsRef<[u8]>>(&T) -> Result<Vec<u8>, DecodeError>
+encode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> String
+encode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut String) {
+decode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> Result<Vec<u8>, DecodeError>
+decode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut Vec<u8>) -> Result<(), DecodeError>
 ```
 
-Config supported out of the box are `STANDARD`, `URL_SAFE` and `URL_SAFE_NO_PAD`, which aim to be fully compliant with [RFC 4648](https://tools.ietf.org/html/rfc4648). MIME mode ([RFC 2045](https://www.ietf.org/rfc/rfc2045.txt)) is forthcoming. `encode` and `decode` are convenience wrappers for the `_config` functions called with `Base64Mode::Standard`, which are themselves wrappers of the `_buf` functions that allocate. `decode_ws` does the same as `decode` after first stripping whitespace ("whitespace" according to the rules of Javascript's `btoa()`, meaning \n \r \f \t and space). Encode produces valid padding in all cases; decode produces the same output for valid or omitted padding, but errors on invalid (superfluous) padding.
+`STANDARD`, `URL_SAFE`, `URL_SAFE_NO_PAD`, and `MIME` configuation structs are provided for convenience. `encode` and `decode` are convenience wrappers for the `_config` functions called with the `STANDARD` config, and they are themselves wrappers of the `_buf` functions that allocate on the user's behalf. Encode produces valid padding absent a config that states otherwise; decode produces the same output for valid or omitted padding in all cases, but errors on invalid (superfluous) padding. Whitespace in the input to decode is an error for all modes except `MIME`, which disregards it ("whitespace" according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space). 
 
-Goals
+`Config` exposes a constructor to allow custom combinations of character set, output padding, input whitespace permissiveness, linewrapping, and line ending character(s). The vast majority of usecases should be covered by the four provided, however.
+
+Purpose
 ---
-
-MIME support, along with replacing the mode enum with config structs. It is unlikely I will add much, if anything, to the feature set beyond that. I'd like to improve on the test cases, confirm full compliance with the standard, and then focus on making it smaller and more performant.
 
 I have a fondness for small dependency footprints, ecosystems where you can pick and choose what functionality you need, and no more. Unix philosophy sort of thing I guess, many tiny utilities interoperating across a common interface. One time making a Twitter bot, I ran into the need to correctly pluralize arbitrary words. I found on npm a module that did nothing but pluralize words. Nothing else, just a couple of functions. I'd like for this to be that "just a couple of functions."
 
@@ -86,7 +81,7 @@ sudo perf record target/release/deps/benchmarks-* --bench decode_10mib_reuse
 Then analyze the results, again with perf:
 
 ```
-sudo perf annnotate -l
+sudo perf annotate -l
 ```
 
 You'll see a bunch of interleaved rust source and assembly like this. The section with `lib.rs:327` is telling us that 4.02% of samples saw the `movzbl` aka bit shift as the active instruction. However, this percentage is not as exact as it seems due to a phenomenon called *skid*. Basically, a consequence of how fancy modern CPUs are is that this sort of instruction profiling is inherently inaccurate, especially in branch-heavy code.
