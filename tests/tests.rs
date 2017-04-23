@@ -499,6 +499,18 @@ fn decode_reject_tab() {
 
 #[test]
 #[should_panic]
+fn decode_reject_ff() {
+    assert!(decode("YWx\x0cpY2U=").is_ok());
+}
+
+#[test]
+#[should_panic]
+fn decode_reject_vtab() {
+    assert!(decode("YWx\x0bpY2U=").is_ok());
+}
+
+#[test]
+#[should_panic]
 fn decode_reject_nl() {
     assert!(decode("YWx\npY2U=").is_ok());
 }
@@ -526,6 +538,16 @@ fn decode_mime_allow_tab() {
 }
 
 #[test]
+fn decode_mime_allow_ff() {
+    assert!(decode_config("YWx\x0cpY2U=", MIME).is_ok());
+}
+
+#[test]
+fn decode_mime_allow_vtab() {
+    assert!(decode_config("YWx\x0bpY2U=", MIME).is_ok());
+}
+
+#[test]
 fn decode_mime_allow_nl() {
     assert!(decode_config("YWx\npY2U=", MIME).is_ok());
 }
@@ -544,7 +566,7 @@ fn decode_mime_reject_null() {
 #[test]
 fn decode_mime_absurd_whitespace() {
     compare_decode_mime("how could you let this happen",
-        "\n aG93I\n\nGNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ");
+        "\n aG93I\n\nG\x0bNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ");
 }
 
 //-------

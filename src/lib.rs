@@ -365,7 +365,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
     let mut input_copy;
     let input_bytes = if config.strip_whitespace {
         input_copy = Vec::<u8>::with_capacity(input.as_ref().len());
-        input_copy.extend(input.as_ref().iter().filter(|b| !b" \n\t\r\x0c".contains(b)));
+        input_copy.extend(input.as_ref().iter().filter(|b| !b" \n\t\r\x0b\x0c".contains(b)));
 
         input_copy.as_ref()
     } else {
