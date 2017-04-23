@@ -15,18 +15,77 @@ pub enum CharacterSet {
     UrlSafe
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum LineEnding {
+    LF,
+    CRLF,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum LineWrap {
+    NoWrap,
+    Wrap(usize, LineEnding)
+}
+
 /// Contains configuration parameters for base64 encoding
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     /// Character set to use
-    pub char_set: CharacterSet,
+    char_set: CharacterSet,
     /// True to pad output with `=` characters
-    pub pad: bool,
+    pad: bool,
+    /// Remove whitespace before decoding, at the cost of an allocation
+    strip_whitespace: bool,
+    /// ADT signifying whether to linewrap output, and if so by how many characters and with what ending
+    line_wrap: LineWrap,
 }
 
-pub static STANDARD: Config = Config {char_set: CharacterSet::Standard, pad: true};
-pub static URL_SAFE: Config = Config {char_set: CharacterSet::UrlSafe, pad: true};
-pub static URL_SAFE_NO_PAD: Config = Config {char_set: CharacterSet::UrlSafe, pad: false};
+impl Config {
+    pub fn new(char_set: CharacterSet,
+               pad: bool,
+               strip_whitespace: bool,
+               input_line_wrap: LineWrap) -> Config {
+        let line_wrap = match input_line_wrap  {
+            LineWrap::Wrap(0, _) => LineWrap::NoWrap,
+            _ => input_line_wrap,
+        };
+
+        Config {
+            char_set: char_set,
+            pad: pad,
+            strip_whitespace: strip_whitespace,
+            line_wrap: line_wrap,
+        }
+    }
+}
+
+pub static STANDARD: Config = Config {
+    char_set: CharacterSet::Standard,
+    pad: true,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
+
+pub static MIME: Config = Config {
+    char_set: CharacterSet::Standard,
+    pad: true,
+    strip_whitespace: true,
+    line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
+};
+
+pub static URL_SAFE: Config = Config {
+    char_set: CharacterSet::UrlSafe,
+    pad: true,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
+
+pub static URL_SAFE_NO_PAD: Config = Config {
+    char_set: CharacterSet::UrlSafe,
+    pad: false,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -95,30 +154,6 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
     decode_config(input, STANDARD)
 }
 
-///DEPRECATED -- will be replaced by `decode_config(input, Base64Mode::MIME);`
-///
-///Decode from string reference as octets.
-///Returns a Result containing a Vec<u8>.
-///Ignores extraneous whitespace.
-///
-///# Example
-///
-///```rust
-///extern crate base64;
-///
-///fn main() {
-///    let bytes = base64::decode_ws("aG VsbG8gd2\r\n9ybGQ=").unwrap();
-///    println!("{:?}", bytes);
-///}
-///```
-pub fn decode_ws(input: &str) -> Result<Vec<u8>, DecodeError> {
-    let mut raw = Vec::<u8>::with_capacity(input.len());
-    raw.extend(input.bytes().filter(|b| !b" \n\t\r\x0c".contains(b)));
-
-    let sans_ws = String::from_utf8(raw).unwrap();
-    decode_config(&sans_ws, STANDARD)
-}
-
 ///Encode arbitrary octets as base64.
 ///Returns a String.
 ///
@@ -136,7 +171,7 @@ pub fn decode_ws(input: &str) -> Result<Vec<u8>, DecodeError> {
 ///}
 ///```
 pub fn encode_config(input: &[u8], config: Config) -> String {
-    let mut buf = String::with_capacity(encoded_size(input.len()));
+    let mut buf = String::with_capacity(encoded_size(input.len(), config));
 
     encode_config_buf(input, config, &mut buf);
 
@@ -144,18 +179,23 @@ pub fn encode_config(input: &[u8], config: Config) -> String {
 }
 
 /// calculate the base64 encoded string size, including padding
-fn encoded_size(bytes_len: usize) -> usize {
+fn encoded_size(bytes_len: usize, config: Config) -> usize {
     let rem = bytes_len % 3;
 
     let complete_input_chunks = bytes_len / 3;
     let complete_output_chars = complete_input_chunks * 4;
-    let leftover_output_chars = if rem == 0 {
-        0
+    let printing_output_chars = if rem == 0 {
+        complete_output_chars
     } else {
-        4
+        complete_output_chars + 4
+    };
+    let line_ending_output_chars = match config.line_wrap {
+        LineWrap::NoWrap => 0,
+        LineWrap::Wrap(n, LineEnding::CRLF) => printing_output_chars / n * 2,
+        LineWrap::Wrap(n, LineEnding::LF) => printing_output_chars / n,
     };
 
-    return complete_output_chars + leftover_output_chars;
+    return printing_output_chars + line_ending_output_chars;
 }
 
 ///Encode arbitrary octets as base64.
@@ -183,7 +223,7 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
     };
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
-    buf.reserve(encoded_size(input.len()));
+    buf.reserve(encoded_size(input.len(), config));
 
     let orig_buf_len = buf.len();
     let mut fast_loop_output_buf_len = orig_buf_len;
@@ -255,6 +295,24 @@ pub fn encode_config_buf(input: &[u8], config: Config, buf: &mut String) {
             raw.push(0x3d);
         }
     }
+
+    if let LineWrap::Wrap(line_size, line_end) = config.line_wrap {
+        let len = raw.len();
+        let mut i = 0;
+        let mut j = 0;
+
+        while i < len {
+            if i > 0 && i % line_size == 0 {
+                match line_end {
+                    LineEnding::LF => { raw.insert(j, b'\n'); j += 1; }
+                    LineEnding::CRLF => { raw.insert(j, b'\r'); raw.insert(j + 1, b'\n'); j += 2; }
+                }
+            }
+
+            i += 1;
+            j += 1;
+        }
+    }
 }
 
 ///Decode from string reference as octets.
@@ -303,7 +361,16 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
                                                   config: Config,
                                                   buffer: &mut Vec<u8>)
                                                   -> Result<(), DecodeError> {
-    let input_bytes = input.as_ref();
+    let mut input_copy;
+    let input_bytes = if config.strip_whitespace {
+        input_copy = Vec::<u8>::with_capacity(input.as_ref().len());
+        input_copy.extend(input.as_ref().iter().filter(|b| !b" \n\t\r\x0c".contains(b)));
+
+        input_copy.as_ref()
+    } else {
+        input.as_ref()
+    };
+
     let ref decode_table = match config.char_set {
         CharacterSet::Standard => tables::STANDARD_DECODE,
         CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
@@ -504,22 +571,87 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
 
 #[cfg(test)]
 mod tests {
-    use super::encoded_size;
+    use super::*;
 
     #[test]
     fn encoded_size_correct() {
-        assert_eq!(0, encoded_size(0));
+        assert_eq!(0, encoded_size(0, STANDARD));
 
-        assert_eq!(4, encoded_size(1));
-        assert_eq!(4, encoded_size(2));
-        assert_eq!(4, encoded_size(3));
+        assert_eq!(4, encoded_size(1, STANDARD));
+        assert_eq!(4, encoded_size(2, STANDARD));
+        assert_eq!(4, encoded_size(3, STANDARD));
 
-        assert_eq!(8, encoded_size(4));
-        assert_eq!(8, encoded_size(5));
-        assert_eq!(8, encoded_size(6));
+        assert_eq!(8, encoded_size(4, STANDARD));
+        assert_eq!(8, encoded_size(5, STANDARD));
+        assert_eq!(8, encoded_size(6, STANDARD));
 
-        assert_eq!(12, encoded_size(7));
-        assert_eq!(12, encoded_size(8));
-        assert_eq!(12, encoded_size(9));
+        assert_eq!(12, encoded_size(7, STANDARD));
+        assert_eq!(12, encoded_size(8, STANDARD));
+        assert_eq!(12, encoded_size(9, STANDARD));
+
+        assert_eq!(72, encoded_size(54, STANDARD));
+
+        assert_eq!(76, encoded_size(55, STANDARD));
+        assert_eq!(76, encoded_size(56, STANDARD));
+        assert_eq!(76, encoded_size(57, STANDARD));
+
+        assert_eq!(80, encoded_size(58, STANDARD));
+    }
+
+    #[test]
+    fn encoded_size_correct_mime() {
+        assert_eq!(0, encoded_size(0, MIME));
+
+        assert_eq!(4, encoded_size(1, MIME));
+        assert_eq!(4, encoded_size(2, MIME));
+        assert_eq!(4, encoded_size(3, MIME));
+
+        assert_eq!(8, encoded_size(4, MIME));
+        assert_eq!(8, encoded_size(5, MIME));
+        assert_eq!(8, encoded_size(6, MIME));
+
+        assert_eq!(12, encoded_size(7, MIME));
+        assert_eq!(12, encoded_size(8, MIME));
+        assert_eq!(12, encoded_size(9, MIME));
+
+        assert_eq!(72, encoded_size(54, MIME));
+
+        assert_eq!(78, encoded_size(55, MIME));
+        assert_eq!(78, encoded_size(56, MIME));
+        assert_eq!(78, encoded_size(57, MIME));
+
+        assert_eq!(82, encoded_size(58, MIME));
+    }
+
+    #[test]
+    fn encoded_size_correct_lf() {
+        let config = Config::new(
+            CharacterSet::Standard,
+            true,
+            false,
+            LineWrap::Wrap(76, LineEnding::LF)
+        );
+
+        assert_eq!(0, encoded_size(0, config));
+
+        assert_eq!(4, encoded_size(1, config));
+        assert_eq!(4, encoded_size(2, config));
+        assert_eq!(4, encoded_size(3, config));
+
+        assert_eq!(8, encoded_size(4, config));
+        assert_eq!(8, encoded_size(5, config));
+        assert_eq!(8, encoded_size(6, config));
+
+        assert_eq!(12, encoded_size(7, config));
+        assert_eq!(12, encoded_size(8, config));
+        assert_eq!(12, encoded_size(9, config));
+
+        assert_eq!(72, encoded_size(54, config));
+
+        assert_eq!(77, encoded_size(55, config));
+        assert_eq!(77, encoded_size(56, config));
+        assert_eq!(77, encoded_size(57, config));
+
+        assert_eq!(81, encoded_size(58, config));
     }
 }

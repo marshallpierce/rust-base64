@@ -14,8 +14,8 @@ fn compare_decode(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode(target.as_bytes()).unwrap()).unwrap());
 }
 
-fn compare_decode_ws(expected: &str, target: &str) {
-    assert_eq!(expected, String::from_utf8(decode_ws(target).unwrap()).unwrap());
+fn compare_decode_mime(expected: &str, target: &str) {
+    assert_eq!(expected, String::from_utf8(decode_config(target, MIME).unwrap()).unwrap());
 }
 
 fn push_rand(buf: &mut Vec<u8>, len: usize) {
@@ -515,13 +515,35 @@ fn decode_reject_null() {
     assert!(decode("YWx\0pY2U=").is_ok());
 }
 
-
-//TODO unicode tests
-//put in a seperate file so this remains valid ascii
+#[test]
+fn decode_mime_allow_space() {
+    assert!(decode_config("YWx pY2U=", MIME).is_ok());
+}
 
 #[test]
-fn decode_ws_absurd_whitespace() {
-    compare_decode_ws("how could you let this happen",
+fn decode_mime_allow_tab() {
+    assert!(decode_config("YWx\tpY2U=", MIME).is_ok());
+}
+
+#[test]
+fn decode_mime_allow_nl() {
+    assert!(decode_config("YWx\npY2U=", MIME).is_ok());
+}
+
+#[test]
+fn decode_mime_allow_crnl() {
+    assert!(decode_config("YWx\r\npY2U=", MIME).is_ok());
+}
+
+#[test]
+#[should_panic]
+fn decode_mime_reject_null() {
+    assert!(decode_config("YWx\0pY2U=", MIME).is_ok());
+}
+
+#[test]
+fn decode_mime_absurd_whitespace() {
+    compare_decode_mime("how could you let this happen",
         "\n aG93I\n\nGNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ");
 }
 
