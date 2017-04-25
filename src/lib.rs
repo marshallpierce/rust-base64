@@ -1,6 +1,6 @@
 extern crate byteorder;
 
-use std::{fmt, error, str};
+use std::{fmt, error, str, ptr};
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -218,83 +218,27 @@ fn encoded_size(bytes_len: usize, config: Config) -> usize {
 ///```
 pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
     let input_bytes = input.as_ref();
-    let ref charset = match config.char_set {
-        CharacterSet::Standard => tables::STANDARD_ENCODE,
-        CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
-    };
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
-    buf.reserve(encoded_size(input_bytes.len(), config));
+    let encoded_size = encoded_size(input_bytes.len(), config);
+    buf.reserve(encoded_size);
 
     let orig_buf_len = buf.len();
-    let mut fast_loop_output_buf_len = orig_buf_len;
-
-    let input_chunk_len = 6;
-
-    let last_fast_index = input_bytes.len().saturating_sub(8);
 
     // we're only going to insert valid utf8
     let mut raw = unsafe { buf.as_mut_vec() };
-    // start at the first free part of the output buf
-    let mut output_ptr = unsafe { raw.as_mut_ptr().offset(orig_buf_len as isize) };
-    let mut input_index: usize = 0;
-    if input_bytes.len() >= 8 {
-        while input_index <= last_fast_index {
-            let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
-
-            // strip off 6 bits at a time for the first 6 bytes
-            unsafe {
-                std::ptr::write(output_ptr, charset[((input_chunk >> 58) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(1), charset[((input_chunk >> 52) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(2), charset[((input_chunk >> 46) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(3), charset[((input_chunk >> 40) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(4), charset[((input_chunk >> 34) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(5), charset[((input_chunk >> 28) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(6), charset[((input_chunk >> 22) & 0x3F) as usize]);
-                std::ptr::write(output_ptr.offset(7), charset[((input_chunk >> 16) & 0x3F) as usize]);
-                output_ptr = output_ptr.offset(8);
-            }
-
-            input_index += input_chunk_len;
-            fast_loop_output_buf_len += 8;
-        }
+    unsafe {
+        // expand the string's vec to use its reserved size
+        raw.set_len(orig_buf_len + encoded_size);
     }
+
+    // write into the newly reserved space
+    let bytes_written = encode_to_slice(input_bytes, config, &mut raw[orig_buf_len..]);
 
     unsafe {
-        // expand len to include the bytes we just wrote
-        raw.set_len(fast_loop_output_buf_len);
-    }
-
-    // encode the 0 to 7 bytes left after the fast loop
-
-    let rem = input_bytes.len() % 3;
-    let start_of_rem = input_bytes.len() - rem;
-
-    // start at the first index not handled by fast loop, which may be 0.
-    let mut leftover_index = input_index;
-
-    while leftover_index < start_of_rem {
-        raw.push(charset[(input_bytes[leftover_index] >> 2) as usize]);
-        raw.push(charset[((input_bytes[leftover_index] << 4 | input_bytes[leftover_index + 1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[((input_bytes[leftover_index + 1] << 2 | input_bytes[leftover_index + 2] >> 6) & 0x3f) as usize]);
-        raw.push(charset[(input_bytes[leftover_index + 2] & 0x3f) as usize]);
-
-        leftover_index += 3;
-    }
-
-    if rem == 2 {
-        raw.push(charset[(input_bytes[start_of_rem] >> 2) as usize]);
-        raw.push(charset[((input_bytes[start_of_rem] << 4 | input_bytes[start_of_rem + 1] >> 4) & 0x3f) as usize]);
-        raw.push(charset[(input_bytes[start_of_rem + 1] << 2 & 0x3f) as usize]);
-    } else if rem == 1 {
-        raw.push(charset[(input_bytes[start_of_rem] >> 2) as usize]);
-        raw.push(charset[(input_bytes[start_of_rem] << 4 & 0x3f) as usize]);
-    }
-
-    if config.pad {
-        for _ in 0..((3 - rem) % 3) {
-            raw.push(0x3d);
-        }
+        // set length to precisely the bytes we just wrote, which might be smaller than the size we
+        // set above if the selected config did not use padding
+        raw.set_len(orig_buf_len + bytes_written);
     }
 
     if let LineWrap::Wrap(line_size, line_end) = config.line_wrap {
@@ -314,6 +258,103 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
             j += 1;
         }
     }
+}
+
+/// Encode input bytes to utf8 base64 bytes. Does not honor line wrapping config.
+///
+/// The output slice must be long enough to hold the encoded output or this will panic.
+///
+/// Returns the number of bytes written.
+fn encode_to_slice(input_bytes: &[u8], config: Config, output: &mut [u8]) -> usize {
+    assert!(output.len() >= encoded_size(input_bytes.len(), config));
+
+    let ref charset = match config.char_set {
+        CharacterSet::Standard => tables::STANDARD_ENCODE,
+        CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
+    };
+
+    let last_fast_index = input_bytes.len().saturating_sub(8);
+
+    let input_chunk_len = 6;
+
+    let mut output_ptr = output.as_mut_ptr();
+
+    let mut input_index: usize = 0;
+    if input_bytes.len() >= 8 {
+        while input_index <= last_fast_index {
+            let input_chunk = BigEndian::read_u64(&input_bytes[input_index..(input_index + 8)]);
+
+            // strip off 6 bits at a time for the first 6 bytes
+            unsafe {
+                ptr::write(output_ptr, charset[((input_chunk >> 58) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(1), charset[((input_chunk >> 52) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(2), charset[((input_chunk >> 46) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(3), charset[((input_chunk >> 40) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(4), charset[((input_chunk >> 34) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(5), charset[((input_chunk >> 28) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(6), charset[((input_chunk >> 22) & 0x3F) as usize]);
+                ptr::write(output_ptr.offset(7), charset[((input_chunk >> 16) & 0x3F) as usize]);
+                output_ptr = output_ptr.offset(8);
+            }
+
+            input_index += input_chunk_len;
+        }
+    }
+
+    // encode the 0 to 7 bytes left after the fast loop
+
+    let rem = input_bytes.len() % 3;
+    let start_of_rem = input_bytes.len() - rem;
+
+    // start at the first index not handled by fast loop, which may be 0.
+    let mut leftover_index = input_index;
+
+    while leftover_index < start_of_rem {
+        unsafe {
+            ptr::write(output_ptr,
+                       charset[(input_bytes[leftover_index] >> 2) as usize]);
+            ptr::write(output_ptr.offset(1),
+                       charset[((input_bytes[leftover_index] << 4 | input_bytes[leftover_index + 1] >> 4) & 0x3f) as usize]);
+            ptr::write(output_ptr.offset(2),
+                       charset[((input_bytes[leftover_index + 1] << 2 | input_bytes[leftover_index + 2] >> 6) & 0x3f) as usize]);
+            ptr::write(output_ptr.offset(3),
+                       charset[(input_bytes[leftover_index + 2] & 0x3f) as usize]);
+            output_ptr = output_ptr.offset(4);
+        }
+        leftover_index += 3;
+    };
+
+    if rem == 2 {
+        unsafe {
+            ptr::write(output_ptr,
+                       charset[(input_bytes[start_of_rem] >> 2) as usize]);
+            ptr::write(output_ptr.offset(1),
+                       charset[((input_bytes[start_of_rem] << 4 | input_bytes[start_of_rem + 1] >> 4) & 0x3f) as usize]);
+            ptr::write(output_ptr.offset(2),
+                       charset[(input_bytes[start_of_rem + 1] << 2 & 0x3f) as usize]);
+            output_ptr = output_ptr.offset(3);
+        }
+    } else if rem == 1 {
+        unsafe {
+            ptr::write(output_ptr,
+                       charset[(input_bytes[start_of_rem] >> 2) as usize]);
+            ptr::write(output_ptr.offset(1),
+                       charset[(input_bytes[start_of_rem] << 4 & 0x3f) as usize]);
+            output_ptr = output_ptr.offset(2);
+        }
+    }
+
+    if config.pad {
+        for _ in 0..((3 - rem) % 3) {
+            unsafe {
+                ptr::write(output_ptr, 0x3d);
+                output_ptr = output_ptr.offset(1);
+            }
+        }
+    }
+
+    // will not underflow: output_ptr is always at least
+    (output_ptr as usize) - (output.as_ptr() as usize)
 }
 
 ///Decode from string reference as octets.

@@ -36,11 +36,11 @@ fn roundtrip_append_recurse(byte_buf: &mut Vec<u8>, str_buf: &mut String, remain
             roundtrip_append_recurse(byte_buf, str_buf, remaining_bytes - 1)
         } else {
             encode_config_buf(&byte_buf, STANDARD, str_buf);
+            assert_encoded_length_with_padding(&byte_buf, &str_buf);
             let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
             assert_eq!(*byte_buf, roundtrip_bytes);
 
             str_buf.clear();
-
         }
 
         byte_buf.truncate(orig_length);
@@ -49,19 +49,19 @@ fn roundtrip_append_recurse(byte_buf: &mut Vec<u8>, str_buf: &mut String, remain
 
 // generate every possible byte string recursively and test encode/decode roundtrip with
 // padding removed
-fn roundtrip_append_recurse_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String,
-                                          remaining_bytes: usize) {
+fn roundtrip_append_recurse_no_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String,
+                                       remaining_bytes: usize) {
     let orig_length = byte_buf.len();
     for b in 0..256 {
         byte_buf.push(b as u8);
 
         if remaining_bytes > 1 {
-            roundtrip_append_recurse_strip_padding(byte_buf, str_buf, remaining_bytes - 1)
+            roundtrip_append_recurse_no_padding(byte_buf, str_buf, remaining_bytes - 1)
         } else {
-            encode_config_buf(&byte_buf, STANDARD, str_buf);
+            encode_config_buf(&byte_buf, no_pad_config(), str_buf);
+            assert_encoded_length_no_padding(&byte_buf, &str_buf);
             {
-                let trimmed = str_buf.trim_right_matches('=');
-                let roundtrip_bytes = decode_config(&trimmed, STANDARD).unwrap();
+                let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
                 assert_eq!(*byte_buf, roundtrip_bytes);
             }
             str_buf.clear();
@@ -85,6 +85,7 @@ fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usiz
         }
 
         encode_config_buf(&byte_buf, STANDARD, str_buf);
+        assert_encoded_length_with_padding(&byte_buf, &str_buf);
         let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
 
         assert_eq!(*byte_buf, roundtrip_bytes);
@@ -92,8 +93,8 @@ fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usiz
 }
 
 // generate random contents of the specified length and test encode/decode roundtrip
-fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
-                    approx_values_per_byte: u8, max_rounds: u64) {
+fn roundtrip_random_no_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, byte_len: usize,
+                               approx_values_per_byte: u8, max_rounds: u64) {
     // let the short ones be short but don't let it get too crazy large
     let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, max_rounds);
     let mut r = rand::weak_rng();
@@ -105,9 +106,9 @@ fn roundtrip_random_strip_padding(byte_buf: &mut Vec<u8>, str_buf: &mut String, 
             byte_buf.push(r.gen::<u8>());
         }
 
-        encode_config_buf(&byte_buf, STANDARD, str_buf);
-        let trimmed = str_buf.trim_right_matches('=');
-        let roundtrip_bytes = decode_config(&trimmed, STANDARD).unwrap();
+        encode_config_buf(&byte_buf, no_pad_config(), str_buf);
+        assert_encoded_length_no_padding(&byte_buf, &str_buf);
+        let roundtrip_bytes = decode_config(&str_buf, STANDARD).unwrap();
 
         assert_eq!(*byte_buf, roundtrip_bytes);
     }
@@ -140,6 +141,7 @@ fn decode_rfc4648_0() {
 fn decode_rfc4648_1() {
     compare_decode("f", "Zg==");
 }
+
 #[test]
 fn decode_rfc4648_1_just_a_bit_of_padding() {
     // allows less padding than required
@@ -421,7 +423,7 @@ fn roundtrip_random_no_fast_loop_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 0..9 {
-        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4, 10000);
+        roundtrip_random_no_padding(&mut byte_buf, &mut str_buf, input_len, 4, 10000);
     }
 }
 
@@ -431,7 +433,7 @@ fn roundtrip_random_with_fast_loop_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 9..26 {
-        roundtrip_random_strip_padding(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
+        roundtrip_random_no_padding(&mut byte_buf, &mut str_buf, input_len, 4, 100000);
     }
 }
 
@@ -446,7 +448,7 @@ fn roundtrip_all_1_byte() {
 fn roundtrip_all_1_byte_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
-    roundtrip_append_recurse_strip_padding(&mut byte_buf, &mut str_buf, 1);
+    roundtrip_append_recurse_no_padding(&mut byte_buf, &mut str_buf, 1);
 }
 
 #[test]
@@ -460,7 +462,7 @@ fn roundtrip_all_2_byte() {
 fn roundtrip_all_2_byte_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
-    roundtrip_append_recurse_strip_padding(&mut byte_buf, &mut str_buf, 2);
+    roundtrip_append_recurse_no_padding(&mut byte_buf, &mut str_buf, 2);
 }
 
 #[test]
@@ -468,6 +470,13 @@ fn roundtrip_all_3_byte() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
     roundtrip_append_recurse(&mut byte_buf, &mut str_buf, 3);
+}
+
+#[test]
+fn roundtrip_all_3_byte_no_padding() {
+    let mut byte_buf: Vec<u8> = Vec::new();
+    let mut str_buf = String::new();
+    roundtrip_append_recurse_no_padding(&mut byte_buf, &mut str_buf, 3);
 }
 
 #[test]
@@ -693,4 +702,28 @@ fn encode_url_safe_without_padding() {
     let encoded = encode_config(b"alice", URL_SAFE_NO_PAD);
     assert_eq!(&encoded, "YWxpY2U");
     assert_eq!(String::from_utf8(decode(&encoded).unwrap()).unwrap(), "alice");
+}
+
+fn assert_encoded_length_with_padding(input: &[u8], encoded: &str) {
+    let padding_len = match input.len() % 3 {
+        0 => 0,
+        _ => 4
+    };
+
+    assert_eq!((input.len() / 3) * 4 + padding_len, encoded.len());
+}
+
+fn assert_encoded_length_no_padding(input: &[u8], encoded: &str) {
+    let leftover_len = match input.len() % 3 {
+        0 => 0,
+        1 => 2,
+        2 => 3,
+        x => panic!("Impossible length: {}", x)
+    };
+
+    assert_eq!((input.len() / 3) * 4 + leftover_len, encoded.len());
+}
+
+fn no_pad_config() -> Config {
+    Config::new(CharacterSet::Standard, false, false, LineWrap::NoWrap)
 }
