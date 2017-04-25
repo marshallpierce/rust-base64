@@ -322,7 +322,7 @@ fn encode_to_slice(input_bytes: &[u8], config: Config, output: &mut [u8]) -> usi
             output_ptr = output_ptr.offset(4);
         }
         leftover_index += 3;
-    };
+    }
 
     if rem == 2 {
         unsafe {
@@ -353,7 +353,7 @@ fn encode_to_slice(input_bytes: &[u8], config: Config, output: &mut [u8]) -> usi
         }
     }
 
-    // will not underflow: output_ptr is always at least
+    // will not underflow: output_ptr is always at least as big as the starting output ptr
     (output_ptr as usize) - (output.as_ptr() as usize)
 }
 
