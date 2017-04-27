@@ -28,15 +28,15 @@ API
 base64 exposes six functions:
 
 ```rust
-encode<T: ?Sized + AsRef<[u8]>>(&T) -> String
-decode<T: ?Sized + AsRef<[u8]>>(&T) -> Result<Vec<u8>, DecodeError>
-encode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> String
-encode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut String) {
-decode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> Result<Vec<u8>, DecodeError>
-decode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut Vec<u8>) -> Result<(), DecodeError>
+fn encode<T: ?Sized + AsRef<[u8]>>(&T) -> String;
+fn decode<T: ?Sized + AsRef<[u8]>>(&T) -> Result<Vec<u8>, DecodeError>;
+fn encode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> String;
+fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut String);
+fn decode_config<T: ?Sized + AsRef<[u8]>>(&T, Config) -> Result<Vec<u8>, DecodeError>;
+fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(&T, Config, &mut Vec<u8>) -> Result<(), DecodeError>;
 ```
 
-`STANDARD`, `URL_SAFE`, `URL_SAFE_NO_PAD`, and `MIME` configuation structs are provided for convenience. `encode` and `decode` are convenience wrappers for the `_config` functions called with the `STANDARD` config, and they are themselves wrappers of the `_buf` functions that allocate on the user's behalf. Encode produces valid padding absent a config that states otherwise; decode produces the same output for valid or omitted padding in all cases, but errors on invalid (superfluous) padding. Whitespace in the input to decode is an error for all modes except `MIME`, which disregards it ("whitespace" according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space). 
+`STANDARD`, `URL_SAFE`, `URL_SAFE_NO_PAD`, and `MIME` configuation structs are provided for convenience. `encode` and `decode` are convenience wrappers for the `_config` functions called with the `STANDARD` config, and they are themselves wrappers of the `_buf` functions that allocate on the user's behalf. Encode produces valid padding absent a config that states otherwise; decode produces the same output for valid or omitted padding in all cases, but errors on invalid (superfluous) padding. Whitespace in the input to decode is an error for all modes except `MIME`, which disregards it ("whitespace" according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space).
 
 `Config` exposes a constructor to allow custom combinations of character set, output padding, input whitespace permissiveness, linewrapping, and line ending character(s). The vast majority of usecases should be covered by the four provided, however.
 
