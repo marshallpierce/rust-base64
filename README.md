@@ -105,3 +105,16 @@ You'll see a bunch of interleaved rust source and assembly like this. The sectio
          :                  if morsel == decode_tables::INVALID_VALUE {
     0.00 :        106ab:       je     1090e <base64::decode_config_buf::hbf68a45fefa299c1+0x46e>
 ```
+
+
+Fuzzing
+---
+
+This uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz). See `fuzz/fuzzers` for the available fuzzing scripts. To run, use an invocation like these:
+
+```
+rustup run nightly cargo fuzz run roundtrip
+rustup run nightly cargo fuzz run roundtrip_no_pad
+```
+
+
