@@ -105,3 +105,8 @@ You'll see a bunch of interleaved rust source and assembly like this. The sectio
          :                  if morsel == decode_tables::INVALID_VALUE {
     0.00 :        106ab:       je     1090e <base64::decode_config_buf::hbf68a45fefa299c1+0x46e>
 ```
+
+License
+---
+
+This project is dual-licensed under MIT and Apache 2.0.
