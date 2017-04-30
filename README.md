@@ -115,7 +115,8 @@ This uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz). See `fuzz/fuzze
 ```
 rustup run nightly cargo fuzz run roundtrip
 rustup run nightly cargo fuzz run roundtrip_no_pad
-rustup run nightly cargo fuzz run roundtrip_mime -- -max_len=1024
+rustup run nightly cargo fuzz run roundtrip_mime -- -max_len=10240
+rustup run nightly cargo fuzz run roundtrip_random_config -- -max_len=10240
 ```
 
 

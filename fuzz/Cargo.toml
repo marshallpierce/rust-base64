@@ -8,6 +8,9 @@ publish = false
 [package.metadata]
 cargo-fuzz = true
 
+[dependencies]
+rand = "0.3.15"
+ring = "0.7.5"
 [dependencies.base64]
 path = ".."
 [dependencies.libfuzzer-sys]
@@ -29,3 +32,7 @@ path = "fuzzers/roundtrip_no_pad.rs"
 [[bin]]
 name = "roundtrip_mime"
 path = "fuzzers/roundtrip_mime.rs"
+
+[[bin]]
+name = "roundtrip_random_config"
+path = "fuzzers/roundtrip_random_config.rs"
