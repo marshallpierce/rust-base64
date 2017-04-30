@@ -297,21 +297,24 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
         }
     }
 
-    if let LineWrap::Wrap(line_size, line_end) = config.line_wrap {
-        let len = raw.len();
-        let mut i = 0;
-        let mut j = 0;
+    //TODO FIXME this does the wrong thing for nonempty buffers
+    if orig_buf_len == 0 {
+        if let LineWrap::Wrap(line_size, line_end) = config.line_wrap {
+            let len = raw.len();
+            let mut i = 0;
+            let mut j = 0;
 
-        while i < len {
-            if i > 0 && i % line_size == 0 {
-                match line_end {
-                    LineEnding::LF => { raw.insert(j, b'\n'); j += 1; }
-                    LineEnding::CRLF => { raw.insert(j, b'\r'); raw.insert(j + 1, b'\n'); j += 2; }
+            while i < len {
+                if i > 0 && i % line_size == 0 {
+                    match line_end {
+                        LineEnding::LF => { raw.insert(j, b'\n'); j += 1; }
+                        LineEnding::CRLF => { raw.insert(j, b'\r'); raw.insert(j + 1, b'\n'); j += 2; }
+                    }
                 }
-            }
 
-            i += 1;
-            j += 1;
+                i += 1;
+                j += 1;
+            }
         }
     }
 }
