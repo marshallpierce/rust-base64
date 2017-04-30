@@ -1,0 +1,31 @@
+
+[package]
+name = "base64-fuzz"
+version = "0.0.1"
+authors = ["Automatically generated"]
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies.base64]
+path = ".."
+[dependencies.libfuzzer-sys]
+git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "roundtrip"
+path = "fuzzers/roundtrip.rs"
+
+[[bin]]
+name = "roundtrip_no_pad"
+path = "fuzzers/roundtrip_no_pad.rs"
+
+
+[[bin]]
+name = "roundtrip_mime"
+path = "fuzzers/roundtrip_mime.rs"
