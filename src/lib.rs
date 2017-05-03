@@ -229,11 +229,10 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     };
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
-    let resv_size = match encoded_size(input_bytes.len(), config) {
-        Some(n) => n,
+    match encoded_size(input_bytes.len(), config) {
+        Some(n) => buf.reserve(n),
         None => panic!("integer overflow when calculating buffer size"),
-    };
-    buf.reserve(resv_size);
+    }
 
     let orig_buf_len = buf.len();
     let mut fast_loop_output_buf_len = orig_buf_len;
