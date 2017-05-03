@@ -118,6 +118,11 @@ fn encoded_size_correct_lf_pad() {
 }
 
 #[test]
+fn encoded_size_overflow() {
+    assert_eq!(None, encoded_size(std::usize::MAX, &STANDARD));
+}
+
+#[test]
 fn encode_random() {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
@@ -266,7 +271,7 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
 }
 
 fn assert_encoded_length(input_len: usize, encoded_len: usize, config: Config) {
-    assert_eq!(encoded_len, encoded_size(input_len, &config));
+    assert_eq!(encoded_len, encoded_size(input_len, &config).unwrap());
 
     let mut bytes: Vec<u8> = Vec::new();
     let mut rng = rand::weak_rng();
@@ -301,7 +306,7 @@ fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
             line_wrap_parameters(b64_only_len, line_len, line_ending).total_line_endings_len
     };
 
-    let expected_encoded_len = encoded_size(input_len, &config);
+    let expected_encoded_len = encoded_size(input_len, &config).unwrap();
 
     assert_eq!(expected_encoded_len, encoded.len());
 

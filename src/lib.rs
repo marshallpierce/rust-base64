@@ -200,7 +200,10 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///}
 ///```
 pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
-    let mut buf = String::with_capacity(encoded_size(input.as_ref().len(), &config));
+    let mut buf = match encoded_size(input.as_ref().len(), &config) {
+        Some(n) => String::with_capacity(n),
+        None => panic!("integer overflow when calculating buffer size")
+    };
 
     encode_config_buf(input, config, &mut buf);
 
@@ -208,34 +211,35 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
 }
 
 /// calculate the base64 encoded string size, including padding
-fn encoded_size(bytes_len: usize, config: &Config) -> usize {
-    let msg = "Encoded size exceeds usize";
+fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
     let rem = bytes_len % 3;
 
     let complete_input_chunks = bytes_len / 3;
-    let complete_chunk_output = complete_input_chunks.checked_mul(4).expect(msg);
+    let complete_chunk_output = complete_input_chunks.checked_mul(4);
 
     let encoded_len_no_wrap = if rem > 0 {
         if config.pad {
-            complete_chunk_output.checked_add(4).expect(msg)
+            complete_chunk_output.and_then(|c| c.checked_add(4))
         } else {
             let encoded_rem = match rem {
                 1 => 2,
                 2 => 3,
                 _ => panic!("Impossible remainder")
             };
-            complete_chunk_output.checked_add(encoded_rem).expect(msg)
+            complete_chunk_output.and_then(|c| c.checked_add(encoded_rem))
         }
     } else {
         complete_chunk_output
     };
 
-    match config.line_wrap {
-        LineWrap::NoWrap => encoded_len_no_wrap,
-        LineWrap::Wrap(line_len, line_ending) => {
-            line_wrap_parameters(encoded_len_no_wrap, line_len, line_ending).total_len
+    encoded_len_no_wrap.map(|e| {
+        match config.line_wrap {
+            LineWrap::NoWrap => e,
+            LineWrap::Wrap(line_len, line_ending) => {
+                line_wrap_parameters(e, line_len, line_ending).total_len
+            }
         }
-    }
+    })
 }
 
 ///Encode arbitrary octets as base64.
@@ -260,7 +264,9 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     let input_bytes = input.as_ref();
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
-    let encoded_size = encoded_size(input_bytes.len(), &config);
+    let encoded_size = encoded_size(input_bytes.len(), &config)
+        .expect("integer overflow when calculating buffer size");
+
     buf.reserve(encoded_size);
 
     let orig_buf_len = buf.len();
