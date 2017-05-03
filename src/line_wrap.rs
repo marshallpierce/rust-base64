@@ -84,8 +84,12 @@ pub fn line_wrap_parameters(input_len: usize, line_len: usize, line_ending: Line
 pub fn line_wrap(encoded_buf: &mut [u8], input_len: usize, line_len: usize, line_ending: LineEnding) -> usize {
     let line_wrap_params = line_wrap_parameters(input_len, line_len, line_ending);
 
+    // ptr.offset() is undefined if it wraps, and there is no checked_offset(). However, because
+    // we perform this check up front to make sure we have enough capacity, we know that none of
+    // the subsequent pointer operations (assuming they implement the desired behavior of course!)
+    // will overflow.
     assert!(encoded_buf.len() >= line_wrap_params.total_len,
-    "Buffer must be able to hold encoded data after line wrapping");
+        "Buffer must be able to hold encoded data after line wrapping");
 
     // Move the last line, either partial or full, by itself as it does not have a line ending
     // afterwards
