@@ -265,7 +265,7 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 
     // reserve to make sure the memory we'll be writing to with unsafe is allocated
     let encoded_size = encoded_size(input_bytes.len(), &config)
-        .expect("integer overflow when calculating buffer size");
+        .expect("usize overflow when calculating buffer size");
 
     buf.reserve(encoded_size);
 
@@ -276,7 +276,8 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     unsafe {
         buf_bytes = buf.as_mut_vec();
         // expand the string's vec to use its reserved size
-        buf_bytes.set_len(orig_buf_len + encoded_size);
+        buf_bytes.set_len(orig_buf_len.checked_add(encoded_size)
+            .expect("usize overflow when calculating expanded buffer size"));
     }
 
     let output_bytes_written = {
@@ -292,7 +293,8 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
             0
         };
 
-        let wrappable_bytes = b64_bytes_written + padding_bytes;
+        let wrappable_bytes = b64_bytes_written.checked_add(padding_bytes)
+            .expect("usize overflow when calculating b64 length");
 
         let line_ending_bytes = match config.line_wrap {
             LineWrap::Wrap(line_len, line_end) =>
@@ -300,11 +302,13 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
             LineWrap::NoWrap => 0
         };
 
-        wrappable_bytes + line_ending_bytes
+        wrappable_bytes.checked_add(line_ending_bytes)
+            .expect("usize overflow when calculating total output length")
     };
 
     unsafe {
-        buf_bytes.set_len(orig_buf_len + output_bytes_written);
+        buf_bytes.set_len(orig_buf_len.checked_add(output_bytes_written)
+            .expect("usize overflow when calculating final buffer size"));
     }
 }
 
