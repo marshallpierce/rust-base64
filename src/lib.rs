@@ -1,6 +1,6 @@
 extern crate byteorder;
 
-use std::{fmt, error, ptr, str};
+use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
 
@@ -263,11 +263,8 @@ fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
 pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
     let input_bytes = input.as_ref();
 
-    // reserve to make sure the memory we'll be writing to with unsafe is allocated
     let encoded_size = encoded_size(input_bytes.len(), &config)
         .expect("usize overflow when calculating buffer size");
-
-    buf.reserve(encoded_size);
 
     let orig_buf_len = buf.len();
 
@@ -275,40 +272,26 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     let mut buf_bytes;
     unsafe {
         buf_bytes = buf.as_mut_vec();
-        // expand the string's vec to use its reserved size
-        buf_bytes.set_len(orig_buf_len.checked_add(encoded_size)
-            .expect("usize overflow when calculating expanded buffer size"));
     }
 
-    let output_bytes_written = {
-        let mut b64_output = &mut buf_bytes[orig_buf_len..];
+    buf_bytes.resize(orig_buf_len.checked_add(encoded_size)
+                         .expect("usize overflow when calculating expanded buffer size"), 0);
 
-        // write into the newly reserved space
-        let b64_bytes_written = encode_to_slice(input_bytes, b64_output,
-                                                    config.char_set.encode_table());
+    let mut b64_output = &mut buf_bytes[orig_buf_len..];
+    let b64_bytes_written = encode_to_slice(input_bytes, b64_output,
+                                                config.char_set.encode_table());
 
-        let padding_bytes = if config.pad {
-            add_padding(input_bytes.len(), &mut b64_output[b64_bytes_written..])
-        } else {
-            0
-        };
-
-        let wrappable_bytes = b64_bytes_written.checked_add(padding_bytes)
-            .expect("usize overflow when calculating b64 length");
-
-        let line_ending_bytes = match config.line_wrap {
-            LineWrap::Wrap(line_len, line_end) =>
-                line_wrap(b64_output, wrappable_bytes, line_len, line_end),
-            LineWrap::NoWrap => 0
-        };
-
-        wrappable_bytes.checked_add(line_ending_bytes)
-            .expect("usize overflow when calculating total output length")
+    let padding_bytes = if config.pad {
+        add_padding(input_bytes.len(), &mut b64_output[b64_bytes_written..])
+    } else {
+        0
     };
 
-    unsafe {
-        buf_bytes.set_len(orig_buf_len.checked_add(output_bytes_written)
-            .expect("usize overflow when calculating final buffer size"));
+    let wrappable_bytes = b64_bytes_written.checked_add(padding_bytes)
+        .expect("usize overflow when calculating b64 length");
+
+    if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
+        line_wrap(b64_output, wrappable_bytes, line_len, line_end);
     }
 }
 
@@ -318,29 +301,28 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 #[inline]
 fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> usize {
     let mut input_index: usize = 0;
-    let mut output_ptr = output.as_mut_ptr();
 
     let last_fast_index = input.len().saturating_sub(8);
-    let fast_chunk_len = 6;
+
+    let mut output_index = 0;
 
     if last_fast_index > 0 {
         while input_index <= last_fast_index {
             let input_chunk = BigEndian::read_u64(&input[input_index..(input_index + 8)]);
 
             // strip off 6 bits at a time for the first 6 bytes
-            unsafe {
-                ptr::write(output_ptr, encode_table[((input_chunk >> 58) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(1), encode_table[((input_chunk >> 52) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(2), encode_table[((input_chunk >> 46) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(3), encode_table[((input_chunk >> 40) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(4), encode_table[((input_chunk >> 34) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(5), encode_table[((input_chunk >> 28) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(6), encode_table[((input_chunk >> 22) & 0x3F) as usize]);
-                ptr::write(output_ptr.offset(7), encode_table[((input_chunk >> 16) & 0x3F) as usize]);
-                output_ptr = output_ptr.offset(8);
-            }
+            let mut chunk = ((encode_table[((input_chunk >> 58) & 0x3F) as usize]) as u64) << 56;
+            chunk |= ((encode_table[((input_chunk >> 52) & 0x3F) as usize]) as u64) << 48;
+            chunk |= ((encode_table[((input_chunk >> 46) & 0x3F) as usize]) as u64) << 40;
+            chunk |= ((encode_table[((input_chunk >> 40) & 0x3F) as usize]) as u64) << 32;
+            chunk |= ((encode_table[((input_chunk >> 34) & 0x3F) as usize]) as u64) << 24;
+            chunk |= ((encode_table[((input_chunk >> 28) & 0x3F) as usize]) as u64) << 16;
+            chunk |= ((encode_table[((input_chunk >> 22) & 0x3F) as usize]) as u64) << 8;
+            chunk |= encode_table[((input_chunk >> 16) & 0x3F) as usize] as u64;
+            BigEndian::write_u64(&mut output[(output_index)..(output_index + 8)], chunk);
 
-            input_index += fast_chunk_len;
+            output_index += 8;
+            input_index += 6;
         }
     }
 
@@ -348,47 +330,31 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
 
     let rem = input.len() % 3;
     let start_of_rem = input.len() - rem;
-    let slow_chunk_len = 3;
 
     // start at the first index not handled by fast loop, which may be 0.
 
     while input_index < start_of_rem {
-        unsafe {
-            ptr::write(output_ptr,
-                       encode_table[(input[input_index] >> 2) as usize]);
-            ptr::write(output_ptr.offset(1),
-                       encode_table[((input[input_index] << 4 | input[input_index + 1] >> 4) & 0x3f) as usize]);
-            ptr::write(output_ptr.offset(2),
-                       encode_table[((input[input_index + 1] << 2 | input[input_index + 2] >> 6) & 0x3f) as usize]);
-            ptr::write(output_ptr.offset(3),
-                       encode_table[(input[input_index + 2] & 0x3f) as usize]);
-            output_ptr = output_ptr.offset(4);
-        }
-        input_index += slow_chunk_len;
+        output[output_index] = encode_table[(input[input_index] >> 2) as usize];
+        output[output_index + 1] = encode_table[((input[input_index] << 4 | input[input_index + 1] >> 4) & 0x3f) as usize];
+        output[output_index + 2] = encode_table[((input[input_index + 1] << 2 | input[input_index + 2] >> 6) & 0x3f) as usize];
+        output[output_index + 3] = encode_table[(input[input_index + 2] & 0x3f) as usize];
+
+        input_index += 3;
+        output_index += 4;
     }
 
     if rem == 2 {
-        unsafe {
-            ptr::write(output_ptr,
-                       encode_table[(input[start_of_rem] >> 2) as usize]);
-            ptr::write(output_ptr.offset(1),
-                       encode_table[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize]);
-            ptr::write(output_ptr.offset(2),
-                       encode_table[(input[start_of_rem + 1] << 2 & 0x3f) as usize]);
-            output_ptr = output_ptr.offset(3);
-        }
+        output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
+        output[output_index + 1] = encode_table[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize];
+        output[output_index + 2] = encode_table[(input[start_of_rem + 1] << 2 & 0x3f) as usize];
+        output_index += 3;
     } else if rem == 1 {
-        unsafe {
-            ptr::write(output_ptr,
-                       encode_table[(input[start_of_rem] >> 2) as usize]);
-            ptr::write(output_ptr.offset(1),
-                       encode_table[(input[start_of_rem] << 4 & 0x3f) as usize]);
-            output_ptr = output_ptr.offset(2);
-        }
+        output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
+        output[output_index + 1] = encode_table[(input[start_of_rem] << 4 & 0x3f) as usize];
+        output_index += 2;
     }
 
-    // will not underflow: output_ptr is always at least as big as the starting output ptr
-    (output_ptr as usize) - (output.as_ptr() as usize)
+    output_index
 }
 
 /// Write padding characters.
