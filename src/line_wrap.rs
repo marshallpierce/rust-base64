@@ -1,10 +1,8 @@
-extern crate num;
+extern crate safemem;
 
 use super::*;
 
-use std::{str, ptr};
-
-use self::num::ToPrimitive;
+use std::str;
 
 #[derive(Debug, PartialEq)]
 pub struct LineWrapParameters {
@@ -93,53 +91,42 @@ pub fn line_wrap(encoded_buf: &mut [u8], input_len: usize, line_len: usize, line
 
     // Move the last line, either partial or full, by itself as it does not have a line ending
     // afterwards
-    unsafe {
-        let last_line_start = line_wrap_params.lines_with_endings.checked_mul(line_len)
-            .and_then(|o| o.to_isize())
-            .map(|o| encoded_buf.as_ptr().offset(o))
-            .expect("Start of last line in input exceeds isize");
-        // last line starts immediately after all the wrapped full lines
-        let new_line_start = line_wrap_params.total_full_wrapped_lines_len.to_isize()
-            .map(|o| encoded_buf.as_mut_ptr().offset(o))
-            .expect("Full lines with endings length exceeds usize");
+    let last_line_start = line_wrap_params.lines_with_endings.checked_mul(line_len)
+        .expect("Start of last line in input exceeds usize");
+    // last line starts immediately after all the wrapped full lines
+    let new_line_start = line_wrap_params.total_full_wrapped_lines_len;
 
-        ptr::copy(last_line_start, new_line_start, line_wrap_params.last_line_len);
-    }
+    safemem::copy_over(encoded_buf, last_line_start, new_line_start, line_wrap_params.last_line_len);
 
     let mut line_ending_bytes = 0;
 
-    let line_len_isize = line_len.to_isize().expect("line_len must fit in isize");
     let line_ending_len = line_ending.len();
 
     // handle the full lines
     for line_num in 0..line_wrap_params.lines_with_endings {
         // doesn't underflow because line_num < lines_with_endings
         let lines_before_this_line = line_wrap_params.lines_with_endings - 1 - line_num;
-        let line_start_offset = lines_before_this_line.checked_mul(line_len)
-            .and_then(|l| l.to_isize())
-            .expect("Line start offset exceeds isize");
-        let total_endings_to_insert_before_this_line =
-            lines_before_this_line.checked_mul(line_ending_len)
-                .and_then(|t| t.to_isize())
-                .expect("Cumulative line ending length before this line exceeds isize");
+        let old_line_start = lines_before_this_line.checked_mul(line_len)
+            .expect("Old line start index exceeds usize");
+        let new_line_start = lines_before_this_line.checked_mul(line_ending_len)
+            .and_then(|i| i.checked_add(old_line_start))
+            .expect("New line start index exceeds usize");
 
-        unsafe {
-            let orig_line_start = encoded_buf.as_ptr().offset(line_start_offset);
+        safemem::copy_over(encoded_buf, old_line_start, new_line_start, line_len);
 
-            let new_line_start = encoded_buf.as_mut_ptr().offset(line_start_offset)
-                .offset(total_endings_to_insert_before_this_line);
+        let after_new_line = new_line_start.checked_add(line_len)
+            .expect("Line ending index exceeds usize");
 
-            ptr::copy(orig_line_start, new_line_start, line_len);
-            match line_ending {
-                LineEnding::LF => {
-                    ptr::write(new_line_start.offset(line_len_isize), b'\n');
-                    line_ending_bytes += 1;
-                }
-                LineEnding::CRLF => {
-                    ptr::write(new_line_start.offset(line_len_isize), b'\r');
-                    ptr::write(new_line_start.offset(line_len_isize).offset(1), b'\n');
-                    line_ending_bytes += 2;
-                }
+        match line_ending {
+            LineEnding::LF => {
+                encoded_buf[after_new_line] = b'\n';
+                line_ending_bytes += 1;
+            }
+            LineEnding::CRLF => {
+                encoded_buf[after_new_line] = b'\r';
+                encoded_buf[after_new_line.checked_add(1).expect("Line ending index exceeds usize")]
+                    = b'\n';
+                line_ending_bytes += 2;
             }
         }
     }
