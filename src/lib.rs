@@ -302,19 +302,19 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> usize {
     let mut input_index: usize = 0;
 
-    let blocks_per_fast_loop = 4;
+    const BLOCKS_PER_FAST_LOOP: usize = 4;
 
     // we read 8 bytes at a time (u64) but only actually consume 6 of those bytes. Thus, we need
     // 2 trailing bytes to be available to read..
-    let last_fast_index = input.len().saturating_sub(blocks_per_fast_loop * 6 + 2);
+    let last_fast_index = input.len().saturating_sub(BLOCKS_PER_FAST_LOOP * 6 + 2);
     let mut output_index = 0;
 
     if last_fast_index > 0 {
         while input_index <= last_fast_index {
             // Major performance wins from letting the optimizer do the bounds check once, mostly
             // on the output side
-            let input_chunk = &input[input_index..(input_index + (blocks_per_fast_loop * 6 + 2))];
-            let mut output_chunk = &mut output[output_index..(output_index + blocks_per_fast_loop * 8)];
+            let input_chunk = &input[input_index..(input_index + (BLOCKS_PER_FAST_LOOP * 6 + 2))];
+            let mut output_chunk = &mut output[output_index..(output_index + BLOCKS_PER_FAST_LOOP * 8)];
 
             // Hand-unrolling for 32 vs 16 or 8 bytes produces yields performance about equivalent
             // to unsafe pointer code on a Xeon E5-1650v3. 64 byte unrolling was slightly better for
@@ -368,8 +368,8 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
             output_chunk[30] = encode_table[((input_u64 >> 22) & 0x3F) as usize];
             output_chunk[31] = encode_table[((input_u64 >> 16) & 0x3F) as usize];
 
-            output_index += blocks_per_fast_loop * 8;
-            input_index += blocks_per_fast_loop * 6;
+            output_index += BLOCKS_PER_FAST_LOOP * 8;
+            input_index += BLOCKS_PER_FAST_LOOP * 6;
         }
     }
 
