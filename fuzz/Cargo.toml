@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 rand = "0.3.15"
-ring = "0.7.5"
+ring = "0.9.4"
 [dependencies.base64]
 path = ".."
 [dependencies.libfuzzer-sys]
