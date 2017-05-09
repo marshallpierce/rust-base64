@@ -278,21 +278,29 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
                          .expect("usize overflow when calculating expanded buffer size"), 0);
 
     let mut b64_output = &mut buf_bytes[orig_buf_len..];
-    let b64_bytes_written = encode_to_slice(input_bytes, b64_output,
-                                                config.char_set.encode_table());
 
-    let padding_bytes = if config.pad {
-        add_padding(input_bytes.len(), &mut b64_output[b64_bytes_written..])
+    let encoded_bytes = encode_with_padding(input_bytes, b64_output, config.char_set.encode_table(),
+                                            config.pad);
+
+    if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
+        line_wrap(b64_output, encoded_bytes, line_len, line_end);
+    }
+}
+
+/// Encode input bytes and pad if configured.
+/// `output` must be long enough to hold the encoded `input` with padding.
+/// Returns the number of bytes written.
+fn encode_with_padding(input: &[u8], output: &mut [u8], encode_table: &[u8; 64], pad: bool) -> usize {
+    let b64_bytes_written = encode_to_slice(input, output, encode_table);
+
+    let padding_bytes = if pad {
+        add_padding(input.len(), &mut output[b64_bytes_written..])
     } else {
         0
     };
 
-    let wrappable_bytes = b64_bytes_written.checked_add(padding_bytes)
-        .expect("usize overflow when calculating b64 length");
-
-    if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
-        line_wrap(b64_output, wrappable_bytes, line_len, line_end);
-    }
+    b64_bytes_written.checked_add(padding_bytes)
+        .expect("usize overflow when calculating b64 length")
 }
 
 /// Encode input bytes to utf8 base64 bytes. Does not pad or line wrap.
@@ -413,7 +421,7 @@ fn add_padding(input_len: usize, output: &mut[u8]) -> usize {
     let rem = input_len % 3;
     let mut bytes_written = 0;
     for _ in 0..((3 - rem) % 3) {
-        output[bytes_written] = 0x3d;
+        output[bytes_written] = b'=';
         bytes_written += 1;
     }
 

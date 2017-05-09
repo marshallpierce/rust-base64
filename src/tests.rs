@@ -127,8 +127,8 @@ fn encode_random() {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
     let mut rng = rand::weak_rng();
-    let input_len_range = Range::new(10, 1000);
-    let line_len_range = Range::new(10, 100);
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
 
     for _ in 0..10_000 {
         input_buf.clear();
@@ -157,9 +157,9 @@ fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let mut encoded_data_with_prefix = String::new();
     let mut decoded = Vec::new();
 
-    let prefix_len_range = Range::new(10, 1000);
-    let input_len_range = Range::new(2, 1000);
-    let line_len_range = Range::new(10, 100);
+    let prefix_len_range = Range::new(0, 1000);
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
 
     let mut rng = rand::weak_rng();
 
@@ -216,9 +216,9 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let mut decoded_without_prefix = Vec::new();
     let mut prefix = Vec::new();
 
-    let prefix_len_range = Range::new(10, 1000);
-    let input_len_range = Range::new(2, 1000);
-    let line_len_range = Range::new(10, 100);
+    let prefix_len_range = Range::new(0, 1000);
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
 
     let mut rng = rand::weak_rng();
 
@@ -270,6 +270,127 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     }
 }
 
+#[test]
+fn encode_with_padding_random_valid_utf8() {
+    let mut input = Vec::new();
+    let mut output = Vec::new();
+
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
+
+    let mut rng = rand::weak_rng();
+
+    for _ in 0..10_000 {
+        input.clear();
+        output.clear();
+
+        let input_len = input_len_range.ind_sample(&mut rng);
+
+        for _ in 0..input_len {
+            input.push(rng.gen());
+        }
+
+        let config = random_config(&mut rng, &line_len_range);
+
+        // fill up the output buffer with garbage
+        let encoded_size = encoded_size(input_len, &config).unwrap();
+        for _ in 0..encoded_size {
+            output.push(rng.gen());
+        }
+
+        let orig_output_buf = output.to_vec();
+
+        let bytes_written =
+            encode_with_padding(&input, &mut output, config.char_set.encode_table(), config.pad);
+
+        let line_ending_bytes = total_line_ending_bytes(bytes_written, &config);
+        assert_eq!(encoded_size, bytes_written + line_ending_bytes);
+        // make sure the part beyond bytes_written is the same garbage it was before
+        assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
+
+        // make sure the encoded bytes are UTF-8
+        let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
+    }
+}
+
+#[test]
+fn encode_to_slice_random_valid_utf8() {
+    let mut input = Vec::new();
+    let mut output = Vec::new();
+
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
+
+    let mut rng = rand::weak_rng();
+
+    for _ in 0..10_000 {
+        input.clear();
+        output.clear();
+
+        let input_len = input_len_range.ind_sample(&mut rng);
+
+        for _ in 0..input_len {
+            input.push(rng.gen());
+        }
+
+        let config = random_config(&mut rng, &line_len_range);
+
+
+        // fill up the output buffer with garbage
+        let encoded_size = encoded_size(input_len, &config).unwrap();
+        for _ in 0..encoded_size {
+            output.push(rng.gen());
+        }
+
+        let orig_output_buf = output.to_vec();
+
+        let bytes_written =
+            encode_to_slice(&input, &mut output, config.char_set.encode_table());
+
+        // make sure the part beyond bytes_written is the same garbage it was before
+        assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
+
+        // make sure the encoded bytes are UTF-8
+        let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
+    }
+}
+
+#[test]
+fn add_padding_random_valid_utf8(){
+    let mut output = Vec::new();
+
+    let mut rng = rand::weak_rng();
+
+    // cover our bases for length % 3
+    for input_len in 0..10 {
+        output.clear();
+
+        // fill output with random
+        for _ in 0..10 {
+            output.push(rng.gen());
+        }
+
+        let orig_output_buf = output.to_vec();
+
+        let bytes_written =
+            add_padding(input_len, &mut output);
+
+        // make sure the part beyond bytes_written is the same garbage it was before
+        assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
+
+        // make sure the encoded bytes are UTF-8
+        let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
+    }
+}
+
+fn total_line_ending_bytes(encoded_len: usize, config: &Config) -> usize {
+    match config.line_wrap {
+        LineWrap::NoWrap => 0,
+        LineWrap::Wrap(line_len, line_ending) =>
+            line_wrap_parameters(encoded_len, line_len, line_ending).total_line_endings_len
+    }
+}
+
 fn assert_encoded_length(input_len: usize, encoded_len: usize, config: Config) {
     assert_eq!(encoded_len, encoded_size(input_len, &config).unwrap());
 
@@ -315,6 +436,8 @@ fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
 
     assert_eq!(expected_padding_len, padding_len);
     assert_eq!(expected_line_ending_len, line_endings_len);
+
+    let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
 }
 
 pub fn random_config<R: Rng>(rng: &mut R, line_len_range: &Range<usize>) -> Config {

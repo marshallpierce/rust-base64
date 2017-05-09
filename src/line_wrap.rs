@@ -292,11 +292,7 @@ mod tests {
 
             let not_wrapped_buf = buf.to_vec();
 
-            let line_ending_bytes = do_line_wrap(&mut buf, line_len, line_ending);
-
-            assert_eq!(buf_len + line_wrap_params.lines_with_endings * line_ending_len, buf.len());
-            assert_eq!(line_wrap_params.total_len, buf.len());
-            assert_eq!(line_wrap_params.total_line_endings_len, line_ending_bytes);
+            let _ = do_line_wrap(&mut buf, line_len, line_ending);
 
             // remove the endings
             for line_ending_num in 0..line_wrap_params.lines_with_endings {
@@ -312,18 +308,42 @@ mod tests {
     }
 
     fn do_line_wrap(buf: &mut Vec<u8>, line_len: usize, line_ending: LineEnding) -> usize {
-        // a 3x inflation is enough for the worst case: line length 1, crlf ending
+        let mut rng = rand::weak_rng();
+
         let orig_len = buf.len();
-        buf.reserve(orig_len * 2);
-        unsafe {
-            buf.set_len(orig_len * 3);
+
+        // A 3x inflation is enough for the worst case: line length 1, crlf ending.
+        // We add on extra bytes so we'll have un-wrapped bytes at the end that shouldn't get
+        // modified..
+        for _ in 0..(1000 + 2 * orig_len) {
+            buf.push(rng.gen());
         }
+
+        let mut before_line_wrap = buf.to_vec();
+
+        let params = line_wrap_parameters(orig_len, line_len, line_ending);
 
         let bytes_written = line_wrap(&mut buf[..], orig_len, line_len, line_ending);
 
-        unsafe {
-            buf.set_len(orig_len + bytes_written);
-        }
+        assert_eq!(params.total_line_endings_len, bytes_written);
+        assert_eq!(params.lines_with_endings * line_ending.len(), bytes_written);
+        assert_eq!(params.total_len, orig_len + bytes_written);
+
+        // make sure line_wrap didn't touch anything beyond what it should
+        let start_of_untouched_data = orig_len + bytes_written;
+        assert_eq!(before_line_wrap[start_of_untouched_data..],
+            buf[start_of_untouched_data..]);
+
+        // also make sure that line wrapping will fit into a slice no bigger than what it should
+        // need
+        let bytes_written_precise_fit =
+            line_wrap(&mut before_line_wrap[0..(params.total_len)], orig_len, line_len,
+                      line_ending);
+
+        assert_eq!(bytes_written, bytes_written_precise_fit);
+        assert_eq!(&buf[0..(params.total_len)], &before_line_wrap[0..(params.total_len)]);
+
+        buf.truncate(orig_len + bytes_written);
 
         bytes_written
     }
