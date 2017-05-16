@@ -9,7 +9,7 @@ mod utils;
 fuzz_target!(|data: &[u8]| {
     let config = utils::random_config(data);
 
-    let encoded = encode_config(&data, config);
-    let decoded = decode_config(&encoded, config).unwrap();
-    assert_eq!(data, decoded.as_slice());
+    // The data probably isn't valid base64 input, but as long as it returns an error instead
+    // of crashing, that's correct behavior.
+    let _ = decode_config(&data, config);
 });
