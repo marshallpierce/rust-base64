@@ -18,27 +18,6 @@ fn compare_decode_mime(expected: &str, target: &str) {
     assert_eq!(expected, String::from_utf8(decode_config(target, MIME).unwrap()).unwrap());
 }
 
-// generate every possible byte string recursively and test encode/decode roundtrip
-fn roundtrip_append_recurse(input_buf: &mut Vec<u8>, str_buf: &mut String, decode_buf: &mut Vec<u8>,
-                            config: Config, remaining_bytes: usize) {
-    let orig_length = input_buf.len();
-    for b in 0..256 {
-        input_buf.push(b as u8);
-
-        if remaining_bytes > 1 {
-            roundtrip_append_recurse(input_buf, str_buf, decode_buf, config, remaining_bytes - 1)
-        } else {
-            str_buf.clear();
-            decode_buf.clear();
-            encode_config_buf(&input_buf, config, str_buf);
-            decode_config_buf(&str_buf, config, decode_buf).unwrap();
-            assert_eq!(input_buf, decode_buf);
-        }
-
-        input_buf.truncate(orig_length);
-    }
-}
-
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, config: Config,
                     byte_len: usize, approx_values_per_byte: u8, max_rounds: u64) {
@@ -74,7 +53,7 @@ fn calculate_number_of_rounds(byte_len: usize, approx_values_per_byte: u8, max: 
         prod = prod.saturating_mul(prod);
     }
 
-    return prod;
+    prod
 }
 
 fn no_pad_config() -> Config {
@@ -299,99 +278,43 @@ fn decode_error_for_bogus_char_in_right_position() {
 }
 
 #[test]
-fn roundtrip_random_no_fast_loop() {
+fn roundtrip_random_short_standard() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 0..9 {
+    for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, STANDARD, input_len, 4, 10000);
     }
 }
 
 #[test]
-fn roundtrip_random_with_fast_loop() {
+fn roundtrip_random_with_fast_loop_standard() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 9..26 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, STANDARD, input_len, 4, 100000);
+    for input_len in 40..100 {
+        roundtrip_random(&mut byte_buf, &mut str_buf, STANDARD, input_len, 4, 1000);
     }
 }
 
 #[test]
-fn roundtrip_random_no_fast_loop_no_padding() {
+fn roundtrip_random_short_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 0..9 {
+    for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, no_pad_config(), input_len, 4, 10000);
     }
 }
 
 #[test]
-fn roundtrip_random_with_fast_loop_no_padding() {
+fn roundtrip_random_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    for input_len in 9..26 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, no_pad_config(), input_len, 4, 100000);
+    for input_len in 40..100 {
+        roundtrip_random(&mut byte_buf, &mut str_buf, no_pad_config(), input_len, 4, 1000);
     }
-}
-
-#[test]
-fn roundtrip_all_1_byte() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, STANDARD, 1);
-}
-
-#[test]
-fn roundtrip_all_1_byte_no_padding() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, no_pad_config(), 1);
-}
-
-#[test]
-fn roundtrip_all_2_byte() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, STANDARD, 2);
-}
-
-#[test]
-fn roundtrip_all_2_byte_no_padding() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, no_pad_config(), 2);
-}
-
-#[test]
-fn roundtrip_all_3_byte() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, STANDARD, 3);
-}
-
-#[test]
-fn roundtrip_all_3_byte_no_padding() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-    let mut decode_buf: Vec<u8> = Vec::new();
-    roundtrip_append_recurse(&mut byte_buf, &mut str_buf, &mut decode_buf, no_pad_config(), 3);
-}
-
-#[test]
-fn roundtrip_random_4_byte() {
-    let mut byte_buf: Vec<u8> = Vec::new();
-    let mut str_buf = String::new();
-
-    roundtrip_random(&mut byte_buf, &mut str_buf, STANDARD, 4, 48, 10000);
 }
 
 //strip yr whitespace kids
@@ -548,28 +471,28 @@ fn encode_all_bytes_url() {
 fn encode_line_ending_lf_partial_last_line() {
     let config = Config::new(CharacterSet::Standard, true, false,
                              LineWrap::Wrap(3, LineEnding::LF));
-    assert_eq!("Zm9\nvYm\nFy", encode_config("foobar".as_bytes(), config));
+    assert_eq!("Zm9\nvYm\nFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_crlf_partial_last_line() {
     let config = Config::new(CharacterSet::Standard, true, false,
                              LineWrap::Wrap(3, LineEnding::CRLF));
-    assert_eq!("Zm9\r\nvYm\r\nFy", encode_config("foobar".as_bytes(), config));
+    assert_eq!("Zm9\r\nvYm\r\nFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_lf_full_last_line() {
     let config = Config::new(CharacterSet::Standard, true, false,
                              LineWrap::Wrap(4, LineEnding::LF));
-    assert_eq!("Zm9v\nYmFy", encode_config("foobar".as_bytes(), config));
+    assert_eq!("Zm9v\nYmFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_crlf_full_last_line() {
     let config = Config::new(CharacterSet::Standard, true, false,
                              LineWrap::Wrap(4, LineEnding::CRLF));
-    assert_eq!("Zm9v\r\nYmFy", encode_config("foobar".as_bytes(), config));
+    assert_eq!("Zm9v\r\nYmFy", encode_config(b"foobar", config));
 }
 
 #[test]

@@ -123,31 +123,15 @@ fn encoded_size_overflow() {
 }
 
 #[test]
-fn encode_random() {
-    let mut input_buf: Vec<u8> = Vec::new();
-    let mut encoded_buf = String::new();
-    let mut rng = rand::weak_rng();
-    let input_len_range = Range::new(0, 1000);
-    let line_len_range = Range::new(1, 1000);
-
-    for _ in 0..10_000 {
-        input_buf.clear();
-        encoded_buf.clear();
-
-        let input_len = input_len_range.ind_sample(&mut rng);
-
-        let config = random_config(&mut rng, &line_len_range);
-
-        for _ in 0..input_len {
-            input_buf.push(rng.gen());
-        }
-
-        encode_config_buf(&input_buf, config, &mut encoded_buf);
-
-        assert_encode_sanity(&encoded_buf, &config, input_len);
-    }
+fn roundtrip_random_config_short() {
+    // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
+    roundtrip_random_config(Range::new(0, 50), Range::new(0, 50), 10_000);
 }
 
+#[test]
+fn roundtrip_random_config_long() {
+    roundtrip_random_config(Range::new(0, 1000), Range::new(0, 1000), 10_000);
+}
 
 #[test]
 fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
@@ -162,7 +146,6 @@ fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let line_len_range = Range::new(1, 1000);
 
     let mut rng = rand::weak_rng();
-
 
     for _ in 0..10_000 {
         orig_data.clear();
@@ -221,7 +204,6 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
     let line_len_range = Range::new(1, 1000);
 
     let mut rng = rand::weak_rng();
-
 
     for _ in 0..10_000 {
         orig_data.clear();
@@ -438,6 +420,37 @@ fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
     assert_eq!(expected_line_ending_len, line_endings_len);
 
     let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
+}
+
+fn roundtrip_random_config(input_len_range: Range<usize>, line_len_range: Range<usize>,
+                           iterations: u32) {
+    let mut input_buf: Vec<u8> = Vec::new();
+    let mut encoded_buf = String::new();
+    let mut rng = rand::weak_rng();
+
+    for _ in 0..iterations {
+        input_buf.clear();
+        encoded_buf.clear();
+
+        let input_len = input_len_range.ind_sample(&mut rng);
+
+        let config = random_config(&mut rng, &line_len_range);
+
+        for _ in 0..input_len {
+            input_buf.push(rng.gen());
+        }
+
+        encode_config_buf(&input_buf, config, &mut encoded_buf);
+
+        assert_encode_sanity(&encoded_buf, &config, input_len);
+
+        // remove line wrapping
+        let encoded_no_line_endings: String = encoded_buf.chars()
+            .filter(|&c| c != '\r' && c != '\n')
+            .collect();
+
+        assert_eq!(input_buf, decode_config(&encoded_no_line_endings, config).unwrap());
+    }
 }
 
 pub fn random_config<R: Rng>(rng: &mut R, line_len_range: &Range<usize>) -> Config {

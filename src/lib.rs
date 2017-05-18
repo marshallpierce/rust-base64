@@ -20,16 +20,16 @@ pub enum CharacterSet {
 
 impl CharacterSet {
     fn encode_table(&self) -> &'static [u8; 64] {
-        match self {
-            &CharacterSet::Standard => tables::STANDARD_ENCODE,
-            &CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE
+        match *self {
+            CharacterSet::Standard => tables::STANDARD_ENCODE,
+            CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE
         }
     }
 
     fn decode_table(&self) -> &'static [u8; 256] {
-        match self {
-            &CharacterSet::Standard => tables::STANDARD_DECODE,
-            &CharacterSet::UrlSafe => tables::URL_SAFE_DECODE
+        match *self {
+            CharacterSet::Standard => tables::STANDARD_DECODE,
+            CharacterSet::UrlSafe => tables::URL_SAFE_DECODE
         }
     }
 }
@@ -311,6 +311,7 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
     let mut input_index: usize = 0;
 
     const BLOCKS_PER_FAST_LOOP: usize = 4;
+    const LOW_SIX_BITS: u64 = 0x3F;
 
     // we read 8 bytes at a time (u64) but only actually consume 6 of those bytes. Thus, we need
     // 2 trailing bytes to be available to read..
@@ -334,47 +335,47 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
 
             let input_u64 = BigEndian::read_u64(&input_chunk[0..]);
 
-            output_chunk[0] = encode_table[((input_u64 >> 58) & 0x3F) as usize];
-            output_chunk[1] = encode_table[((input_u64 >> 52) & 0x3F) as usize];
-            output_chunk[2] = encode_table[((input_u64 >> 46) & 0x3F) as usize];
-            output_chunk[3] = encode_table[((input_u64 >> 40) & 0x3F) as usize];
-            output_chunk[4] = encode_table[((input_u64 >> 34) & 0x3F) as usize];
-            output_chunk[5] = encode_table[((input_u64 >> 28) & 0x3F) as usize];
-            output_chunk[6] = encode_table[((input_u64 >> 22) & 0x3F) as usize];
-            output_chunk[7] = encode_table[((input_u64 >> 16) & 0x3F) as usize];
+            output_chunk[0] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+            output_chunk[1] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+            output_chunk[2] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+            output_chunk[3] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+            output_chunk[4] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+            output_chunk[5] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+            output_chunk[6] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+            output_chunk[7] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
             let input_u64 = BigEndian::read_u64(&input_chunk[6..]);
 
-            output_chunk[8] = encode_table[((input_u64 >> 58) & 0x3F) as usize];
-            output_chunk[9] = encode_table[((input_u64 >> 52) & 0x3F) as usize];
-            output_chunk[10] = encode_table[((input_u64 >> 46) & 0x3F) as usize];
-            output_chunk[11] = encode_table[((input_u64 >> 40) & 0x3F) as usize];
-            output_chunk[12] = encode_table[((input_u64 >> 34) & 0x3F) as usize];
-            output_chunk[13] = encode_table[((input_u64 >> 28) & 0x3F) as usize];
-            output_chunk[14] = encode_table[((input_u64 >> 22) & 0x3F) as usize];
-            output_chunk[15] = encode_table[((input_u64 >> 16) & 0x3F) as usize];
+            output_chunk[8] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+            output_chunk[9] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+            output_chunk[10] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+            output_chunk[11] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+            output_chunk[12] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+            output_chunk[13] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+            output_chunk[14] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+            output_chunk[15] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
             let input_u64 = BigEndian::read_u64(&input_chunk[12..]);
 
-            output_chunk[16] = encode_table[((input_u64 >> 58) & 0x3F) as usize];
-            output_chunk[17] = encode_table[((input_u64 >> 52) & 0x3F) as usize];
-            output_chunk[18] = encode_table[((input_u64 >> 46) & 0x3F) as usize];
-            output_chunk[19] = encode_table[((input_u64 >> 40) & 0x3F) as usize];
-            output_chunk[20] = encode_table[((input_u64 >> 34) & 0x3F) as usize];
-            output_chunk[21] = encode_table[((input_u64 >> 28) & 0x3F) as usize];
-            output_chunk[22] = encode_table[((input_u64 >> 22) & 0x3F) as usize];
-            output_chunk[23] = encode_table[((input_u64 >> 16) & 0x3F) as usize];
+            output_chunk[16] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+            output_chunk[17] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+            output_chunk[18] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+            output_chunk[19] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+            output_chunk[20] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+            output_chunk[21] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+            output_chunk[22] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+            output_chunk[23] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
             let input_u64 = BigEndian::read_u64(&input_chunk[18..]);
 
-            output_chunk[24] = encode_table[((input_u64 >> 58) & 0x3F) as usize];
-            output_chunk[25] = encode_table[((input_u64 >> 52) & 0x3F) as usize];
-            output_chunk[26] = encode_table[((input_u64 >> 46) & 0x3F) as usize];
-            output_chunk[27] = encode_table[((input_u64 >> 40) & 0x3F) as usize];
-            output_chunk[28] = encode_table[((input_u64 >> 34) & 0x3F) as usize];
-            output_chunk[29] = encode_table[((input_u64 >> 28) & 0x3F) as usize];
-            output_chunk[30] = encode_table[((input_u64 >> 22) & 0x3F) as usize];
-            output_chunk[31] = encode_table[((input_u64 >> 16) & 0x3F) as usize];
+            output_chunk[24] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+            output_chunk[25] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+            output_chunk[26] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+            output_chunk[27] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+            output_chunk[28] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+            output_chunk[29] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+            output_chunk[30] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+            output_chunk[31] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
             output_index += BLOCKS_PER_FAST_LOOP * 8;
             input_index += BLOCKS_PER_FAST_LOOP * 6;
@@ -382,6 +383,8 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
     }
 
     // Encode what's left after the fast loop.
+
+    const LOW_SIX_BITS_U8: u8 = 0x3F;
 
     let rem = input.len() % 3;
     let start_of_rem = input.len() - rem;
@@ -393,9 +396,9 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
         let mut output_chunk = &mut output[output_index..(output_index + 4)];
 
         output_chunk[0] = encode_table[(input_chunk[0] >> 2) as usize];
-        output_chunk[1] = encode_table[((input_chunk[0] << 4 | input_chunk[1] >> 4) & 0x3f) as usize];
-        output_chunk[2] = encode_table[((input_chunk[1] << 2 | input_chunk[2] >> 6) & 0x3f) as usize];
-        output_chunk[3] = encode_table[(input_chunk[2] & 0x3f) as usize];
+        output_chunk[1] = encode_table[((input_chunk[0] << 4 | input_chunk[1] >> 4) & LOW_SIX_BITS_U8) as usize];
+        output_chunk[2] = encode_table[((input_chunk[1] << 2 | input_chunk[2] >> 6) & LOW_SIX_BITS_U8) as usize];
+        output_chunk[3] = encode_table[(input_chunk[2] & LOW_SIX_BITS_U8) as usize];
 
         input_index += 3;
         output_index += 4;
@@ -403,12 +406,12 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
 
     if rem == 2 {
         output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
-        output[output_index + 1] = encode_table[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & 0x3f) as usize];
-        output[output_index + 2] = encode_table[(input[start_of_rem + 1] << 2 & 0x3f) as usize];
+        output[output_index + 1] = encode_table[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4) & LOW_SIX_BITS_U8) as usize];
+        output[output_index + 2] = encode_table[((input[start_of_rem + 1] << 2) & LOW_SIX_BITS_U8) as usize];
         output_index += 3;
     } else if rem == 1 {
         output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
-        output[output_index + 1] = encode_table[(input[start_of_rem] << 4 & 0x3f) as usize];
+        output[output_index + 1] = encode_table[((input[start_of_rem] << 4) & LOW_SIX_BITS_U8) as usize];
         output_index += 2;
     }
 

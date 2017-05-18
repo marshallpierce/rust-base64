@@ -224,8 +224,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, size: usize, config: Config) {
 
     b.bytes = v.len() as u64;
     b.iter(|| {
-        let e = encode_config_buf(&v, config, &mut buf);
-        test::black_box(&e);
+        encode_config_buf(&v, config, &mut buf);
         buf.clear();
     });
 }
