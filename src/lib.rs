@@ -42,9 +42,9 @@ pub enum LineEnding {
 
 impl LineEnding {
     fn len(&self) -> usize {
-        match self {
-            &LineEnding::LF => 1,
-            &LineEnding::CRLF => 2
+        match *self {
+            LineEnding::LF => 1,
+            LineEnding::CRLF => 2
         }
     }
 }
@@ -487,7 +487,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T,
         input.as_ref()
     };
 
-    let ref decode_table = config.char_set.decode_table();
+    let decode_table = &config.char_set.decode_table();
 
     buffer.reserve(input_bytes.len() * 3 / 4);
 
