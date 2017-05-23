@@ -2,10 +2,11 @@ use super::{Config, LineWrap, LineEnding, encode_to_slice, add_padding};
 use super::line_wrap::line_wrap;
 use std::{cmp, str};
 
+/// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
     type Error;
 
-    fn write_str(&mut self, &str) -> Result<(), Self::Error>;
+    fn write_str(&mut self, encoded: &str) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, PartialEq)]
@@ -178,22 +179,29 @@ pub mod tests {
     }
 
     #[test]
-    fn chunked_encode_fast_loop_only() {
-        // > 8 bytes input, will enter fast loop
-        assert_eq!("Zm9vYmFyYmF6cXV4", chunked_encode_str("foobarbazqux".as_bytes(), STANDARD));
+    fn chunked_encode_intermediate_fast_loop() {
+        // > 8 bytes input, will enter the pretty fast loop
+        assert_eq!("Zm9vYmFyYmF6cXV4", chunked_encode_str(b"foobarbazqux", STANDARD));
+    }
+
+    #[test]
+    fn chunked_encode_fast_loop() {
+        // > 32 bytes input, will enter the uber fast loop
+        assert_eq!("Zm9vYmFyYmF6cXV4cXV1eGNvcmdlZ3JhdWx0Z2FycGx5eg==",
+            chunked_encode_str(b"foobarbazquxquuxcorgegraultgarplyz", STANDARD));
     }
 
     #[test]
     fn chunked_encode_slow_loop_only() {
         // < 8 bytes input, slow loop only
-        assert_eq!("Zm9vYmFy", chunked_encode_str("foobar".as_bytes(), STANDARD));
+        assert_eq!("Zm9vYmFy", chunked_encode_str(b"foobar", STANDARD));
     }
 
     #[test]
     fn chunked_encode_line_wrap_padding() {
         // < 8 bytes input, slow loop only
         let config = config_wrap(true, 4, LineEnding::LF);
-        assert_eq!("Zm9v\nYmFy\nZm9v\nYmFy\nZg==", chunked_encode_str("foobarfoobarf".as_bytes(), config));
+        assert_eq!("Zm9v\nYmFy\nZm9v\nYmFy\nZg==", chunked_encode_str(b"foobarfoobarf", config));
     }
 
     #[test]
@@ -326,10 +334,10 @@ pub mod tests {
         let mut input_buf: Vec<u8> = Vec::new();
         let mut output_buf = String::new();
         let mut rng = rand::weak_rng();
-        let line_len_range = Range::new(10, 100);
-        let input_len_range = Range::new(2, 10_000);
+        let line_len_range = Range::new(1, 1000);
+        let input_len_range = Range::new(1, 10_000);
 
-        for _ in 0..2_000 {
+        for _ in 0..5_000 {
             input_buf.clear();
             output_buf.clear();
 
