@@ -8,7 +8,7 @@ documentation = "https://github.com/alicemaz/rust-base64/blob/master/README.md"
 readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode"]
 categories = ["encoding"]
-license = "MIT"
+license = "MIT/Apache-2.0"
 
 [dependencies]
 byteorder = "1.0.0"
