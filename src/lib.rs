@@ -95,6 +95,13 @@ pub static STANDARD: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+pub static STANDARD_NO_PAD: Config = Config {
+    char_set: CharacterSet::Standard,
+    pad: false,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
+
 pub static MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
