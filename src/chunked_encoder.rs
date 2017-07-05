@@ -6,7 +6,8 @@ use std::{cmp, str};
 pub trait Sink {
     type Error;
 
-    fn write_str(&mut self, encoded: &str) -> Result<(), Self::Error>;
+    /// Handle a chunk of encoded base64 data (as UTF-8 bytes)
+    fn write_encoded_bytes(&mut self, encoded: &[u8]) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, PartialEq)]
@@ -89,10 +90,7 @@ impl ChunkedEncoder {
 
             let total_bytes_written = b64_bytes_written + line_ending_bytes;
 
-            // all base64 bytes are valid utf8
-            let s = unsafe { str::from_utf8_unchecked(&encode_buf[0..total_bytes_written]) };
-
-            sink.write_str(s)?;
+            sink.write_encoded_bytes(&encode_buf[0..total_bytes_written])?;
         }
 
         Ok(())
@@ -412,8 +410,8 @@ pub mod tests {
     impl Sink for StringSink {
         type Error = ();
 
-        fn write_str(&mut self, s: &str) -> Result<(), Self::Error> {
-            self.string.push_str(s);
+        fn write_encoded_bytes(&mut self, s: &[u8]) -> Result<(), Self::Error> {
+            self.string.push_str(str::from_utf8(s).unwrap());
 
             Ok(())
         }

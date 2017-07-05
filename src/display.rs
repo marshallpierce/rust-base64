@@ -1,7 +1,7 @@
 use super::{STANDARD, Config};
 use super::chunked_encoder::{ChunkedEncoder, ChunkedEncoderError};
 use std::fmt::{Display, Formatter};
-use std::fmt;
+use std::{fmt, str};
 
 /// A convenience wrapper for base64'ing bytes into a format string without heap allocation.
 pub struct Base64Display<'a> {
@@ -37,8 +37,10 @@ struct FormatterSink<'a, 'b: 'a> {
 impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
     type Error = fmt::Error;
 
-    fn write_str(&mut self, s: &str) -> Result<(), Self::Error> {
-        self.f.write_str(s)
+    fn write_encoded_bytes(&mut self, encoded: &[u8]) -> Result<(), Self::Error> {
+        // Avoid unsafe. If max performance is needed, write your own display wrapper that uses
+        // unsafe here to gain about 10-15%.
+        self.f.write_str(str::from_utf8(encoded).expect("base64 data was not utf8"))
     }
 }
 
