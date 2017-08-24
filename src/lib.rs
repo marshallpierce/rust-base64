@@ -207,13 +207,13 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///```
 pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
     let mut buf = match encoded_size(input.as_ref().len(), &config) {
-        Some(n) => String::with_capacity(n),
+        Some(n) => Vec::with_capacity(n),
         None => panic!("integer overflow when calculating buffer size")
     };
 
-    encode_config_buf(input, config, &mut buf);
+    encode_config_vec(input, config, &mut buf);
 
-    buf
+    String::from_utf8(buf).expect("base64 is always valid UTF-8")
 }
 
 /// calculate the base64 encoded string size, including padding
@@ -248,7 +248,7 @@ fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
     })
 }
 
-///Encode arbitrary octets as base64.
+///Encode arbitrary octets as a base64 String.
 ///Writes into the supplied buffer to avoid allocations.
 ///
 ///# Example
@@ -267,6 +267,33 @@ fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
 ///}
 ///```
 pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
+    // we're only going to insert valid utf8
+    let mut buf_bytes;
+    unsafe {
+        buf_bytes = buf.as_mut_vec();
+    }
+
+    encode_config_vec(input, config, buf_bytes);
+}
+
+/// Encode arbitrary octest as base64 UTF-8 bytes.
+///# Example
+///
+///```rust
+///extern crate base64;
+///use std::str;
+///
+///fn main() {
+///    let mut buf = Vec::new();
+///    base64::encode_config_vec(b"hello world~", base64::STANDARD, &mut buf);
+///    println!("{}", str::from_utf8(&buf).unwrap());
+///
+///    buf.clear();
+///    base64::encode_config_vec(b"hello internet~", base64::URL_SAFE, &mut buf);
+///    println!("{}", str::from_utf8(&buf).unwrap());
+///}
+///```
+pub fn encode_config_vec<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut Vec<u8>) {
     let input_bytes = input.as_ref();
 
     let encoded_size = encoded_size(input_bytes.len(), &config)
@@ -274,16 +301,10 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 
     let orig_buf_len = buf.len();
 
-    // we're only going to insert valid utf8
-    let mut buf_bytes;
-    unsafe {
-        buf_bytes = buf.as_mut_vec();
-    }
-
-    buf_bytes.resize(orig_buf_len.checked_add(encoded_size)
+    buf.resize(orig_buf_len.checked_add(encoded_size)
                          .expect("usize overflow when calculating expanded buffer size"), 0);
 
-    let mut b64_output = &mut buf_bytes[orig_buf_len..];
+    let mut b64_output = &mut buf[orig_buf_len..];
 
     let encoded_bytes = encode_with_padding(input_bytes, b64_output, config.char_set.encode_table(),
                                             config.pad);
