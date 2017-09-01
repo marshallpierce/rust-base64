@@ -1,5 +1,6 @@
 [base64](https://crates.io/crates/base64)
 ===
+[![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64)
 
 It's base64. What more could anyone want?
 
