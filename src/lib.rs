@@ -97,6 +97,13 @@ pub static STANDARD: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+pub static STANDARD_NO_PAD: Config = Config {
+    char_set: CharacterSet::Standard,
+    pad: false,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
+
 pub static MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
@@ -270,7 +277,7 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     let orig_buf_len = buf.len();
 
     // we're only going to insert valid utf8
-    let mut buf_bytes;
+    let buf_bytes;
     unsafe {
         buf_bytes = buf.as_mut_vec();
     }
@@ -278,7 +285,7 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     buf_bytes.resize(orig_buf_len.checked_add(encoded_size)
                          .expect("usize overflow when calculating expanded buffer size"), 0);
 
-    let mut b64_output = &mut buf_bytes[orig_buf_len..];
+    let b64_output = &mut buf_bytes[orig_buf_len..];
 
     let encoded_bytes = encode_with_padding(input_bytes, b64_output, config.char_set.encode_table(),
                                             config.pad);
@@ -324,7 +331,7 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
             // Major performance wins from letting the optimizer do the bounds check once, mostly
             // on the output side
             let input_chunk = &input[input_index..(input_index + (BLOCKS_PER_FAST_LOOP * 6 + 2))];
-            let mut output_chunk = &mut output[output_index..(output_index + BLOCKS_PER_FAST_LOOP * 8)];
+            let output_chunk = &mut output[output_index..(output_index + BLOCKS_PER_FAST_LOOP * 8)];
 
             // Hand-unrolling for 32 vs 16 or 8 bytes produces yields performance about equivalent
             // to unsafe pointer code on a Xeon E5-1650v3. 64 byte unrolling was slightly better for
@@ -394,7 +401,7 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
 
     while input_index < start_of_rem {
         let input_chunk = &input[input_index..(input_index + 3)];
-        let mut output_chunk = &mut output[output_index..(output_index + 4)];
+        let output_chunk = &mut output[output_index..(output_index + 4)];
 
         output_chunk[0] = encode_table[(input_chunk[0] >> 2) as usize];
         output_chunk[1] = encode_table[((input_chunk[0] << 4 | input_chunk[1] >> 4) & LOW_SIX_BITS_U8) as usize];
