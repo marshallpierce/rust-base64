@@ -109,7 +109,7 @@ impl ChunkedEncoder {
 /// between chunks.
 ///
 /// If the configured line length is not divisible by 4 (and therefore would require carrying
-/// encoder state between chunks), or if the line length is too big for the buffer, None will be
+/// encoder state between chunks), or if the line length is too big for the buffer, an error will be
 /// returned.
 ///
 /// Note that the last overall line of input should *not* have an ending appended, but this will
@@ -200,6 +200,51 @@ pub mod tests {
         // < 8 bytes input, slow loop only
         let config = config_wrap(true, 4, LineEnding::LF);
         assert_eq!("Zm9v\nYmFy\nZm9v\nYmFy\nZg==", chunked_encode_str(b"foobarfoobarf", config));
+    }
+
+    #[test]
+    fn chunked_encode_longer_than_one_buffer_adds_final_line_wrap_lf() {
+        // longest line len possible
+        let config = config_wrap(false, 1020, LineEnding::LF);
+        let input = vec![0xFF; 768];
+        let encoded = chunked_encode_str(&input, config);
+        // got a line wrap
+        assert_eq!(1024 + 1, encoded.len());
+
+        for &b in encoded.as_bytes()[0..1020].iter() {
+            // ascii /
+            assert_eq!(47, b);
+        }
+
+        assert_eq!(10, encoded.as_bytes()[1020]);
+
+        for &b in encoded.as_bytes()[1021..].iter() {
+            // ascii /
+            assert_eq!(47, b);
+        }
+    }
+
+    #[test]
+    fn chunked_encode_longer_than_one_buffer_adds_final_line_wrap_crlf() {
+        // longest line len possible
+        let config = config_wrap(false, 1020, LineEnding::CRLF);
+        let input = vec![0xFF; 768];
+        let encoded = chunked_encode_str(&input, config);
+        // got a line wrap
+        assert_eq!(1024 + 2, encoded.len());
+
+        for &b in encoded.as_bytes()[0..1020].iter() {
+            // ascii /
+            assert_eq!(47, b);
+        }
+
+        assert_eq!(13, encoded.as_bytes()[1020]);
+        assert_eq!(10, encoded.as_bytes()[1021]);
+
+        for &b in encoded.as_bytes()[1022..].iter() {
+            // ascii /
+            assert_eq!(47, b);
+        }
     }
 
     #[test]
