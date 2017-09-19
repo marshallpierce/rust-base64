@@ -2,8 +2,6 @@ extern crate safemem;
 
 use super::*;
 
-use std::str;
-
 #[derive(Debug, PartialEq)]
 pub struct LineWrapParameters {
     // number of lines that need an ending
@@ -140,7 +138,6 @@ pub fn line_wrap(encoded_buf: &mut [u8], input_len: usize, line_len: usize, line
 mod tests {
     extern crate rand;
 
-    use super::super::*;
     use super::*;
 
     use self::rand::Rng;

@@ -1,6 +1,6 @@
 use super::{Config, LineWrap, LineEnding, encode_to_slice, add_padding};
 use super::line_wrap::line_wrap;
-use std::{cmp, str};
+use std::cmp;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -28,7 +28,7 @@ pub struct ChunkedEncoder {
 impl ChunkedEncoder {
     pub fn new(config: Config) -> Result<ChunkedEncoder, ChunkedEncoderError> {
         Ok(ChunkedEncoder {
-            config: config,
+            config,
             max_input_chunk_len: max_input_length(BUF_SIZE, &config)?,
         })
     }

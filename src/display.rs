@@ -17,7 +17,7 @@ impl<'a> Base64Display<'a> {
 
     fn new_with_config(bytes: &[u8], config: Config) -> Result<Base64Display, ChunkedEncoderError> {
         ChunkedEncoder::new(config).map( |c| Base64Display {
-            bytes: bytes,
+            bytes,
             chunked_encoder: c
         })
     }
