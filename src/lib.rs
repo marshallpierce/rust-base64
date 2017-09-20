@@ -1,5 +1,9 @@
 extern crate byteorder;
 
+#[cfg(all(feature="serde-integration", test))]
+#[macro_use]
+extern crate serde_derive;
+
 use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
@@ -8,6 +12,10 @@ mod tables;
 
 mod line_wrap;
 use line_wrap::{line_wrap_parameters, line_wrap};
+
+#[cfg(feature="serde-integration")]
+mod serde;
+
 
 /// Available encoding character sets
 #[derive(Clone, Copy, Debug)]
@@ -88,35 +96,35 @@ impl Config {
     }
 }
 
-pub static STANDARD: Config = Config {
+pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static STANDARD_NO_PAD: Config = Config {
+pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static MIME: Config = Config {
+pub const MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: true,
     line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
 };
 
-pub static URL_SAFE: Config = Config {
+pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static URL_SAFE_NO_PAD: Config = Config {
+pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
     strip_whitespace: false,
