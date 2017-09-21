@@ -80,43 +80,43 @@ impl Config {
         };
 
         Config {
-            char_set: char_set,
-            pad: pad,
-            strip_whitespace: strip_whitespace,
-            line_wrap: line_wrap,
+            char_set,
+            pad,
+            strip_whitespace,
+            line_wrap,
         }
     }
 }
 
-pub static STANDARD: Config = Config {
+pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static STANDARD_NO_PAD: Config = Config {
+pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static MIME: Config = Config {
+pub const MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: true,
     line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
 };
 
-pub static URL_SAFE: Config = Config {
+pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
 
-pub static URL_SAFE_NO_PAD: Config = Config {
+pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
     strip_whitespace: false,
