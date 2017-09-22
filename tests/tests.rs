@@ -452,7 +452,7 @@ fn display_wrapper_matches_normal_encode() {
     }
     bytes.push(255);
 
-    assert_eq!(encode(&bytes), format!("{}", base64::display::Base64Display::new(&bytes)));
+    assert_eq!(encode(&bytes), format!("{}", base64::display::Base64Display::new(&bytes, STANDARD).unwrap()));
 }
 
 #[test]
