@@ -26,6 +26,11 @@ fn encode_50b(b: &mut Bencher) {
 }
 
 #[bench]
+fn encode_50b_display(b: &mut Bencher) {
+    do_encode_bench_display(b, 50)
+}
+
+#[bench]
 fn encode_50b_reuse_buf(b: &mut Bencher) {
     do_encode_bench_reuse_buf(b, 50, STANDARD)
 }
