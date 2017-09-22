@@ -4,9 +4,11 @@ use std::{fmt, error, str};
 
 use byteorder::{BigEndian, ByteOrder};
 
+pub mod display;
 mod tables;
-
+mod chunked_encoder;
 mod line_wrap;
+
 use line_wrap::{line_wrap_parameters, line_wrap};
 
 /// Available encoding character sets

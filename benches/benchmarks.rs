@@ -5,6 +5,7 @@ extern crate test;
 extern crate rand;
 
 use base64::{decode, decode_config_buf, encode, encode_config_buf, Config, MIME, STANDARD};
+use base64::display;
 
 use test::Bencher;
 use rand::Rng;
@@ -60,6 +61,11 @@ fn encode_3kib(b: &mut Bencher) {
 }
 
 #[bench]
+fn encode_3kib_display(b: &mut Bencher) {
+    do_encode_bench_display(b, 3 * 1024)
+}
+
+#[bench]
 fn encode_3kib_reuse_buf(b: &mut Bencher) {
     do_encode_bench_reuse_buf(b, 3 * 1024, STANDARD)
 }
@@ -72,6 +78,11 @@ fn encode_3kib_reuse_buf_mime(b: &mut Bencher) {
 #[bench]
 fn encode_3mib(b: &mut Bencher) {
     do_encode_bench(b, 3 * 1024 * 1024)
+}
+
+#[bench]
+fn encode_3mib_display(b: &mut Bencher) {
+    do_encode_bench_display(b, 3 * 1024 * 1024)
 }
 
 #[bench]
@@ -212,6 +223,17 @@ fn do_encode_bench(b: &mut Bencher, size: usize) {
     b.bytes = v.len() as u64;
     b.iter(|| {
         let e = encode(&v);
+        test::black_box(&e);
+    });
+}
+
+fn do_encode_bench_display(b: &mut Bencher, size: usize) {
+    let mut v: Vec<u8> = Vec::with_capacity(size);
+    fill(&mut v);
+
+    b.bytes = v.len() as u64;
+    b.iter(|| {
+        let e = format!("{}", display::Base64Display::new(&v));
         test::black_box(&e);
     });
 }

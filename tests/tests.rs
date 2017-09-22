@@ -443,6 +443,19 @@ fn encode_line_ending_crlf_full_last_line() {
 }
 
 #[test]
+fn display_wrapper_matches_normal_encode() {
+
+    let mut bytes = Vec::<u8>::with_capacity(256);
+
+    for i in 0..255 {
+        bytes.push(i);
+    }
+    bytes.push(255);
+
+    assert_eq!(encode(&bytes), format!("{}", base64::display::Base64Display::new(&bytes)));
+}
+
+#[test]
 fn because_we_can() {
     compare_decode("alice", "YWxpY2U=");
     compare_decode("alice", &encode(b"alice"));
