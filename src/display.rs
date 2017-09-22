@@ -5,7 +5,7 @@
 //! use base64::display::Base64Display;
 //!
 //! let data = vec![0x0, 0x1, 0x2, 0x3];
-//! let wrapper = Base64Display::new(&data, STANDARD).expect("STANDARD is OK");
+//! let wrapper = Base64Display::standard(&data);
 //!
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", wrapper));
 //! ```
@@ -32,8 +32,8 @@ pub struct Base64Display<'a> {
 }
 
 impl<'a> Base64Display<'a> {
-    /// Create a Base64Display with the provided config.
-    pub fn new(bytes: &[u8], config: Config) -> Result<Base64Display, DisplayError> {
+    /// Create a `Base64Display` with the provided config.
+    pub fn with_config(bytes: &[u8], config: Config) -> Result<Base64Display, DisplayError> {
         ChunkedEncoder::new(config)
                 .map( |c| Base64Display {
                     bytes,
@@ -43,6 +43,17 @@ impl<'a> Base64Display<'a> {
                     ChunkedEncoderError::InvalidLineLength => DisplayError::InvalidLineLength
                 })
     }
+
+    /// Convenience method for creating a `Base64Display` with the `STANDARD` configuration.
+    pub fn standard(bytes: &[u8]) -> Base64Display {
+        Base64Display::with_config(bytes, super::STANDARD).expect("STANDARD is valid")
+    }
+
+    /// Convenience method for creating a `Base64Display` with the `URL_SAFE` configuration.
+    pub fn url_safe(bytes: &[u8]) -> Base64Display {
+        Base64Display::with_config(bytes, super::URL_SAFE).expect("URL_SAFE is valid")
+    }
+
 }
 
 impl<'a> Display for Base64Display<'a> {
@@ -74,8 +85,8 @@ mod tests {
 
     #[test]
     fn basic_display() {
-        assert_eq!("~$Zm9vYmFy#*", format!("~${}#*", Base64Display::new("foobar".as_bytes(), STANDARD).unwrap()));
-        assert_eq!("~$Zm9vYmFyZg==#*", format!("~${}#*", Base64Display::new("foobarf".as_bytes(), STANDARD).unwrap()));
+        assert_eq!("~$Zm9vYmFy#*", format!("~${}#*", Base64Display::standard("foobar".as_bytes())));
+        assert_eq!("~$Zm9vYmFyZg==#*", format!("~${}#*", Base64Display::standard("foobarf".as_bytes())));
     }
 
     #[test]
@@ -88,7 +99,7 @@ mod tests {
 
     impl SinkTestHelper for DisplaySinkTestHelper {
         fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String {
-            format!("{}", Base64Display::new(bytes, config).unwrap())
+            format!("{}", Base64Display::with_config(bytes, config).unwrap())
         }
     }
 
