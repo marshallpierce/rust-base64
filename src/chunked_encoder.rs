@@ -377,7 +377,7 @@ pub mod tests {
         let mut input_buf: Vec<u8> = Vec::new();
         let mut output_buf = String::new();
         let mut rng = rand::weak_rng();
-        let line_len_range = Range::new(1, 1000);
+        let line_len_range = Range::new(1, 1020);
         let input_len_range = Range::new(1, 10_000);
 
         for _ in 0..5_000 {
