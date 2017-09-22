@@ -64,14 +64,7 @@ cargo run --example make_tables > src/tables.rs.tmp && mv src/tables.rs.tmp src/
 Profiling
 ---
 
-On Linux, you can use [perf](https://perf.wiki.kernel.org/index.php/Main_Page) for profiling. First, enable debug symbols in Cargo.toml. Don't commit this change, though, since it's usually not what you want (and costs some performance):
-
-```
-[profile.release]
-debug = true
-```
-
-Then compile the benchmarks. (Just re-run them and ^C once the benchmarks start running; all that's needed is to recompile them.)
+On Linux, you can use [perf](https://perf.wiki.kernel.org/index.php/Main_Page) for profiling. Then compile the benchmarks with `rustup nightly run cargo bench --no-run`.
 
 Run the benchmark binary with `perf` (shown here filtering to one particular benchmark, which will make the results easier to read). `perf` is only available to the root user on most systems as it fiddles with event counters in your CPU, so use `sudo`. We need to run the actual benchmark binary, hence the path into `target`. You can see the actual full path with `rustup run nightly cargo bench -v`; it will print out the commands it runs. If you use the exact path that `bench` outputs, make sure you get the one that's for the benchmarks, not the tests. You may also want to `cargo clean` so you have only one `benchmarks-` binary (they tend to accumulate).
 

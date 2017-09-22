@@ -18,5 +18,5 @@ safemem = "0.2.0"
 rand = "0.3.15"
 
 [profile.bench]
-# Uncomment when using `perf record`
-#debug = true
+# Useful for better disassembly when using `perf record` and `perf annotate`
+debug = true
