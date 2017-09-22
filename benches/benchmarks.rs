@@ -233,7 +233,7 @@ fn do_encode_bench_display(b: &mut Bencher, size: usize) {
 
     b.bytes = v.len() as u64;
     b.iter(|| {
-        let e = format!("{}", display::Base64Display::new(&v));
+        let e = format!("{}", display::Base64Display::standard(&v));
         test::black_box(&e);
     });
 }
