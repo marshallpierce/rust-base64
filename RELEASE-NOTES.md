@@ -1,4 +1,4 @@
-# Next
+# 0.7.0
 
 - `STANDARD_NO_PAD` config
 - `Base64Display` heap-free wrapper for use in format strings, etc
