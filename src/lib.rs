@@ -218,7 +218,7 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
     buf
 }
 
-/// calculate the base64 encoded string size, including padding
+/// calculate the base64 encoded string size, including padding if that is in the config
 fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
     let rem = bytes_len % 3;
 
@@ -292,6 +292,34 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 
     if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
         line_wrap(b64_output, encoded_bytes, line_len, line_end);
+    }
+}
+
+/// Write to the supplied slice buffer
+///
+/// Overwrite a non-growable buffer. This is useful if you have a known bound
+/// on your *output*, and you want either a stack- or statically-allocated
+/// buffer.
+///
+/// # Panics
+///
+/// This cannot resize the buffer, you are responsible for ensuring that it has
+/// a len large enough to contain the encoded form of your content.
+pub fn encode_config_slice<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut [u8]) {
+    let input_bytes = input.as_ref();
+    let encoded_size = encoded_size(input_bytes.len(), &config)
+        .expect("usize overflow when calculating buffer size");
+
+    debug_assert!(encoded_size <= buf.len(),
+                  "Must provide enough space in buffer for encoding but {} > {}",
+                  encoded_size,
+                  buf.len());
+
+    let encoded_bytes = encode_with_padding(
+        input_bytes, buf, config.char_set.encode_table(), config.pad);
+
+    if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
+        line_wrap(buf, encoded_bytes, line_len, line_end);
     }
 }
 
