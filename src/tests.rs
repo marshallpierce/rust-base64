@@ -365,6 +365,68 @@ fn add_padding_random_valid_utf8(){
     }
 }
 
+#[test]
+fn encode_config_slice_can_use_inline_buffer() {
+    let mut buf: [u8; 22] = [0; 22];
+    let mut larger_buf: [u8; 24] = [0; 24];
+    let mut input: [u8; 16] = [0; 16];
+
+    let mut rng = rand::weak_rng();
+    for elt in &mut input {
+        *elt = rng.gen();
+    }
+
+    let config = Config::new(
+        CharacterSet::Standard,
+        false,
+        true,
+        LineWrap::NoWrap,
+    );
+
+    encode_config_slice(&input, config, &mut buf);
+    let decoded = decode_config(&buf, config).unwrap();
+
+    assert_eq!(decoded, input);
+
+    // let's try it again with padding
+    let config_pad = Config::new(
+        CharacterSet::Standard,
+        true,
+        true,
+        LineWrap::NoWrap,
+    );
+
+    encode_config_slice(&input, config_pad, &mut larger_buf);
+    let decoded = decode_config(&buf, config_pad).unwrap();
+
+    assert_eq!(decoded, input);
+}
+
+#[test]
+#[should_panic]
+fn encode_config_slice_panics_when_buffer_too_small() {
+    let mut buf: [u8; 22] = [0; 22];
+    let mut input: [u8; 16] = [0; 16];
+
+    let mut rng = rand::weak_rng();
+    for elt in &mut input {
+        *elt = rng.gen();
+    }
+
+    // let's try it again with padding
+    let config_pad = Config::new(
+        CharacterSet::Standard,
+        true,
+        true,
+        LineWrap::NoWrap,
+    );
+
+    encode_config_slice(&input, config_pad, &mut buf);
+    let decoded = decode_config(&buf, config_pad).unwrap();
+
+    assert_eq!(decoded, input);
+}
+
 fn total_line_ending_bytes(encoded_len: usize, config: &Config) -> usize {
     match config.line_wrap {
         LineWrap::NoWrap => 0,
