@@ -1,4 +1,4 @@
-//! Enables base64'd output anywhere you might use a Display implementation, like a format string.
+//! Enables base64'd output anywhere you might use a `Display` implementation, like a format string.
 //!
 //! ```
 //! use base64::STANDARD;

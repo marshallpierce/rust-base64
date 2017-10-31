@@ -212,7 +212,7 @@ mod tests {
     fn line_wrap_length_1_lf() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4];
 
-        do_line_wrap(&mut buf, 1, LineEnding::LF);
+        assert_eq!(3, do_line_wrap(&mut buf, 1, LineEnding::LF));
 
         assert_eq!(vec![0x1, 0xA, 0x2, 0xA, 0x3, 0xA, 0x4], buf);
     }
@@ -221,7 +221,7 @@ mod tests {
     fn line_wrap_length_1_crlf() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4];
 
-        do_line_wrap(&mut buf, 1, LineEnding::CRLF);
+        assert_eq!(6, do_line_wrap(&mut buf, 1, LineEnding::CRLF));
 
         assert_eq!(vec![0x1, 0xD, 0xA, 0x2, 0xD, 0xA, 0x3, 0xD, 0xA, 0x4], buf);
     }
@@ -230,7 +230,7 @@ mod tests {
     fn line_wrap_length_2_lf_full_lines() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4];
 
-        do_line_wrap(&mut buf, 2, LineEnding::LF);
+        assert_eq!(1, do_line_wrap(&mut buf, 2, LineEnding::LF));
 
         assert_eq!(vec![0x1, 0x2, 0xA, 0x3, 0x4], buf);
     }
@@ -239,7 +239,7 @@ mod tests {
     fn line_wrap_length_2_crlf_full_lines() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4];
 
-        do_line_wrap(&mut buf, 2, LineEnding::CRLF);
+        assert_eq!(2, do_line_wrap(&mut buf, 2, LineEnding::CRLF));
 
         assert_eq!(vec![0x1, 0x2, 0xD, 0xA, 0x3, 0x4], buf);
     }
@@ -248,7 +248,7 @@ mod tests {
     fn line_wrap_length_2_lf_partial_line() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4, 0x5];
 
-        do_line_wrap(&mut buf, 2, LineEnding::LF);
+        assert_eq!(2, do_line_wrap(&mut buf, 2, LineEnding::LF));
 
         assert_eq!(vec![0x1, 0x2, 0xA, 0x3, 0x4, 0xA, 0x5], buf);
     }
@@ -257,7 +257,7 @@ mod tests {
     fn line_wrap_length_2_crlf_partial_line() {
         let mut buf = vec![0x1, 0x2, 0x3, 0x4, 0x5];
 
-        do_line_wrap(&mut buf, 2, LineEnding::CRLF);
+        assert_eq!(4, do_line_wrap(&mut buf, 2, LineEnding::CRLF));
 
         assert_eq!(vec![0x1, 0x2, 0xD, 0xA, 0x3, 0x4, 0xD, 0xA, 0x5], buf);
     }
@@ -296,7 +296,7 @@ mod tests {
                 let line_ending_offset = (line_ending_num + 1) * line_len;
 
                 for _ in 0..line_ending_len {
-                    buf.remove(line_ending_offset);
+                    let _ = buf.remove(line_ending_offset);
                 }
             }
 

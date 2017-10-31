@@ -1,3 +1,51 @@
+//! # Configs
+//!
+//! There isn't just one type of Base64; that would be too simple. You need to choose a character
+//! set (standard or URL-safe), padding suffix (yes/no), and line wrap (line length, line ending).
+//! The `Config` struct encapsulates this info. There are some common configs included: `STANDARD`,
+//! `MIME`, etc. You can also make your own `Config` if needed.
+//!
+//! The functions that don't have `config` in the name (e.g. `encode()` and `decode()`) use the
+//! `STANDARD` config .
+//!
+//! # Encoding
+//!
+//! Several different encoding functions are available to you depending on your desire for
+//! convenience vs performance.
+//!
+//! | Function                | Output                       | Allocates                      |
+//! | ----------------------- | ---------------------------- | ------------------------------ |
+//! | `encode`                | Returns a new `String`       | Always                         |
+//! | `encode_config`         | Returns a new `String`       | Always                         |
+//! | `encode_config_buf`     | Appends to provided `String` | Only if `String` needs to grow |
+//! | `encode_config_slice`   | Writes to provided `&[u8]`   | Never                          |
+//!
+//! All of the encoding functions that take a `Config` will pad, line wrap, etc, as per the config.
+//!
+//! # Decoding
+//!
+//! Just as for encoding, there are different decoding functions available.
+//!
+//! | Function                | Output                        | Allocates                      |
+//! | ----------------------- | ----------------------------- | ------------------------------ |
+//! | `decode`                | Returns a new `Vec<u8>`       | Always                         |
+//! | `decode_config`         | Returns a new `Vec<u8>`       | Always                         |
+//! | `decode_config_buf`     | Appends to provided `Vec<u8>` | Only if `Vec` needs to grow    |
+//!
+//! Unlike encoding, where all possible input is valid, decoding can fail (see `DecodeError`).
+//!
+//! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
+//! valid, but incorrect padding is not.)
+//!
+//! Whitespace in the input is invalid unless `strip_whitespace` is enabled in the `Config` used.
+//!
+//! # Panics
+//!
+//! If length calculations result in overflowing `usize`, a panic will result.
+
+#![deny(missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates,
+        unused_import_braces, unused_results, variant_size_differences, warnings)]
+
 extern crate byteorder;
 
 use std::{fmt, error, str};
@@ -36,9 +84,12 @@ impl CharacterSet {
     }
 }
 
+/// Line ending used in optional line wrapping.
 #[derive(Clone, Copy, Debug)]
 pub enum LineEnding {
+    /// Unix-style \n
     LF,
+    /// Windows-style \r\n
     CRLF,
 }
 
@@ -51,10 +102,12 @@ impl LineEnding {
     }
 }
 
+/// Line wrap configuration.
 #[derive(Clone, Copy, Debug)]
 pub enum LineWrap {
+    /// Don't wrap.
     NoWrap,
-    // wrap length is always > 0
+    /// Wrap lines with the specified length and line ending. The length must be > 0.
     Wrap(usize, LineEnding)
 }
 
@@ -65,13 +118,15 @@ pub struct Config {
     char_set: CharacterSet,
     /// True to pad output with `=` characters
     pad: bool,
-    /// Remove whitespace before decoding, at the cost of an allocation
+    /// Remove whitespace before decoding, at the cost of an allocation. Whitespace is defined
+    /// according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space.
     strip_whitespace: bool,
     /// ADT signifying whether to linewrap output, and if so by how many characters and with what ending
     line_wrap: LineWrap,
 }
 
 impl Config {
+    /// Create a new `Config`.
     pub fn new(char_set: CharacterSet,
                pad: bool,
                strip_whitespace: bool,
@@ -90,6 +145,7 @@ impl Config {
     }
 }
 
+/// Standard character set with padding.
 pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
@@ -97,6 +153,7 @@ pub const STANDARD: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+/// Standard character set without padding.
 pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
@@ -104,6 +161,7 @@ pub const STANDARD_NO_PAD: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+/// As per standards for MIME encoded messages
 pub const MIME: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
@@ -111,6 +169,7 @@ pub const MIME: Config = Config {
     line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
 };
 
+/// URL-safe character set with padding
 pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
@@ -118,6 +177,7 @@ pub const URL_SAFE: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+/// URL-safe character set without padding
 pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
@@ -125,9 +185,12 @@ pub const URL_SAFE_NO_PAD: Config = Config {
     line_wrap: LineWrap::NoWrap,
 };
 
+/// Errors that can occur while decoding.
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
+    /// An invalid byte was found in the input. The offset and offending byte are provided.
     InvalidByte(usize, u8),
+    /// The length of the input is invalid.
     InvalidLength,
 }
 
@@ -218,40 +281,8 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
     buf
 }
 
-/// calculate the base64 encoded string size, including padding
-fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
-    let rem = bytes_len % 3;
-
-    let complete_input_chunks = bytes_len / 3;
-    let complete_chunk_output = complete_input_chunks.checked_mul(4);
-
-    let encoded_len_no_wrap = if rem > 0 {
-        if config.pad {
-            complete_chunk_output.and_then(|c| c.checked_add(4))
-        } else {
-            let encoded_rem = match rem {
-                1 => 2,
-                2 => 3,
-                _ => panic!("Impossible remainder")
-            };
-            complete_chunk_output.and_then(|c| c.checked_add(encoded_rem))
-        }
-    } else {
-        complete_chunk_output
-    };
-
-    encoded_len_no_wrap.map(|e| {
-        match config.line_wrap {
-            LineWrap::NoWrap => e,
-            LineWrap::Wrap(line_len, line_ending) => {
-                line_wrap_parameters(e, line_len, line_ending).total_len
-            }
-        }
-    })
-}
-
 ///Encode arbitrary octets as base64.
-///Writes into the supplied buffer to avoid allocations.
+///Writes into the supplied output buffer, which will grow the buffer if needed.
 ///
 ///# Example
 ///
@@ -285,14 +316,77 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     buf_bytes.resize(orig_buf_len.checked_add(encoded_size)
                          .expect("usize overflow when calculating expanded buffer size"), 0);
 
-    let b64_output = &mut buf_bytes[orig_buf_len..];
+    let mut b64_output = &mut buf_bytes[orig_buf_len..];
 
-    let encoded_bytes = encode_with_padding(input_bytes, b64_output, config.char_set.encode_table(),
+    encode_with_padding_line_wrap(&input_bytes, &config, encoded_size, &mut b64_output);
+}
+
+/// Encode arbitrary octets as base64.
+/// Writes into the supplied output buffer.
+///
+/// This is useful if you wish to avoid allocation entirely (e.g. encoding into a stack-resident
+/// or statically-allocated buffer).
+///
+/// # Panics
+///
+/// If `output` is too small to hold the encoded version of `input`, a panic will result.
+///
+/// # Example
+/// 
+/// ```rust
+/// extern crate base64;
+/// 
+/// fn main() {
+///     let s = b"hello internet!";
+///     let mut buf = Vec::new();
+///     // make sure we'll have a slice big enough for base64 + padding
+///     buf.resize(s.len() * 4 / 3 + 4, 0);
+///
+///     let bytes_written = base64::encode_config_slice(s,
+///                             base64::STANDARD, &mut buf);
+///
+///     // shorten our vec down to just what was written
+///     buf.resize(bytes_written, 0);
+///
+///     assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
+/// }
+/// ```
+pub fn encode_config_slice<T: ? Sized + AsRef<[u8]>>(input: &T, config: Config, output: &mut [u8]) -> usize {
+    let input_bytes = input.as_ref();
+
+    let encoded_size = encoded_size(input_bytes.len(), &config)
+        .expect("usize overflow when calculating buffer size");
+
+    let mut b64_output = &mut output[0..encoded_size];
+
+    encode_with_padding_line_wrap(&input_bytes, &config, encoded_size, &mut b64_output);
+
+    encoded_size
+}
+
+/// B64-encode, pad, and line wrap (if configured).
+///
+/// This helper exists to avoid recalculating encoded_size, which is relatively expensive on short
+/// inputs.
+///
+/// `encoded_size` is the encoded size calculated for `input`.
+///
+/// `output` must be of size `encoded_size`.
+///
+/// All bytes in `output` will be written to since it is exactly the size of the output.
+fn encode_with_padding_line_wrap(input: &[u8], config: &Config, encoded_size: usize, output: &mut [u8]) {
+    debug_assert_eq!(encoded_size, output.len());
+
+    let encoded_bytes = encode_with_padding(input, output, config.char_set.encode_table(),
                                             config.pad);
 
-    if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
-        line_wrap(b64_output, encoded_bytes, line_len, line_end);
-    }
+    let line_ending_bytes = if let LineWrap::Wrap(line_len, line_end) = config.line_wrap {
+        line_wrap(output, encoded_bytes, line_len, line_end)
+    } else {
+        0
+    };
+
+    debug_assert_eq!(encoded_size, encoded_bytes + line_ending_bytes);
 }
 
 /// Encode input bytes and pad if configured.
@@ -424,6 +518,38 @@ fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> 
     }
 
     output_index
+}
+
+/// calculate the base64 encoded string size, including padding and line wraps if appropriate
+fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
+    let rem = bytes_len % 3;
+
+    let complete_input_chunks = bytes_len / 3;
+    let complete_chunk_output = complete_input_chunks.checked_mul(4);
+
+    let encoded_len_no_wrap = if rem > 0 {
+        if config.pad {
+            complete_chunk_output.and_then(|c| c.checked_add(4))
+        } else {
+            let encoded_rem = match rem {
+                1 => 2,
+                2 => 3,
+                _ => unreachable!("Impossible remainder")
+            };
+            complete_chunk_output.and_then(|c| c.checked_add(encoded_rem))
+        }
+    } else {
+        complete_chunk_output
+    };
+
+    encoded_len_no_wrap.map(|e| {
+        match config.line_wrap {
+            LineWrap::NoWrap => e,
+            LineWrap::Wrap(line_len, line_ending) => {
+                line_wrap_parameters(e, line_len, line_ending).total_len
+            }
+        }
+    })
 }
 
 /// Write padding characters.

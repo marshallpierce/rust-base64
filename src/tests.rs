@@ -1,7 +1,7 @@
 extern crate rand;
 
 use super::*;
-use super::line_wrap::{line_wrap_parameters};
+use super::line_wrap::line_wrap_parameters;
 use self::rand::Rng;
 use self::rand::distributions::{IndependentSample, Range};
 

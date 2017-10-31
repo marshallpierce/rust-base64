@@ -468,3 +468,41 @@ fn encode_url_safe_without_padding() {
     assert_eq!(&encoded, "YWxpY2U");
     assert_eq!(String::from_utf8(decode(&encoded).unwrap()).unwrap(), "alice");
 }
+
+#[test]
+fn encode_config_slice_can_use_inline_buffer() {
+    let mut buf: [u8; 22] = [0; 22];
+    let mut larger_buf: [u8; 24] = [0; 24];
+    let mut input: [u8; 16] = [0; 16];
+
+    let mut rng = rand::weak_rng();
+    for elt in &mut input {
+        *elt = rng.gen();
+    }
+
+    assert_eq!(22, encode_config_slice(&input, STANDARD_NO_PAD, &mut buf));
+    let decoded = decode_config(&buf, STANDARD_NO_PAD).unwrap();
+
+    assert_eq!(decoded, input);
+
+    // let's try it again with padding
+
+    assert_eq!(24, encode_config_slice(&input, STANDARD, &mut larger_buf));
+    let decoded = decode_config(&buf, STANDARD).unwrap();
+
+    assert_eq!(decoded, input);
+}
+
+#[test]
+#[should_panic(expected = "index 24 out of range for slice of length 22")]
+fn encode_config_slice_panics_when_buffer_too_small() {
+    let mut buf: [u8; 22] = [0; 22];
+    let mut input: [u8; 16] = [0; 16];
+
+    let mut rng = rand::weak_rng();
+    for elt in &mut input {
+        *elt = rng.gen();
+    }
+
+    encode_config_slice(&input, STANDARD, &mut buf);
+}
