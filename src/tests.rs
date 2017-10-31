@@ -134,7 +134,7 @@ fn roundtrip_random_config_long() {
 }
 
 #[test]
-fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
+fn encode_config_buf_into_nonempty_buffer_doesnt_clobber_prefix() {
     let mut orig_data = Vec::new();
     let mut prefix = String::new();
     let mut encoded_data_no_prefix = String::new();
@@ -185,6 +185,60 @@ fn encode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
         let encoded_no_line_endings: String = encoded_data_no_prefix.chars()
             .filter(|&c| c != '\r' && c != '\n')
             .collect();
+
+        decode_config_buf(&encoded_no_line_endings, config, &mut decoded).unwrap();
+        assert_eq!(orig_data, decoded);
+    }
+}
+
+#[test]
+fn encode_config_slice_into_nonempty_buffer_doesnt_clobber_suffix() {
+    let mut orig_data = Vec::new();
+    let mut encoded_data = Vec::new();
+    let mut encoded_data_original_state = Vec::new();
+    let mut decoded = Vec::new();
+
+    let input_len_range = Range::new(0, 1000);
+    let line_len_range = Range::new(1, 1000);
+
+    let mut rng = rand::weak_rng();
+
+    for _ in 0..10_000 {
+        orig_data.clear();
+        encoded_data.clear();
+        encoded_data_original_state.clear();
+        decoded.clear();
+
+        let input_len = input_len_range.ind_sample(&mut rng);
+
+        for _ in 0..input_len {
+            orig_data.push(rng.gen());
+        }
+
+        // plenty of existing garbage in the encoded buffer
+        for _ in 0..10 * input_len {
+            encoded_data.push(rng.gen());
+        }
+
+        encoded_data_original_state.extend_from_slice(&encoded_data);
+
+        let config = random_config(&mut rng, &line_len_range);
+
+        let encoded_size = encoded_size(input_len, &config).unwrap();
+
+        assert_eq!(encoded_size, encode_config_slice(&orig_data, config, &mut encoded_data));
+
+        assert_encode_sanity(std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                             &config, input_len);
+
+        assert_eq!(&encoded_data[encoded_size..], &encoded_data_original_state[encoded_size..]);
+
+        // since we know we have the correct count of line endings, it's reasonable to simply remove
+        // them without worrying about where they are
+        let encoded_no_line_endings: String = String::from_utf8(encoded_data[0..encoded_size].iter()
+            .filter(|&b| *b != 0xA_u8 && *b != 0xD_u8)
+            .map(|&b| b)
+            .collect()).unwrap();
 
         decode_config_buf(&encoded_no_line_endings, config, &mut decoded).unwrap();
         assert_eq!(orig_data, decoded);
@@ -253,7 +307,7 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
 }
 
 #[test]
-fn encode_with_padding_random_valid_utf8() {
+fn encode_with_padding_line_wrap_random_valid_utf8() {
     let mut input = Vec::new();
     let mut output = Vec::new();
 
@@ -276,22 +330,19 @@ fn encode_with_padding_random_valid_utf8() {
 
         // fill up the output buffer with garbage
         let encoded_size = encoded_size(input_len, &config).unwrap();
-        for _ in 0..encoded_size {
+        for _ in 0..encoded_size + 1000 {
             output.push(rng.gen());
         }
 
         let orig_output_buf = output.to_vec();
 
-        let bytes_written =
-            encode_with_padding(&input, &mut output, config.char_set.encode_table(), config.pad);
+        encode_with_padding_line_wrap(&input, &config,  encoded_size, &mut output[0..encoded_size]);
 
-        let line_ending_bytes = total_line_ending_bytes(bytes_written, &config);
-        assert_eq!(encoded_size, bytes_written + line_ending_bytes);
-        // make sure the part beyond bytes_written is the same garbage it was before
-        assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
+        // make sure the part beyond b64 is the same garbage it was before
+        assert_eq!(orig_output_buf[encoded_size..], output[encoded_size..]);
 
         // make sure the encoded bytes are UTF-8
-        let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
+        let _ = str::from_utf8(&output[0..encoded_size]).unwrap();
     }
 }
 
@@ -362,14 +413,6 @@ fn add_padding_random_valid_utf8(){
 
         // make sure the encoded bytes are UTF-8
         let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
-    }
-}
-
-fn total_line_ending_bytes(encoded_len: usize, config: &Config) -> usize {
-    match config.line_wrap {
-        LineWrap::NoWrap => 0,
-        LineWrap::Wrap(line_len, line_ending) =>
-            line_wrap_parameters(encoded_len, line_len, line_ending).total_line_endings_len
     }
 }
 
