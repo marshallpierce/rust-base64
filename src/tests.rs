@@ -236,7 +236,7 @@ fn encode_config_slice_into_nonempty_buffer_doesnt_clobber_suffix() {
         // since we know we have the correct count of line endings, it's reasonable to simply remove
         // them without worrying about where they are
         let encoded_no_line_endings: String = String::from_utf8(encoded_data[0..encoded_size].iter()
-            .filter(|&b| *b != 0xA_u8 && *b != 0xD_u8)
+            .filter(|&b| *b != '\r' as u8 && *b != '\n' as u8)
             .map(|&b| b)
             .collect()).unwrap();
 
