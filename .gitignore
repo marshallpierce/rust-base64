@@ -11,3 +11,4 @@ main.rs
 
 # `perf record` files
 perf.data*
+/tmp
