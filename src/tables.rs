@@ -1,4 +1,5 @@
 pub const INVALID_VALUE: u8 = 255;
+#[cfg_attr(rustfmt, rustfmt_skip)]
 pub const STANDARD_ENCODE: &'static [u8; 64] = &[
     65, // input 0 (0x0) => 'A' (0x41)
     66, // input 1 (0x1) => 'B' (0x42)
@@ -65,6 +66,7 @@ pub const STANDARD_ENCODE: &'static [u8; 64] = &[
     43, // input 62 (0x3E) => '+' (0x2B)
     47, // input 63 (0x3F) => '/' (0x2F)
 ];
+#[cfg_attr(rustfmt, rustfmt_skip)]
 pub const STANDARD_DECODE: &'static [u8; 256] = &[
     INVALID_VALUE, // input 0 (0x0)
     INVALID_VALUE, // input 1 (0x1)
@@ -323,6 +325,7 @@ pub const STANDARD_DECODE: &'static [u8; 256] = &[
     INVALID_VALUE, // input 254 (0xFE)
     INVALID_VALUE, // input 255 (0xFF)
 ];
+#[cfg_attr(rustfmt, rustfmt_skip)]
 pub const URL_SAFE_ENCODE: &'static [u8; 64] = &[
     65, // input 0 (0x0) => 'A' (0x41)
     66, // input 1 (0x1) => 'B' (0x42)
@@ -389,6 +392,7 @@ pub const URL_SAFE_ENCODE: &'static [u8; 64] = &[
     45, // input 62 (0x3E) => '-' (0x2D)
     95, // input 63 (0x3F) => '_' (0x5F)
 ];
+#[cfg_attr(rustfmt, rustfmt_skip)]
 pub const URL_SAFE_DECODE: &'static [u8; 256] = &[
     INVALID_VALUE, // input 0 (0x0)
     INVALID_VALUE, // input 1 (0x1)

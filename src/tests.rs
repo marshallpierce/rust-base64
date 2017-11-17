@@ -88,7 +88,7 @@ fn encoded_size_correct_lf_pad() {
         CharacterSet::Standard,
         true,
         false,
-        LineWrap::Wrap(76, LineEnding::LF)
+        LineWrap::Wrap(76, LineEnding::LF),
     );
 
     assert_encoded_length(0, 0, config);
@@ -171,7 +171,10 @@ fn encode_config_buf_into_nonempty_buffer_doesnt_clobber_prefix() {
         encode_config_buf(&orig_data, config, &mut encoded_data_no_prefix);
         encode_config_buf(&orig_data, config, &mut encoded_data_with_prefix);
 
-        assert_eq!(encoded_data_no_prefix.len() + prefix_len, encoded_data_with_prefix.len());
+        assert_eq!(
+            encoded_data_no_prefix.len() + prefix_len,
+            encoded_data_with_prefix.len()
+        );
         assert_encode_sanity(&encoded_data_no_prefix, &config, input_len);
         assert_encode_sanity(&encoded_data_with_prefix[prefix_len..], &config, input_len);
 
@@ -182,7 +185,8 @@ fn encode_config_buf_into_nonempty_buffer_doesnt_clobber_prefix() {
 
         // since we know we have the correct count of line endings, it's reasonable to simply remove
         // them without worrying about where they are
-        let encoded_no_line_endings: String = encoded_data_no_prefix.chars()
+        let encoded_no_line_endings: String = encoded_data_no_prefix
+            .chars()
             .filter(|&c| c != '\r' && c != '\n')
             .collect();
 
@@ -226,19 +230,31 @@ fn encode_config_slice_into_nonempty_buffer_doesnt_clobber_suffix() {
 
         let encoded_size = encoded_size(input_len, &config).unwrap();
 
-        assert_eq!(encoded_size, encode_config_slice(&orig_data, config, &mut encoded_data));
+        assert_eq!(
+            encoded_size,
+            encode_config_slice(&orig_data, config, &mut encoded_data)
+        );
 
-        assert_encode_sanity(std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                             &config, input_len);
+        assert_encode_sanity(
+            std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+            &config,
+            input_len,
+        );
 
-        assert_eq!(&encoded_data[encoded_size..], &encoded_data_original_state[encoded_size..]);
+        assert_eq!(
+            &encoded_data[encoded_size..],
+            &encoded_data_original_state[encoded_size..]
+        );
 
         // since we know we have the correct count of line endings, it's reasonable to simply remove
         // them without worrying about where they are
-        let encoded_no_line_endings: String = String::from_utf8(encoded_data[0..encoded_size].iter()
-            .filter(|&b| *b != '\r' as u8 && *b != '\n' as u8)
-            .map(|&b| b)
-            .collect()).unwrap();
+        let encoded_no_line_endings: String = String::from_utf8(
+            encoded_data[0..encoded_size]
+                .iter()
+                .filter(|&b| *b != '\r' as u8 && *b != '\n' as u8)
+                .map(|&b| b)
+                .collect(),
+        ).unwrap();
 
         decode_config_buf(&encoded_no_line_endings, config, &mut decoded).unwrap();
         assert_eq!(orig_data, decoded);
@@ -287,16 +303,24 @@ fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
         decoded_with_prefix.copy_from_slice(&prefix);
 
         // remove line wrapping
-        let encoded_no_line_endings: String = encoded_data.chars()
+        let encoded_no_line_endings: String = encoded_data
+            .chars()
             .filter(|&c| c != '\r' && c != '\n')
             .collect();
 
         // decode into the non-empty buf
         decode_config_buf(&encoded_no_line_endings, config, &mut decoded_with_prefix).unwrap();
         // also decode into the empty buf
-        decode_config_buf(&encoded_no_line_endings, config, &mut decoded_without_prefix).unwrap();
+        decode_config_buf(
+            &encoded_no_line_endings,
+            config,
+            &mut decoded_without_prefix,
+        ).unwrap();
 
-        assert_eq!(prefix_len + decoded_without_prefix.len(), decoded_with_prefix.len());
+        assert_eq!(
+            prefix_len + decoded_without_prefix.len(),
+            decoded_with_prefix.len()
+        );
         assert_eq!(orig_data, decoded_without_prefix);
 
         // append plain decode onto prefix
@@ -336,7 +360,7 @@ fn encode_with_padding_line_wrap_random_valid_utf8() {
 
         let orig_output_buf = output.to_vec();
 
-        encode_with_padding_line_wrap(&input, &config,  encoded_size, &mut output[0..encoded_size]);
+        encode_with_padding_line_wrap(&input, &config, encoded_size, &mut output[0..encoded_size]);
 
         // make sure the part beyond b64 is the same garbage it was before
         assert_eq!(orig_output_buf[encoded_size..], output[encoded_size..]);
@@ -377,8 +401,7 @@ fn encode_to_slice_random_valid_utf8() {
 
         let orig_output_buf = output.to_vec();
 
-        let bytes_written =
-            encode_to_slice(&input, &mut output, config.char_set.encode_table());
+        let bytes_written = encode_to_slice(&input, &mut output, config.char_set.encode_table());
 
         // make sure the part beyond bytes_written is the same garbage it was before
         assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
@@ -389,7 +412,7 @@ fn encode_to_slice_random_valid_utf8() {
 }
 
 #[test]
-fn add_padding_random_valid_utf8(){
+fn add_padding_random_valid_utf8() {
     let mut output = Vec::new();
 
     let mut rng = rand::weak_rng();
@@ -405,8 +428,7 @@ fn add_padding_random_valid_utf8(){
 
         let orig_output_buf = output.to_vec();
 
-        let bytes_written =
-            add_padding(input_len, &mut output);
+        let bytes_written = add_padding(input_len, &mut output);
 
         // make sure the part beyond bytes_written is the same garbage it was before
         assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
@@ -448,8 +470,9 @@ fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
 
     let expected_line_ending_len = match config.line_wrap {
         LineWrap::NoWrap => 0,
-        LineWrap::Wrap(line_len, line_ending) =>
+        LineWrap::Wrap(line_len, line_ending) => {
             line_wrap_parameters(b64_only_len, line_len, line_ending).total_line_endings_len
+        }
     };
 
     let expected_encoded_len = encoded_size(input_len, &config).unwrap();
@@ -465,8 +488,11 @@ fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
     let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
 }
 
-fn roundtrip_random_config(input_len_range: Range<usize>, line_len_range: Range<usize>,
-                           iterations: u32) {
+fn roundtrip_random_config(
+    input_len_range: Range<usize>,
+    line_len_range: Range<usize>,
+    iterations: u32,
+) {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
     let mut rng = rand::weak_rng();
@@ -488,11 +514,15 @@ fn roundtrip_random_config(input_len_range: Range<usize>, line_len_range: Range<
         assert_encode_sanity(&encoded_buf, &config, input_len);
 
         // remove line wrapping
-        let encoded_no_line_endings: String = encoded_buf.chars()
+        let encoded_no_line_endings: String = encoded_buf
+            .chars()
             .filter(|&c| c != '\r' && c != '\n')
             .collect();
 
-        assert_eq!(input_buf, decode_config(&encoded_no_line_endings, config).unwrap());
+        assert_eq!(
+            input_buf,
+            decode_config(&encoded_no_line_endings, config).unwrap()
+        );
     }
 }
 

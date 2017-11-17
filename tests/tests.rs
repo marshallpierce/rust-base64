@@ -10,17 +10,32 @@ fn compare_encode(expected: &str, target: &[u8]) {
 }
 
 fn compare_decode(expected: &str, target: &str) {
-    assert_eq!(expected, String::from_utf8(decode(target).unwrap()).unwrap());
-    assert_eq!(expected, String::from_utf8(decode(target.as_bytes()).unwrap()).unwrap());
+    assert_eq!(
+        expected,
+        String::from_utf8(decode(target).unwrap()).unwrap()
+    );
+    assert_eq!(
+        expected,
+        String::from_utf8(decode(target.as_bytes()).unwrap()).unwrap()
+    );
 }
 
 fn compare_decode_mime(expected: &str, target: &str) {
-    assert_eq!(expected, String::from_utf8(decode_config(target, MIME).unwrap()).unwrap());
+    assert_eq!(
+        expected,
+        String::from_utf8(decode_config(target, MIME).unwrap()).unwrap()
+    );
 }
 
 // generate random contents of the specified length and test encode/decode roundtrip
-fn roundtrip_random(byte_buf: &mut Vec<u8>, str_buf: &mut String, config: Config,
-                    byte_len: usize, approx_values_per_byte: u8, max_rounds: u64) {
+fn roundtrip_random(
+    byte_buf: &mut Vec<u8>,
+    str_buf: &mut String,
+    config: Config,
+    byte_len: usize,
+    approx_values_per_byte: u8,
+    max_rounds: u64,
+) {
     // let the short ones be short but don't let it get too crazy large
     let num_rounds = calculate_number_of_rounds(byte_len, approx_values_per_byte, max_rounds);
     let mut r = rand::weak_rng();
@@ -135,7 +150,10 @@ fn decode_pad_inside_fast_loop_chunk_error() {
         // padding is an error. Could argue that the *next* padding
         // byte is technically the first erroneous one, but reporting
         // that accurately is more complex and probably nobody cares
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 7, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 7, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -146,7 +164,10 @@ fn decode_extra_pad_after_fast_loop_chunk_error() {
         s.push_str("YWxpY2UABB===");
 
         // first padding byte
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 10, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 10, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -157,7 +178,10 @@ fn decode_absurd_pad_error() {
         s.push_str("==Y=Wx===pY=2U=====");
 
         // first padding byte
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -168,7 +192,10 @@ fn decode_extra_padding_in_trailing_quad_returns_error() {
         s.push_str("EEE==");
 
         // first padding byte -- which would be legal if it was by itself
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 3, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 3, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -179,7 +206,10 @@ fn decode_extra_padding_in_trailing_quad_2_returns_error() {
         s.push_str("EE===");
 
         // first padding byte -- which would be legal if it was by itself
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 2, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 2, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -190,17 +220,29 @@ fn decode_start_second_quad_with_padding_returns_error() {
         s.push_str("=");
 
         // first padding byte -- must have two non-padding bytes in a quad
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
 
         // two padding bytes -- same
         s.push_str("=");
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
 
         s.push_str("=");
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
 
         s.push_str("=");
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -211,7 +253,10 @@ fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
         s.push_str("==E");
 
         // first padding byte -- must have two non-padding bytes in a quad
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -221,14 +266,23 @@ fn decode_one_char_in_quad_with_padding_error() {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
         s.push_str("E=");
 
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 1, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 1, b'='),
+            decode(&s).unwrap_err()
+        );
 
         // more padding doesn't change the error
         s.push_str("=");
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 1, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 1, b'='),
+            decode(&s).unwrap_err()
+        );
 
         s.push_str("=");
-        assert_eq!(DecodeError::InvalidByte(num_quads * 4 + 1, b'='), decode(&s).unwrap_err());
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 1, b'='),
+            decode(&s).unwrap_err()
+        );
     }
 }
 
@@ -251,10 +305,18 @@ fn decode_reject_invalid_bytes_with_correct_error() {
                 let suffix: String = std::iter::repeat("B").take(length - index - 1).collect();
 
                 let input = prefix + &String::from_utf8(vec![invalid_byte]).unwrap() + &suffix;
-                assert_eq!(length, input.len(), "length {} error position {}", length, index);
+                assert_eq!(
+                    length,
+                    input.len(),
+                    "length {} error position {}",
+                    length,
+                    index
+                );
 
-                assert_eq!(DecodeError::InvalidByte(index, invalid_byte),
-                    decode(&input).unwrap_err());
+                assert_eq!(
+                    DecodeError::InvalidByte(index, invalid_byte),
+                    decode(&input).unwrap_err()
+                );
             }
         }
     }
@@ -286,7 +348,14 @@ fn roundtrip_random_short_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 0..40 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, no_pad_config(), input_len, 4, 10000);
+        roundtrip_random(
+            &mut byte_buf,
+            &mut str_buf,
+            no_pad_config(),
+            input_len,
+            4,
+            10000,
+        );
     }
 }
 
@@ -296,7 +365,14 @@ fn roundtrip_random_no_padding() {
     let mut str_buf = String::new();
 
     for input_len in 40..100 {
-        roundtrip_random(&mut byte_buf, &mut str_buf, no_pad_config(), input_len, 4, 1000);
+        roundtrip_random(
+            &mut byte_buf,
+            &mut str_buf,
+            no_pad_config(),
+            input_len,
+            4,
+            1000,
+        );
     }
 }
 
@@ -332,13 +408,18 @@ fn decode_mime_allow_crnl() {
 
 #[test]
 fn decode_mime_reject_null() {
-    assert_eq!(DecodeError::InvalidByte(3, 0x0),decode_config("YWx\0pY2U=", MIME).unwrap_err());
+    assert_eq!(
+        DecodeError::InvalidByte(3, 0x0),
+        decode_config("YWx\0pY2U=", MIME).unwrap_err()
+    );
 }
 
 #[test]
 fn decode_mime_absurd_whitespace() {
-    compare_decode_mime("how could you let this happen",
-        "\n aG93I\n\nG\x0bNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ");
+    compare_decode_mime(
+        "how could you let this happen",
+        "\n aG93I\n\nG\x0bNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ",
+    );
 }
 
 //-------
@@ -387,7 +468,12 @@ fn encode_all_ascii() {
         ascii.push(i);
     }
 
-    compare_encode("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8=", &ascii);
+    compare_encode(
+        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7P\
+         D0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8\
+         =",
+        &ascii,
+    );
 }
 
 #[test]
@@ -399,7 +485,13 @@ fn encode_all_bytes() {
     }
     bytes.push(255); //bug with "overflowing" ranges?
 
-    compare_encode("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==", &bytes);
+    compare_encode(
+        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7P\
+         D0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn\
+         +AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6\
+         /wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/w==",
+        &bytes,
+    );
 }
 
 #[test]
@@ -411,40 +503,62 @@ fn encode_all_bytes_url() {
     }
     bytes.push(255); //bug with "overflowing" ranges?
 
-    assert_eq!("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==", encode_config(&bytes, URL_SAFE));
+    assert_eq!(
+        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0\
+         -P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn\
+         -AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq\
+         -wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy\
+         8_T19vf4-fr7_P3-_w==",
+        encode_config(&bytes, URL_SAFE)
+    );
 }
 
 #[test]
 fn encode_line_ending_lf_partial_last_line() {
-    let config = Config::new(CharacterSet::Standard, true, false,
-                             LineWrap::Wrap(3, LineEnding::LF));
+    let config = Config::new(
+        CharacterSet::Standard,
+        true,
+        false,
+        LineWrap::Wrap(3, LineEnding::LF),
+    );
     assert_eq!("Zm9\nvYm\nFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_crlf_partial_last_line() {
-    let config = Config::new(CharacterSet::Standard, true, false,
-                             LineWrap::Wrap(3, LineEnding::CRLF));
+    let config = Config::new(
+        CharacterSet::Standard,
+        true,
+        false,
+        LineWrap::Wrap(3, LineEnding::CRLF),
+    );
     assert_eq!("Zm9\r\nvYm\r\nFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_lf_full_last_line() {
-    let config = Config::new(CharacterSet::Standard, true, false,
-                             LineWrap::Wrap(4, LineEnding::LF));
+    let config = Config::new(
+        CharacterSet::Standard,
+        true,
+        false,
+        LineWrap::Wrap(4, LineEnding::LF),
+    );
     assert_eq!("Zm9v\nYmFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn encode_line_ending_crlf_full_last_line() {
-    let config = Config::new(CharacterSet::Standard, true, false,
-                             LineWrap::Wrap(4, LineEnding::CRLF));
+    let config = Config::new(
+        CharacterSet::Standard,
+        true,
+        false,
+        LineWrap::Wrap(4, LineEnding::CRLF),
+    );
     assert_eq!("Zm9v\r\nYmFy", encode_config(b"foobar", config));
 }
 
 #[test]
 fn display_wrapper_matches_normal_encode() {
-
     let mut bytes = Vec::<u8>::with_capacity(256);
 
     for i in 0..255 {
@@ -452,7 +566,10 @@ fn display_wrapper_matches_normal_encode() {
     }
     bytes.push(255);
 
-    assert_eq!(encode(&bytes), format!("{}", base64::display::Base64Display::standard(&bytes)));
+    assert_eq!(
+        encode(&bytes),
+        format!("{}", base64::display::Base64Display::standard(&bytes))
+    );
 }
 
 #[test]
@@ -466,7 +583,10 @@ fn because_we_can() {
 fn encode_url_safe_without_padding() {
     let encoded = encode_config(b"alice", URL_SAFE_NO_PAD);
     assert_eq!(&encoded, "YWxpY2U");
-    assert_eq!(String::from_utf8(decode(&encoded).unwrap()).unwrap(), "alice");
+    assert_eq!(
+        String::from_utf8(decode(&encoded).unwrap()).unwrap(),
+        "alice"
+    );
 }
 
 #[test]

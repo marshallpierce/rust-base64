@@ -28,20 +28,22 @@ pub enum DisplayError {
 /// A convenience wrapper for base64'ing bytes into a format string without heap allocation.
 pub struct Base64Display<'a> {
     bytes: &'a [u8],
-    chunked_encoder: ChunkedEncoder
+    chunked_encoder: ChunkedEncoder,
 }
 
 impl<'a> Base64Display<'a> {
     /// Create a `Base64Display` with the provided config.
     pub fn with_config(bytes: &[u8], config: Config) -> Result<Base64Display, DisplayError> {
         ChunkedEncoder::new(config)
-                .map( |c| Base64Display {
+            .map(|c| {
+                Base64Display {
                     bytes,
-                    chunked_encoder: c
-                })
-                .map_err(|e| match e {
-                    ChunkedEncoderError::InvalidLineLength => DisplayError::InvalidLineLength
-                })
+                    chunked_encoder: c,
+                }
+            })
+            .map_err(|e| match e {
+                ChunkedEncoderError::InvalidLineLength => DisplayError::InvalidLineLength,
+            })
     }
 
     /// Convenience method for creating a `Base64Display` with the `STANDARD` configuration.
@@ -53,7 +55,6 @@ impl<'a> Base64Display<'a> {
     pub fn url_safe(bytes: &[u8]) -> Base64Display {
         Base64Display::with_config(bytes, super::URL_SAFE).expect("URL_SAFE is valid")
     }
-
 }
 
 impl<'a> Display for Base64Display<'a> {
@@ -64,7 +65,7 @@ impl<'a> Display for Base64Display<'a> {
 }
 
 struct FormatterSink<'a, 'b: 'a> {
-    f: &'a mut Formatter<'b>
+    f: &'a mut Formatter<'b>,
 }
 
 impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
@@ -73,7 +74,8 @@ impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
     fn write_encoded_bytes(&mut self, encoded: &[u8]) -> Result<(), Self::Error> {
         // Avoid unsafe. If max performance is needed, write your own display wrapper that uses
         // unsafe here to gain about 10-15%.
-        self.f.write_str(str::from_utf8(encoded).expect("base64 data was not utf8"))
+        self.f
+            .write_str(str::from_utf8(encoded).expect("base64 data was not utf8"))
     }
 }
 
@@ -81,12 +83,19 @@ impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
 mod tests {
     use super::*;
     use super::super::*;
-    use super::super::chunked_encoder::tests::{SinkTestHelper, chunked_encode_matches_normal_encode_random};
+    use super::super::chunked_encoder::tests::{chunked_encode_matches_normal_encode_random,
+                                               SinkTestHelper};
 
     #[test]
     fn basic_display() {
-        assert_eq!("~$Zm9vYmFy#*", format!("~${}#*", Base64Display::standard("foobar".as_bytes())));
-        assert_eq!("~$Zm9vYmFyZg==#*", format!("~${}#*", Base64Display::standard("foobarf".as_bytes())));
+        assert_eq!(
+            "~$Zm9vYmFy#*",
+            format!("~${}#*", Base64Display::standard("foobar".as_bytes()))
+        );
+        assert_eq!(
+            "~$Zm9vYmFyZg==#*",
+            format!("~${}#*", Base64Display::standard("foobarf".as_bytes()))
+        );
     }
 
     #[test]

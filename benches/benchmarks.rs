@@ -1,8 +1,8 @@
 #![feature(test)]
 
 extern crate base64;
-extern crate test;
 extern crate rand;
+extern crate test;
 
 use base64::{decode, decode_config_buf, encode, encode_config_buf, Config, MIME, STANDARD};
 use base64::display;
