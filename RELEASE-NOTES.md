@@ -1,3 +1,7 @@
+# 0.8.0
+
+- `encode_config_slice` function for no-allocation encoding
+
 # 0.7.0
 
 - `STANDARD_NO_PAD` config

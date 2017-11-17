@@ -91,10 +91,10 @@ Fuzzing
 This uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz). See `fuzz/fuzzers` for the available fuzzing scripts. To run, use an invocation like these:
 
 ```
-rustup run nightly cargo fuzz run roundtrip
-rustup run nightly cargo fuzz run roundtrip_no_pad
-rustup run nightly cargo fuzz run roundtrip_mime -- -max_len=10240
-rustup run nightly cargo fuzz run roundtrip_random_config -- -max_len=10240
+cargo +nightly fuzz run roundtrip
+cargo +nightly fuzz run roundtrip_no_pad
+cargo +nightly fuzz run roundtrip_mime -- -max_len=10240
+cargo +nightly fuzz run roundtrip_random_config -- -max_len=10240
 ```
 
 
