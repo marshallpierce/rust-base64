@@ -1,5 +1,6 @@
-use super::{add_padding, encode_to_slice, Config, LineEnding, LineWrap};
-use super::line_wrap::line_wrap;
+use {Config, LineEnding, LineWrap};
+use encode::{add_padding, encode_to_slice};
+use line_wrap::line_wrap;
 use std::cmp;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
@@ -166,9 +167,11 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> Result<usize, Ch
 pub mod tests {
     extern crate rand;
 
-    use super::super::*;
-    use super::super::tests::random_config;
+    use ::*;
+    use tests::random_config;
     use super::*;
+
+    use std::str;
 
     use self::rand::Rng;
     use self::rand::distributions::{IndependentSample, Range};
