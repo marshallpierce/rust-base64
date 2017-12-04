@@ -1,7 +1,6 @@
 //! Enables base64'd output anywhere you might use a `Display` implementation, like a format string.
 //!
 //! ```
-//! use base64::STANDARD;
 //! use base64::display::Base64Display;
 //!
 //! let data = vec![0x0, 0x1, 0x2, 0x3];

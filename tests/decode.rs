@@ -3,6 +3,7 @@ extern crate base64;
 use base64::*;
 
 mod helpers;
+
 use helpers::*;
 
 fn compare_decode_mime(expected: &str, target: &str) {
@@ -107,7 +108,7 @@ fn decode_mime_allow_crnl() {
 fn decode_mime_reject_null() {
     assert_eq!(
         DecodeError::InvalidByte(3, 0x0),
-        decode_config("YWx\0pY2U=", MIME).unwrap_err()
+        decode_config("YWx\0pY2U==", MIME).unwrap_err()
     );
 }
 
@@ -121,15 +122,15 @@ fn decode_mime_absurd_whitespace() {
 
 //this is a MAY in the rfc: https://tools.ietf.org/html/rfc4648#section-3.3
 #[test]
-fn decode_pad_inside_fast_loop_chunk_error() {
+fn decode_1_pad_byte_in_fast_loop_then_extra_padding_chunk_error() {
     for num_quads in 0..25 {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
         s.push_str("YWxpY2U=====");
 
-        // since the first 8 bytes are handled in the fast loop, the
-        // padding is an error. Could argue that the *next* padding
-        // byte is technically the first erroneous one, but reporting
-        // that accurately is more complex and probably nobody cares
+        // since the first 8 bytes are handled in stage 1 or 2, the padding is detected as a
+        // generic invalid byte, not specifcally a padding issue.
+        // Could argue that the *next* padding byte (in the next quad) is technically the first
+        // erroneous one, but reporting that accurately is more complex and probably nobody cares
         assert_eq!(
             DecodeError::InvalidByte(num_quads * 4 + 7, b'='),
             decode(&s).unwrap_err()
@@ -138,12 +139,28 @@ fn decode_pad_inside_fast_loop_chunk_error() {
 }
 
 #[test]
-fn decode_extra_pad_after_fast_loop_chunk_error() {
+fn decode_2_pad_bytes_in_leftovers_then_extra_padding_chunk_error() {
     for num_quads in 0..25 {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
-        s.push_str("YWxpY2UABB===");
+        s.push_str("YWxpY2UABB====");
 
-        // first padding byte
+        // 6 bytes (4 padding) after last 8-byte chunk, so it's decoded by stage 4.
+        // First padding byte is invalid.
+        assert_eq!(
+            DecodeError::InvalidByte(num_quads * 4 + 10, b'='),
+            decode(&s).unwrap_err()
+        );
+    }
+}
+
+#[test]
+fn decode_valid_bytes_after_padding_in_leftovers_error() {
+    for num_quads in 0..25 {
+        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+        s.push_str("YWxpY2UABB=B");
+
+        // 4 bytes after last 8-byte chunk, so it's decoded by stage 4.
+        // First (and only) padding byte is invalid.
         assert_eq!(
             DecodeError::InvalidByte(num_quads * 4 + 10, b'='),
             decode(&s).unwrap_err()
@@ -157,6 +174,7 @@ fn decode_absurd_pad_error() {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
         s.push_str("==Y=Wx===pY=2U=====");
 
+        // Plenty of remaining bytes, so handled by stage 1 or 2.
         // first padding byte
         assert_eq!(
             DecodeError::InvalidByte(num_quads * 4, b'='),
@@ -166,12 +184,13 @@ fn decode_absurd_pad_error() {
 }
 
 #[test]
-fn decode_extra_padding_in_trailing_quad_returns_error() {
+fn decode_extra_padding_after_1_pad_bytes_in_trailing_quad_returns_error() {
     for num_quads in 0..25 {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
-        s.push_str("EEE==");
+        s.push_str("EEE===");
 
-        // first padding byte -- which would be legal if it was by itself
+        // handled by stage 1, 2, or 4 depending on length
+        // first padding byte -- which would be legal if it was the only padding
         assert_eq!(
             DecodeError::InvalidByte(num_quads * 4 + 3, b'='),
             decode(&s).unwrap_err()
@@ -180,11 +199,12 @@ fn decode_extra_padding_in_trailing_quad_returns_error() {
 }
 
 #[test]
-fn decode_extra_padding_in_trailing_quad_2_returns_error() {
+fn decode_extra_padding_after_2_pad_bytes_in_trailing_quad_2_returns_error() {
     for num_quads in 0..25 {
         let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
-        s.push_str("EE===");
+        s.push_str("EE====");
 
+        // handled by stage 1, 2, or 4 depending on length
         // first padding byte -- which would be legal if it was by itself
         assert_eq!(
             DecodeError::InvalidByte(num_quads * 4 + 2, b'='),
@@ -194,49 +214,51 @@ fn decode_extra_padding_in_trailing_quad_2_returns_error() {
 }
 
 #[test]
-fn decode_start_second_quad_with_padding_returns_error() {
+fn decode_start_quad_with_padding_returns_error() {
     for num_quads in 0..25 {
-        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
-        s.push_str("=");
+        // add enough padding to ensure that we'll hit all 4 stages at the different lengths
+        for pad_bytes in 1..32 {
+            let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+            let padding: String = std::iter::repeat("=").take(pad_bytes).collect();
+            s.push_str(&padding);
 
-        // first padding byte -- must have two non-padding bytes in a quad
-        assert_eq!(
-            DecodeError::InvalidByte(num_quads * 4, b'='),
-            decode(&s).unwrap_err()
-        );
-
-        // two padding bytes -- same
-        s.push_str("=");
-        assert_eq!(
-            DecodeError::InvalidByte(num_quads * 4, b'='),
-            decode(&s).unwrap_err()
-        );
-
-        s.push_str("=");
-        assert_eq!(
-            DecodeError::InvalidByte(num_quads * 4, b'='),
-            decode(&s).unwrap_err()
-        );
-
-        s.push_str("=");
-        assert_eq!(
-            DecodeError::InvalidByte(num_quads * 4, b'='),
-            decode(&s).unwrap_err()
-        );
+            if pad_bytes % 4 == 1 {
+                // detected in early length check
+                assert_eq!(DecodeError::InvalidLength, decode(&s).unwrap_err());
+            } else {
+                // padding lengths 2 - 8 are handled by stage 4
+                // padding length >= 8 will hit at least one chunk at stages 1, 2, 3 at different
+                // prefix lengths
+                assert_eq!(
+                    DecodeError::InvalidByte(num_quads * 4, b'='),
+                    decode(&s).unwrap_err()
+                );
+            }
+        }
     }
 }
 
 #[test]
-fn decode_padding_in_last_quad_followed_by_non_padding_returns_error() {
+fn decode_padding_followed_by_non_padding_returns_error() {
     for num_quads in 0..25 {
-        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
-        s.push_str("==E");
+        for pad_bytes in 0..31 {
+            let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+            let padding: String = std::iter::repeat("=").take(pad_bytes).collect();
+            s.push_str(&padding);
+            s.push_str("E");
 
-        // first padding byte -- must have two non-padding bytes in a quad
-        assert_eq!(
-            DecodeError::InvalidByte(num_quads * 4, b'='),
-            decode(&s).unwrap_err()
-        );
+            if pad_bytes % 4 == 0 {
+                assert_eq!(DecodeError::InvalidLength, decode(&s).unwrap_err());
+            } else {
+                // pad len 1 - 8 will be handled by stage 4
+                // pad len 9 (suffix len 10) will have 8 bytes of padding handled by stage 3
+                // first padding byte
+                assert_eq!(
+                    DecodeError::InvalidByte(num_quads * 4, b'='),
+                    decode(&s).unwrap_err()
+                );
+            }
+        }
     }
 }
 
@@ -293,10 +315,14 @@ fn decode_reject_invalid_bytes_with_correct_error() {
                     index
                 );
 
-                assert_eq!(
-                    DecodeError::InvalidByte(index, invalid_byte),
-                    decode(&input).unwrap_err()
-                );
+                if length % 4 == 1 {
+                    assert_eq!(DecodeError::InvalidLength, decode(&input).unwrap_err());
+                } else {
+                    assert_eq!(
+                        DecodeError::InvalidByte(index, invalid_byte),
+                        decode(&input).unwrap_err()
+                    );
+                }
             }
         }
     }
