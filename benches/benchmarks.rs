@@ -4,7 +4,7 @@ extern crate base64;
 extern crate rand;
 extern crate test;
 
-use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf, Config, MIME, STANDARD};
+use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf, encode_config_slice, Config, MIME, STANDARD};
 use base64::display;
 
 use test::Bencher;
@@ -21,6 +21,11 @@ fn encode_3b_reuse_buf(b: &mut Bencher) {
 }
 
 #[bench]
+fn encode_3b_slice(b: &mut Bencher) {
+    do_encode_bench_slice(b, 3, STANDARD)
+}
+
+#[bench]
 fn encode_50b(b: &mut Bencher) {
     do_encode_bench(b, 50)
 }
@@ -33,6 +38,11 @@ fn encode_50b_display(b: &mut Bencher) {
 #[bench]
 fn encode_50b_reuse_buf(b: &mut Bencher) {
     do_encode_bench_reuse_buf(b, 50, STANDARD)
+}
+
+#[bench]
+fn encode_50b_slice(b: &mut Bencher) {
+    do_encode_bench_slice(b, 50, STANDARD)
 }
 
 #[bench]
@@ -76,6 +86,11 @@ fn encode_3kib_reuse_buf(b: &mut Bencher) {
 }
 
 #[bench]
+fn encode_3kib_slice(b: &mut Bencher) {
+    do_encode_bench_slice(b, 3 * 1024, STANDARD)
+}
+
+#[bench]
 fn encode_3kib_reuse_buf_mime(b: &mut Bencher) {
     do_encode_bench_reuse_buf(b, 3 * 1024, MIME)
 }
@@ -96,6 +111,11 @@ fn encode_3mib_reuse_buf(b: &mut Bencher) {
 }
 
 #[bench]
+fn encode_3mib_slice(b: &mut Bencher) {
+    do_encode_bench_slice(b, 3 * 1024 * 1024, STANDARD)
+}
+
+#[bench]
 fn encode_10mib(b: &mut Bencher) {
     do_encode_bench(b, 10 * 1024 * 1024)
 }
@@ -113,6 +133,11 @@ fn encode_30mib(b: &mut Bencher) {
 #[bench]
 fn encode_30mib_reuse_buf(b: &mut Bencher) {
     do_encode_bench_reuse_buf(b, 30 * 1024 * 1024, STANDARD)
+}
+
+#[bench]
+fn encode_30mib_slice(b: &mut Bencher) {
+    do_encode_bench_slice(b, 30 * 1024 * 1024, STANDARD)
 }
 
 #[bench]
@@ -292,6 +317,20 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, size: usize, config: Config) {
     b.iter(|| {
         encode_config_buf(&v, config, &mut buf);
         buf.clear();
+    });
+}
+
+fn do_encode_bench_slice(b: &mut Bencher, size: usize, config: Config) {
+    let mut v: Vec<u8> = Vec::with_capacity(size);
+    fill(&mut v);
+
+    let mut buf = Vec::new();
+
+    b.bytes = v.len() as u64;
+    // conservative estimate of encoded size
+    buf.resize(size * 2, 0);
+    b.iter(|| {
+        encode_config_slice(&v, config, &mut buf);
     });
 }
 

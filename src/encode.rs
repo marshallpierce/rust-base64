@@ -590,6 +590,50 @@ mod tests {
     }
 
     #[test]
+    fn encode_config_slice_fits_into_precisely_sized_slice() {
+        let mut orig_data = Vec::new();
+        let mut encoded_data = Vec::new();
+        let mut decoded = Vec::new();
+
+        let input_len_range = Range::new(0, 1000);
+        let line_len_range = Range::new(1, 1000);
+
+        let mut rng = rand::weak_rng();
+
+        for _ in 0..10_000 {
+            orig_data.clear();
+            encoded_data.clear();
+            decoded.clear();
+
+            let input_len = input_len_range.ind_sample(&mut rng);
+
+            for _ in 0..input_len {
+                orig_data.push(rng.gen());
+            }
+
+            let config = random_config(&mut rng, &line_len_range);
+
+            let encoded_size = encoded_size(input_len, &config).unwrap();
+
+            encoded_data.resize(encoded_size, 0);
+
+            assert_eq!(
+                encoded_size,
+                encode_config_slice(&orig_data, config, &mut encoded_data)
+            );
+
+            assert_encode_sanity(
+                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                &config,
+                input_len,
+            );
+
+            decode_config_buf(&encoded_data[0..encoded_size], config, &mut decoded).unwrap();
+            assert_eq!(orig_data, decoded);
+        }
+    }
+
+    #[test]
     fn encode_to_slice_random_valid_utf8() {
         let mut input = Vec::new();
         let mut output = Vec::new();
