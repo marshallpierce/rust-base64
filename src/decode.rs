@@ -392,7 +392,7 @@ fn decode_helper(
         6 => 32,
         7 => 40,
         8 => 48,
-        _ => panic!(
+        _ => unreachable!(
             "Impossible: must only have 0 to 8 input bytes in last chunk, with no invalid lengths"
         ),
     };
