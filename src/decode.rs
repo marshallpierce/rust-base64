@@ -131,8 +131,9 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     let starting_output_len = buffer.len();
 
     let num_chunks = num_chunks(input_bytes);
-    let decoded_len_estimate = (num_chunks * DECODED_CHUNK_LEN)
-        .checked_add(starting_output_len)
+    let decoded_len_estimate = num_chunks
+        .checked_mul(DECODED_CHUNK_LEN)
+        .and_then(|p| p.checked_add(starting_output_len))
         .expect("Overflow when calculating output buffer length");
     buffer.resize(decoded_len_estimate, 0);
 
@@ -179,7 +180,10 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
 
 /// Return the number of input chunks (including a possibly partial final chunk) in the input
 fn num_chunks(input: &[u8]) -> usize {
-    (input.len() + (INPUT_CHUNK_LEN - 1)) / INPUT_CHUNK_LEN
+    input
+        .len()
+        .checked_add(INPUT_CHUNK_LEN - 1)
+        .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
 }
 
 fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
