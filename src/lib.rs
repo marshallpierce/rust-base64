@@ -8,6 +8,11 @@
 //! The functions that don't have `config` in the name (e.g. `encode()` and `decode()`) use the
 //! `STANDARD` config .
 //!
+//! The functions that write to a slice (the ones that end in `_slice`) are generally the fastest
+//! because they don't need to resize anything. If it fits in your workflow and you care about
+//! performance, keep using the same buffer (growing as need be) and use the `_slice` methods for
+//! the best performance.
+//!
 //! # Encoding
 //!
 //! Several different encoding functions are available to you depending on your desire for
@@ -26,22 +31,29 @@
 //!
 //! Just as for encoding, there are different decoding functions available.
 //!
+//! Note that all decode functions that take a config will allocate a copy of the input if you
+//! specify a config that requires whitespace to be stripped. If you care about speed, don't use
+//! formats that line wrap and then require whitespace stripping.
+//!
 //! | Function                | Output                        | Allocates                      |
 //! | ----------------------- | ----------------------------- | ------------------------------ |
 //! | `decode`                | Returns a new `Vec<u8>`       | Always                         |
 //! | `decode_config`         | Returns a new `Vec<u8>`       | Always                         |
 //! | `decode_config_buf`     | Appends to provided `Vec<u8>` | Only if `Vec` needs to grow    |
+//! | `decode_config_slice`   | Writes to provided `&[u8]`    | Never                          |
 //!
 //! Unlike encoding, where all possible input is valid, decoding can fail (see `DecodeError`).
 //!
 //! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
-//! valid, but incorrect padding is not.)
+//! valid, but excess padding is not.)
 //!
 //! Whitespace in the input is invalid unless `strip_whitespace` is enabled in the `Config` used.
 //!
 //! # Panics
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
+//!
+//! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
 #![deny(missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates,
         unused_import_braces, unused_results, variant_size_differences, warnings)]

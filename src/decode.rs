@@ -149,6 +149,12 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 
 /// Decode the input into the provided output slice.
 ///
+/// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
+///
+/// If you don't know ahead of time what the decoded length should be, size your buffer with a
+/// conservative estimate for the decoded length of an input: 3 bytes of output for every 4 bytes of
+/// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
+///
 /// If the slice is not large enough, this will panic.
 pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
     input: &T,
@@ -643,13 +649,16 @@ mod tests {
             decode_buf_copy.extend(decode_buf.iter());
 
             let offset = 1000;
-            
+
             // decode into the non-empty buf
             let decode_bytes_written =
                 decode_config_slice(&encoded_data, config, &mut decode_buf[offset..]).unwrap();
 
             assert_eq!(orig_data.len(), decode_bytes_written);
-            assert_eq!(orig_data, &decode_buf[offset..(offset + decode_bytes_written)]);
+            assert_eq!(
+                orig_data,
+                &decode_buf[offset..(offset + decode_bytes_written)]
+            );
             assert_eq!(&decode_buf_copy[0..offset], &decode_buf[0..offset]);
             assert_eq!(
                 &decode_buf_copy[offset + decode_bytes_written..],

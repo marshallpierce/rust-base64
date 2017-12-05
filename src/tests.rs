@@ -79,10 +79,7 @@ fn roundtrip_random_config(
 
         assert_encode_sanity(&encoded_buf, &config, input_len);
 
-        assert_eq!(
-            input_buf,
-            decode_config(&encoded_buf, config).unwrap()
-        );
+        assert_eq!(input_buf, decode_config(&encoded_buf, config).unwrap());
     }
 }
 
