@@ -120,6 +120,25 @@ fn decode_mime_absurd_whitespace() {
     );
 }
 
+#[test]
+fn decode_single_pad_byte_after_2_chars_in_trailing_quad_ok() {
+    for num_quads in 0..25 {
+        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+        s.push_str("Zg=");
+
+        let input_len = num_quads * 3 + 1;
+
+        // Since there are 3 bytes in the trailing quad, want to be sure this allows for the fact
+        // that it could be bad padding rather than assuming that it will decode to 2 bytes and
+        // therefore allow 1 extra round of fast decode logic (stage 1 / 2).
+
+        let mut decoded = Vec::new();
+        decoded.resize(input_len, 0);
+
+        assert_eq!(input_len, decode_config_slice(&s, STANDARD, &mut decoded).unwrap());
+    }
+}
+
 //this is a MAY in the rfc: https://tools.ietf.org/html/rfc4648#section-3.3
 #[test]
 fn decode_1_pad_byte_in_fast_loop_then_extra_padding_chunk_error() {

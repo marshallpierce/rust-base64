@@ -59,7 +59,7 @@ mod encode;
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, DecodeError};
+pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
 
 #[cfg(test)]
 mod tests;
