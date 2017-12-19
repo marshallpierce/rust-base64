@@ -79,16 +79,7 @@ fn roundtrip_random_config(
 
         assert_encode_sanity(&encoded_buf, &config, input_len);
 
-        // remove line wrapping
-        let encoded_no_line_endings: String = encoded_buf
-            .chars()
-            .filter(|&c| c != '\r' && c != '\n')
-            .collect();
-
-        assert_eq!(
-            input_buf,
-            decode_config(&encoded_no_line_endings, config).unwrap()
-        );
+        assert_eq!(input_buf, decode_config(&encoded_buf, config).unwrap());
     }
 }
 
@@ -113,5 +104,10 @@ pub fn random_config<R: Rng>(rng: &mut R, line_len_range: &Range<usize>) -> Conf
         CharacterSet::Standard
     };
 
-    Config::new(charset, rng.gen(), rng.gen(), line_wrap)
+    let strip_whitespace = match line_wrap {
+        LineWrap::NoWrap => false,
+        _ => true,
+    };
+
+    Config::new(charset, rng.gen(), strip_whitespace, line_wrap)
 }

@@ -111,6 +111,26 @@ fn roundtrip_random_no_padding() {
 }
 
 #[test]
+fn roundtrip_decode_trailing_10_bytes() {
+    // This is a special case because we decode 8 byte blocks of input at a time as much as we can,
+    // ideally unrolled to 32 bytes at a time, in stages 1 and 2. Since we also write a u64's worth
+    // of bytes (8) to the output, we always write 2 garbage bytes that then will be overwritten by
+    // the NEXT block. However, if the next block only contains 2 bytes, it will decode to 1 byte,
+    // and therefore be too short to cover up the trailing 2 garbage bytes. Thus, we have stage 3
+    // to handle that case.
+
+    for num_quads in 0..25 {
+        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+        s.push_str("EFGHIJKLZg");
+
+        let decoded = decode(&s).unwrap();
+        assert_eq!(num_quads * 3 + 7, decoded.len());
+
+        assert_eq!(s, encode_config(&decoded, STANDARD_NO_PAD));
+    }
+}
+
+#[test]
 fn display_wrapper_matches_normal_encode() {
     let mut bytes = Vec::<u8>::with_capacity(256);
 

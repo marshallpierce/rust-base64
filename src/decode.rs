@@ -1,7 +1,22 @@
-use {tables, Config, STANDARD};
+use {tables, CharacterSet, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
 
 use std::{error, fmt, str};
+
+// decode logic operates on chunks of 8 input bytes without padding
+const INPUT_CHUNK_LEN: usize = 8;
+const DECODED_CHUNK_LEN: usize = 6;
+// we read a u64 and write a u64, but a u64 of input only yields 6 bytes of output, so the last
+// 2 bytes of any output u64 should not be counted as written to (but must be available in a
+// slice).
+const DECODED_CHUNK_SUFFIX: usize = 2;
+
+// how many u64's of input to handle at a time
+const CHUNKS_PER_FAST_LOOP_BLOCK: usize = 4;
+const INPUT_BLOCK_LEN: usize = CHUNKS_PER_FAST_LOOP_BLOCK * INPUT_CHUNK_LEN;
+// includes the trailing 2 bytes for the final u64 write
+const DECODED_BLOCK_LEN: usize =
+    CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
 /// Errors that can occur while decoding.
 #[derive(Debug, PartialEq, Eq)]
@@ -105,73 +120,137 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     config: Config,
     buffer: &mut Vec<u8>,
 ) -> Result<(), DecodeError> {
-    let mut input_copy;
+    let input_copy;
     let input_bytes = if config.strip_whitespace {
-        input_copy = Vec::<u8>::with_capacity(input.as_ref().len());
-        input_copy.extend(
-            input
-                .as_ref()
-                .iter()
-                .filter(|b| !b" \n\t\r\x0b\x0c".contains(b)),
-        );
-
+        input_copy = copy_without_whitespace(input.as_ref());
         input_copy.as_ref()
     } else {
         input.as_ref()
     };
 
-    let decode_table = &config.char_set.decode_table();
+    let starting_output_len = buffer.len();
 
-    // decode logic operates on chunks of 8 input bytes without padding
-    const INPUT_CHUNK_LEN: usize = 8;
-    const DECODED_CHUNK_LEN: usize = 6;
-    // we read a u64 and write a u64, but a u64 of input only yields 6 bytes of output, so the last
-    // 2 bytes of any output u64 should not be counted as written to (but must be available in a
-    // slice).
-    const DECODED_CHUNK_SUFFIX: usize = 2;
+    let num_chunks = num_chunks(input_bytes);
+    let decoded_len_estimate = num_chunks
+        .checked_mul(DECODED_CHUNK_LEN)
+        .and_then(|p| p.checked_add(starting_output_len))
+        .expect("Overflow when calculating output buffer length");
+    buffer.resize(decoded_len_estimate, 0);
 
-    let remainder_len = input_bytes.len() % INPUT_CHUNK_LEN;
-    let trailing_bytes_to_skip = if remainder_len == 0 {
-        // if input is a multiple of the chunk size, ignore the last chunk as it may have padding,
-        // and the fast decode logic cannot handle padding
-        INPUT_CHUNK_LEN
+    let bytes_written;
+    {
+        let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
+        bytes_written = decode_helper(input_bytes, num_chunks, &config.char_set, buffer_slice)?;
+    }
+
+    buffer.truncate(starting_output_len + bytes_written);
+
+    Ok(())
+}
+
+/// Decode the input into the provided output slice.
+///
+/// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
+///
+/// If you don't know ahead of time what the decoded length should be, size your buffer with a
+/// conservative estimate for the decoded length of an input: 3 bytes of output for every 4 bytes of
+/// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
+///
+/// If the slice is not large enough, this will panic.
+pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
+    input: &T,
+    config: Config,
+    output: &mut [u8],
+) -> Result<usize, DecodeError> {
+    let input_copy;
+    let input_bytes = if config.strip_whitespace {
+        input_copy = copy_without_whitespace(input.as_ref());
+        input_copy.as_ref()
     } else {
-        remainder_len
+        input.as_ref()
     };
 
-    let length_of_full_chunks = input_bytes.len().saturating_sub(trailing_bytes_to_skip);
+    decode_helper(
+        input_bytes,
+        num_chunks(input_bytes),
+        &config.char_set,
+        output,
+    )
+}
 
-    let starting_output_index = buffer.len();
-    // Resize to hold decoded output from fast loop. Need the extra two bytes because
-    // we write a full 8 bytes for the last 6-byte decoded chunk and then truncate off the last two.
-    let new_size = starting_output_index
-        .checked_add(length_of_full_chunks / INPUT_CHUNK_LEN * DECODED_CHUNK_LEN)
-        .and_then(|l| l.checked_add(DECODED_CHUNK_SUFFIX))
-        .expect("Overflow when calculating output buffer length");
+/// Return the number of input chunks (including a possibly partial final chunk) in the input
+fn num_chunks(input: &[u8]) -> usize {
+    input
+        .len()
+        .checked_add(INPUT_CHUNK_LEN - 1)
+        .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
+}
 
-    buffer.resize(new_size, 0);
+fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
+    let mut input_copy = Vec::<u8>::with_capacity(input.len());
+    input_copy.extend(input.iter().filter(|b| !b" \n\t\r\x0b\x0c".contains(b)));
+
+    input_copy
+}
+
+/// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.
+/// Returns the number of bytes written, or an error.
+// We're on the fragile edge of compiler heuristics here. If this is not inlined, slow. If this is
+// inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
+// but this is fragile and the best setting changes with only minor code modifications.
+#[inline]
+fn decode_helper(
+    input: &[u8],
+    num_chunks: usize,
+    char_set: &CharacterSet,
+    output: &mut [u8],
+) -> Result<usize, DecodeError> {
+    let decode_table = char_set.decode_table();
+
+    let remainder_len = input.len() % INPUT_CHUNK_LEN;
+
+    // Because the fast decode loop writes in groups of 8 bytes (unrolled to
+    // CHUNKS_PER_FAST_LOOP_BLOCK times 8 bytes, where possible) and outputs 8 bytes at a time (of
+    // which only 6 are valid data), we need to be sure that we stop using the fast decode loop
+    // soon enough that there will always be 2 more bytes of valid data written after that loop.
+    let trailing_bytes_to_skip = match remainder_len {
+        // if input is a multiple of the chunk size, ignore the last chunk as it may have padding,
+        // and the fast decode logic cannot handle padding
+        0 => INPUT_CHUNK_LEN,
+        // 1 and 5 trailing bytes are illegal: can't decode 6 bits of input into a byte
+        1 | 5 => return Err(DecodeError::InvalidLength),
+        // This will decode to one output byte, which isn't enough to overwrite the 2 extra bytes
+        // written by the fast decode loop. So, we have to ignore both these 2 bytes and the
+        // previous chunk.
+        2 => INPUT_CHUNK_LEN + 2,
+        // If this is 3 unpadded chars, then it would actually decode to 2 bytes. However, if this
+        // is an erroneous 2 chars + 1 pad char that would decode to 1 byte, then it should fail
+        // with an error, not panic from going past the bounds of the output slice, so we let it
+        // use stage 3 + 4.
+        3 => INPUT_CHUNK_LEN + 3,
+        // This can also decode to one output byte because it may be 2 input chars + 2 padding
+        // chars, which would decode to 1 byte.
+        4 => INPUT_CHUNK_LEN + 4,
+        // Everything else is a legal decode len (given that we don't require padding), and will
+        // decode to at least 2 bytes of output.
+        _ => remainder_len,
+    };
+
+    // rounded up to include partial chunks
+    let mut remaining_chunks = num_chunks;
+
+    let mut input_index = 0;
+    let mut output_index = 0;
 
     {
-        let mut output_index = 0;
-        let mut input_index = 0;
-        let buffer_slice = &mut buffer.as_mut_slice()[starting_output_index..];
+        let length_of_fast_decode_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
 
-        // how many u64's of input to handle at a time
-        const CHUNKS_PER_FAST_LOOP_BLOCK: usize = 4;
-        const INPUT_BLOCK_LEN: usize = CHUNKS_PER_FAST_LOOP_BLOCK * INPUT_CHUNK_LEN;
-        // includes the trailing 2 bytes for the final u64 write
-        const DECODED_BLOCK_LEN: usize =
-            CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
-        // the start index of the last block of data that is big enough to use the unrolled loop
-        let last_block_start_index =
-            length_of_full_chunks.saturating_sub(INPUT_CHUNK_LEN * CHUNKS_PER_FAST_LOOP_BLOCK);
-
+        // Fast loop, stage 1
         // manual unroll to CHUNKS_PER_FAST_LOOP_BLOCK of u64s to amortize slice bounds checks
-        if last_block_start_index > 0 {
-            while input_index <= last_block_start_index {
-                let input_slice = &input_bytes[input_index..(input_index + INPUT_BLOCK_LEN)];
-                let output_slice =
-                    &mut buffer_slice[output_index..(output_index + DECODED_BLOCK_LEN)];
+        if let Some(max_start_index) = length_of_fast_decode_chunks.checked_sub(INPUT_BLOCK_LEN) {
+            while input_index <= max_start_index {
+                let input_slice = &input[input_index..(input_index + INPUT_BLOCK_LEN)];
+                let output_slice = &mut output[output_index..(output_index + DECODED_BLOCK_LEN)];
 
                 decode_chunk(
                     &input_slice[0..],
@@ -200,36 +279,57 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 
                 input_index += INPUT_BLOCK_LEN;
                 output_index += DECODED_BLOCK_LEN - DECODED_CHUNK_SUFFIX;
+                remaining_chunks -= CHUNKS_PER_FAST_LOOP_BLOCK;
             }
         }
 
-        // still pretty fast loop: 8 bytes at a time for whatever we didn't do in the faster loop.
-        while input_index < length_of_full_chunks {
-            decode_chunk(
-                &input_bytes[input_index..(input_index + 8)],
-                input_index,
-                decode_table,
-                &mut buffer_slice[output_index..(output_index + 8)],
-            )?;
+        // Fast loop, stage 2 (aka still pretty fast loop)
+        // 8 bytes at a time for whatever we didn't do in stage 1.
+        if let Some(max_start_index) = length_of_fast_decode_chunks.checked_sub(INPUT_CHUNK_LEN) {
+            while input_index < max_start_index {
+                decode_chunk(
+                    &input[input_index..(input_index + INPUT_CHUNK_LEN)],
+                    input_index,
+                    decode_table,
+                    &mut output
+                        [output_index..(output_index + DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX)],
+                )?;
 
-            output_index += DECODED_CHUNK_LEN;
-            input_index += INPUT_CHUNK_LEN;
+                output_index += DECODED_CHUNK_LEN;
+                input_index += INPUT_CHUNK_LEN;
+                remaining_chunks -= 1;
+            }
         }
     }
 
-    // Truncate off the last two bytes from writing the last u64.
-    // Unconditional because we added on the extra 2 bytes in the resize before the loop,
-    // so it will never underflow.
-    let new_len = buffer.len() - DECODED_CHUNK_SUFFIX;
-    buffer.truncate(new_len);
+    // Stage 3
+    // If input length was such that a chunk had to be deferred until after the fast loop
+    // because decoding it would have produced 2 trailing bytes that wouldn't then be
+    // overwritten, we decode that chunk here. This way is slower but doesn't write the 2
+    // trailing bytes.
+    // However, we still need to avoid the last chunk (partial or complete) because it could
+    // have padding, so we always do 1 fewer to avoid the last chunk.
+    for _ in 1..remaining_chunks {
+        decode_chunk_precise(
+            &input[input_index..],
+            input_index,
+            decode_table,
+            &mut output[output_index..(output_index + DECODED_CHUNK_LEN)],
+        )?;
 
-    // handle leftovers (at most 8 bytes, decoded to 6).
+        input_index += INPUT_CHUNK_LEN;
+        output_index += DECODED_CHUNK_LEN;
+    }
+
+    // Stage 4
+    // Finally, decode any leftovers that aren't a complete input block of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
     let mut leftover_bits: u64 = 0;
     let mut morsels_in_leftover = 0;
     let mut padding_bytes = 0;
     let mut first_padding_index: usize = 0;
-    for (i, b) in input_bytes[length_of_full_chunks..].iter().enumerate() {
+    let start_of_leftovers = input_index;
+    for (i, b) in input[start_of_leftovers..].iter().enumerate() {
         // '=' padding
         if *b == 0x3D {
             // There can be bad padding in a few ways:
@@ -243,11 +343,11 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 
             if i % 4 < 2 {
                 // Check for case #2.
-                let bad_padding_index = length_of_full_chunks + if padding_bytes > 0 {
+                let bad_padding_index = start_of_leftovers + if padding_bytes > 0 {
                     // If we've already seen padding, report the first padding index.
-                    // This is to be consistent with the faster logic above: it will report an error
-                    // on the first padding character (since it doesn't expect to see anything but
-                    // actual encoded data).
+                    // This is to be consistent with the faster logic above: it will report an
+                    // error on the first padding character (since it doesn't expect to see
+                    // anything but actual encoded data).
                     first_padding_index
                 } else {
                     // haven't seen padding before, just use where we are now
@@ -270,7 +370,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
         // erroneous padding.
         if padding_bytes > 0 {
             return Err(DecodeError::InvalidByte(
-                length_of_full_chunks + first_padding_index,
+                start_of_leftovers + first_padding_index,
                 0x3D,
             ));
         }
@@ -281,7 +381,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
         // tables are all 256 elements, lookup with a u8 index always succeeds
         let morsel = decode_table[*b as usize];
         if morsel == tables::INVALID_VALUE {
-            return Err(DecodeError::InvalidByte(length_of_full_chunks + i, *b));
+            return Err(DecodeError::InvalidByte(start_of_leftovers + i, *b));
         }
 
         leftover_bits |= (morsel as u64) << shift;
@@ -290,29 +390,39 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 
     let leftover_bits_ready_to_append = match morsels_in_leftover {
         0 => 0,
-        1 => return Err(DecodeError::InvalidLength),
         2 => 8,
         3 => 16,
         4 => 24,
-        5 => return Err(DecodeError::InvalidLength),
         6 => 32,
         7 => 40,
         8 => 48,
-        _ => panic!("Impossible: must only have 0 to 4 input bytes in last quad"),
+        _ => unreachable!(
+            "Impossible: must only have 0 to 8 input bytes in last chunk, with no invalid lengths"
+        ),
     };
 
     let mut leftover_bits_appended_to_buf = 0;
     while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
         // `as` simply truncates the higher bits, which is what we want here
         let selected_bits = (leftover_bits >> (56 - leftover_bits_appended_to_buf)) as u8;
-        buffer.push(selected_bits);
+        output[output_index] = selected_bits;
+        output_index += 1;
 
         leftover_bits_appended_to_buf += 8;
     }
 
-    Ok(())
+    Ok(output_index)
 }
 
+/// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
+/// first 6 of those contain meaningful data.
+///
+/// `input` is the bytes to decode, of which the first 8 bytes will be processed.
+/// `index_at_start_of_input` is the offset in the overall input (used for reporting errors
+/// accurately)
+/// `decode_table` is the lookup table for the particular base64 alphabet.
+/// `output` will have its first 8 bytes overwritten, of which only the first 6 are valid decoded
+/// data.
 // yes, really inline (worth 30-50% speedup)
 #[inline(always)]
 fn decode_chunk(
@@ -397,6 +507,29 @@ fn decode_chunk(
     Ok(())
 }
 
+/// Decode an 8-byte chunk, but only write the 6 bytes actually decoded instead of including 2
+/// trailing garbage bytes.
+#[inline]
+fn decode_chunk_precise(
+    input: &[u8],
+    index_at_start_of_input: usize,
+    decode_table: &[u8; 256],
+    output: &mut [u8],
+) -> Result<(), DecodeError> {
+    let mut tmp_buf = [0_u8; 8];
+
+    decode_chunk(
+        input,
+        index_at_start_of_input,
+        decode_table,
+        &mut tmp_buf[..],
+    )?;
+
+    output[0..6].copy_from_slice(&tmp_buf[0..6]);
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     extern crate rand;
@@ -409,7 +542,23 @@ mod tests {
     use self::rand::distributions::{IndependentSample, Range};
 
     #[test]
-    fn decode_into_nonempty_buffer_doesnt_clobber_existing_contents() {
+    fn decode_chunk_precise_writes_only_6_bytes() {
+        let input = b"Zm9vYmFy"; // "foobar"
+        let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
+        decode_chunk_precise(&input[..], 0, tables::STANDARD_DECODE, &mut output).unwrap();
+        assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 6, 7], &output);
+    }
+
+    #[test]
+    fn decode_chunk_writes_8_bytes() {
+        let input = b"Zm9vYmFy"; // "foobar"
+        let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
+        decode_chunk(&input[..], 0, tables::STANDARD_DECODE, &mut output).unwrap();
+        assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 0, 0], &output);
+    }
+
+    #[test]
+    fn decode_into_nonempty_vec_doesnt_clobber_existing_prefix() {
         let mut orig_data = Vec::new();
         let mut encoded_data = String::new();
         let mut decoded_with_prefix = Vec::new();
@@ -449,20 +598,10 @@ mod tests {
             decoded_with_prefix.resize(prefix_len, 0);
             decoded_with_prefix.copy_from_slice(&prefix);
 
-            // remove line wrapping
-            let encoded_no_line_endings: String = encoded_data
-                .chars()
-                .filter(|&c| c != '\r' && c != '\n')
-                .collect();
-
             // decode into the non-empty buf
-            decode_config_buf(&encoded_no_line_endings, config, &mut decoded_with_prefix).unwrap();
+            decode_config_buf(&encoded_data, config, &mut decoded_with_prefix).unwrap();
             // also decode into the empty buf
-            decode_config_buf(
-                &encoded_no_line_endings,
-                config,
-                &mut decoded_without_prefix,
-            ).unwrap();
+            decode_config_buf(&encoded_data, config, &mut decoded_without_prefix).unwrap();
 
             assert_eq!(
                 prefix_len + decoded_without_prefix.len(),
@@ -474,6 +613,98 @@ mod tests {
             prefix.append(&mut decoded_without_prefix);
 
             assert_eq!(prefix, decoded_with_prefix);
+        }
+    }
+
+    #[test]
+    fn decode_into_slice_doesnt_clobber_existing_prefix_or_suffix() {
+        let mut orig_data = Vec::new();
+        let mut encoded_data = String::new();
+        let mut decode_buf = Vec::new();
+        let mut decode_buf_copy: Vec<u8> = Vec::new();
+
+        let input_len_range = Range::new(0, 1000);
+        let line_len_range = Range::new(1, 1000);
+
+        let mut rng = rand::weak_rng();
+
+        for _ in 0..10_000 {
+            orig_data.clear();
+            encoded_data.clear();
+            decode_buf.clear();
+            decode_buf_copy.clear();
+
+            let input_len = input_len_range.ind_sample(&mut rng);
+
+            for _ in 0..input_len {
+                orig_data.push(rng.gen());
+            }
+
+            let config = random_config(&mut rng, &line_len_range);
+            encode_config_buf(&orig_data, config, &mut encoded_data);
+            assert_encode_sanity(&encoded_data, &config, input_len);
+
+            // fill the buffer with random garbage, long enough to have some room before and after
+            for _ in 0..5000 {
+                decode_buf.push(rng.gen());
+            }
+
+            // keep a copy for later comparison
+            decode_buf_copy.extend(decode_buf.iter());
+
+            let offset = 1000;
+
+            // decode into the non-empty buf
+            let decode_bytes_written =
+                decode_config_slice(&encoded_data, config, &mut decode_buf[offset..]).unwrap();
+
+            assert_eq!(orig_data.len(), decode_bytes_written);
+            assert_eq!(
+                orig_data,
+                &decode_buf[offset..(offset + decode_bytes_written)]
+            );
+            assert_eq!(&decode_buf_copy[0..offset], &decode_buf[0..offset]);
+            assert_eq!(
+                &decode_buf_copy[offset + decode_bytes_written..],
+                &decode_buf[offset + decode_bytes_written..]
+            );
+        }
+    }
+
+    #[test]
+    fn decode_into_slice_fits_in_precisely_sized_slice() {
+        let mut orig_data = Vec::new();
+        let mut encoded_data = String::new();
+        let mut decode_buf = Vec::new();
+
+        let input_len_range = Range::new(0, 1000);
+        let line_len_range = Range::new(1, 1000);
+
+        let mut rng = rand::weak_rng();
+
+        for _ in 0..10_000 {
+            orig_data.clear();
+            encoded_data.clear();
+            decode_buf.clear();
+
+            let input_len = input_len_range.ind_sample(&mut rng);
+
+            for _ in 0..input_len {
+                orig_data.push(rng.gen());
+            }
+
+            let config = random_config(&mut rng, &line_len_range);
+            encode_config_buf(&orig_data, config, &mut encoded_data);
+            assert_encode_sanity(&encoded_data, &config, input_len);
+
+            decode_buf.resize(input_len, 0);
+
+            // decode into the non-empty buf
+            let decode_bytes_written =
+                decode_config_slice(&encoded_data, config, &mut decode_buf[..]).unwrap();
+
+            assert_eq!(orig_data.len(), decode_bytes_written);
+            assert_eq!(orig_data, decode_buf);
         }
     }
 }
