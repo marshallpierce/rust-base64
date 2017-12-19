@@ -1,3 +1,8 @@
+# 0.9.0
+
+- `decode_config_slice` function for no-allocation decoding, analogous to `encode_config_slice`
+- Decode performance optimization
+
 # 0.8.0
 
 - `encode_config_slice` function for no-allocation encoding
