@@ -226,7 +226,7 @@ fn decode_helper(
         // If this is 3 unpadded chars, then it would actually decode to 2 bytes. However, if this
         // is an erroneous 2 chars + 1 pad char that would decode to 1 byte, then it should fail
         // with an error, not panic from going past the bounds of the output slice, so we let it
-        // use stage 3 + 4..
+        // use stage 3 + 4.
         3 => INPUT_CHUNK_LEN + 3,
         // This can also decode to one output byte because it may be 2 input chars + 2 padding
         // chars, which would decode to 1 byte.
@@ -382,7 +382,7 @@ fn decode_helper(
         let morsel = decode_table[*b as usize];
         if morsel == tables::INVALID_VALUE {
             return Err(DecodeError::InvalidByte(start_of_leftovers + i, *b));
-        };
+        }
 
         leftover_bits |= (morsel as u64) << shift;
         morsels_in_leftover += 1;
