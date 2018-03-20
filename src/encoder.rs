@@ -1,7 +1,8 @@
 use std::fmt;
-use {Config, encode_config_slice};
+use {encode_config_slice, Config};
 use std::io::{Result, Write};
 
+/// A `Write` proxy that base64-encodes written data and hands the result off to another writer.
 pub struct Base64Encoder<'a> {
     config: Config,
     w: &'a mut Write,
@@ -12,17 +13,24 @@ pub struct Base64Encoder<'a> {
 
 impl<'a> fmt::Debug for Base64Encoder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "extra:{:?} extra_len:{:?} output[..5]: {:?}", self.extra, self.extra_len, &self.output[0..5])
+        write!(
+            f,
+            "extra:{:?} extra_len:{:?} output[..5]: {:?}",
+            self.extra,
+            self.extra_len,
+            &self.output[0..5]
+        )
     }
 }
 
 impl<'a> Base64Encoder<'a> {
-    fn new(w: &'a mut Write, config: Config) -> Base64Encoder<'a> {
+    /// Create a new encoder around an existing writer.
+    pub fn new(w: &'a mut Write, config: Config) -> Base64Encoder<'a> {
         Base64Encoder {
             config,
-            w,                // writer to write encoded data to
+            w,                   // writer to write encoded data to
             extra: [0u8; 3],     // extra data left over from previous write
-            extra_len: 0,     // how much extra data
+            extra_len: 0,        // how much extra data
             output: [0u8; 1024], // output buffer
         }
     }
@@ -47,11 +55,9 @@ impl<'a> Write for Base64Encoder<'a> {
                 // not enough to actually encode, yet.
                 return Ok(input_read_cnt);
             }
-            let sz = encode_config_slice(&self.extra[..3],
-                                                 self.config,
-                                                 &mut self.output[..]);
+            let sz = encode_config_slice(&self.extra[..3], self.config, &mut self.output[..]);
             self.extra_len = 0;
-            self.w.write(&self.output[..sz])?;
+            let _ = self.w.write(&self.output[..sz])?;
         }
 
         // process chunks, 768 bytes -> 1024 (encoded) bytes, at a time
@@ -63,9 +69,7 @@ impl<'a> Write for Base64Encoder<'a> {
                 nn = p.len();
                 nn -= nn % 3;
             }
-            let sz = encode_config_slice(&p[..nn],
-                                                 self.config,
-                                                 &mut self.output[..]);
+            let sz = encode_config_slice(&p[..nn], self.config, &mut self.output[..]);
             input_read_cnt += nn;
             output_cnt += sz;
             p = &p[nn..];
@@ -80,17 +84,19 @@ impl<'a> Write for Base64Encoder<'a> {
         input_read_cnt += p.len();
         self.extra_len = p.len();
 
-        self.w.write(&self.output[..output_cnt])?;
+        let _ = self.w.write(&self.output[..output_cnt])?;
 
         return Ok(input_read_cnt);
     }
 
     fn flush(&mut self) -> Result<()> {
         if self.extra_len > 0 {
-            let sz = encode_config_slice(&self.extra[..self.extra_len],
-                                                 self.config,
-                                                 &mut self.output[..]);
-            self.w.write(&self.output[..sz])?;
+            let sz = encode_config_slice(
+                &self.extra[..self.extra_len],
+                self.config,
+                &mut self.output[..],
+            );
+            let _ = self.w.write(&self.output[..sz])?;
         }
 
         self.w.flush()
@@ -126,7 +132,10 @@ mod tests {
             let sz = enc.write(b"ghi").unwrap();
             assert_eq!(sz, 3);
         }
-        assert_eq!(&c.get_ref()[..], encode_config("abcdefghi", URL_SAFE).as_bytes());
+        assert_eq!(
+            &c.get_ref()[..],
+            encode_config("abcdefghi", URL_SAFE).as_bytes()
+        );
     }
 
     #[test]
@@ -154,7 +163,10 @@ mod tests {
             let sz = enc.write(b"bcdef").unwrap();
             assert_eq!(sz, 5);
         }
-        assert_eq!(&c.get_ref()[..], encode_config("abcdef", URL_SAFE).as_bytes());
+        assert_eq!(
+            &c.get_ref()[..],
+            encode_config("abcdef", URL_SAFE).as_bytes()
+        );
     }
 
     #[test]
@@ -170,7 +182,10 @@ mod tests {
             let sz = enc.write(b"def").unwrap();
             assert_eq!(sz, 3);
         }
-        assert_eq!(&c.get_ref()[..], encode_config("abcdef", URL_SAFE).as_bytes());
+        assert_eq!(
+            &c.get_ref()[..],
+            encode_config("abcdef", URL_SAFE).as_bytes()
+        );
     }
 
     #[test]
@@ -193,14 +208,16 @@ mod tests {
         {
             let mut enc = Base64Encoder::new(&mut c, URL_SAFE);
 
-            enc.write(b"a").unwrap();
-            enc.write(b"bcd").unwrap();
-            enc.write(b"ef").unwrap();
-            enc.write(b"g").unwrap();
+            let _ = enc.write(b"a").unwrap();
+            let _ = enc.write(b"bcd").unwrap();
+            let _ = enc.write(b"ef").unwrap();
+            let _ = enc.write(b"g").unwrap();
 
             enc.flush().unwrap();
         }
-        assert_eq!(&c.get_ref()[..], encode_config("abcdefg", URL_SAFE).as_bytes());
+        assert_eq!(
+            &c.get_ref()[..],
+            encode_config("abcdefg", URL_SAFE).as_bytes()
+        );
     }
 }
-
