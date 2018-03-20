@@ -64,6 +64,8 @@ pub mod display;
 mod tables;
 mod chunked_encoder;
 mod line_wrap;
+mod encoder;
+pub use encoder::Base64Encoder;
 
 use line_wrap::{line_wrap, line_wrap_parameters};
 
