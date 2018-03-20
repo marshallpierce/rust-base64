@@ -75,7 +75,6 @@ pub fn line_wrap_parameters(
     }
 }
 
-
 /// Insert line endings into the encoded base64 after each complete line (except the last line, even
 /// if it is complete).
 /// The provided buffer must be large enough to handle the increased size after endings are

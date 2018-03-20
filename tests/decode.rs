@@ -135,7 +135,10 @@ fn decode_single_pad_byte_after_2_chars_in_trailing_quad_ok() {
         let mut decoded = Vec::new();
         decoded.resize(input_len, 0);
 
-        assert_eq!(input_len, decode_config_slice(&s, STANDARD, &mut decoded).unwrap());
+        assert_eq!(
+            input_len,
+            decode_config_slice(&s, STANDARD, &mut decoded).unwrap()
+        );
     }
 }
 

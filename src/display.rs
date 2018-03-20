@@ -34,11 +34,9 @@ impl<'a> Base64Display<'a> {
     /// Create a `Base64Display` with the provided config.
     pub fn with_config(bytes: &[u8], config: Config) -> Result<Base64Display, DisplayError> {
         ChunkedEncoder::new(config)
-            .map(|c| {
-                Base64Display {
-                    bytes,
-                    chunked_encoder: c,
-                }
+            .map(|c| Base64Display {
+                bytes,
+                chunked_encoder: c,
             })
             .map_err(|e| match e {
                 ChunkedEncoderError::InvalidLineLength => DisplayError::InvalidLineLength,

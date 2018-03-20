@@ -19,7 +19,6 @@ pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
     encode_config(input, STANDARD)
 }
 
-
 ///Encode arbitrary octets as base64.
 ///Returns a String.
 ///
@@ -138,7 +137,6 @@ pub fn encode_config_slice<T: ?Sized + AsRef<[u8]>>(
     encoded_size
 }
 
-
 /// B64-encode, pad, and line wrap (if configured).
 ///
 /// This helper exists to avoid recalculating encoded_size, which is relatively expensive on short
@@ -177,7 +175,6 @@ pub fn encode_with_padding_line_wrap(
 
     debug_assert_eq!(encoded_size, encoded_bytes + line_ending_bytes);
 }
-
 
 /// Encode input bytes to utf8 base64 bytes. Does not pad or line wrap.
 /// `output` must be long enough to hold the encoded `input` without padding or line wrapping.
@@ -329,7 +326,6 @@ pub fn encoded_size(bytes_len: usize, config: &Config) -> Option<usize> {
         }
     })
 }
-
 
 /// Write padding characters.
 /// `output` is the slice where padding should be written, of length at least 2.
@@ -654,7 +650,6 @@ mod tests {
             }
 
             let config = random_config(&mut rng, &line_len_range);
-
 
             // fill up the output buffer with garbage
             let encoded_size = encoded_size(input_len, &config).unwrap();

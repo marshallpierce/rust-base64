@@ -417,12 +417,9 @@ pub mod tests {
             encode_config_buf(&input_buf, config, &mut output_buf);
 
             assert_eq!(
-                output_buf,
-                chunk_encoded_string,
+                output_buf, chunk_encoded_string,
                 "input len={}, config: pad={}, wrap={:?}",
-                buf_len,
-                config.pad,
-                config.line_wrap
+                buf_len, config.pad, config.line_wrap
             );
         }
     }
