@@ -75,7 +75,6 @@ fn encode_all_bytes() {
     );
 }
 
-
 #[test]
 fn encode_all_bytes_url() {
     let mut bytes = Vec::<u8>::with_capacity(256);
