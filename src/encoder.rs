@@ -71,24 +71,20 @@ impl<'a> Write for Base64Encoder<'a> {
             let _ = self.w.write(&self.output[..encoded_size])?;
         }
 
-        // process chunks, 768 bytes -> 1024 (encoded) bytes, at a time
-        // TODO try using `chunks()`
-        while input.len() >= 3 {
-            let mut bytes_to_encode = (self.output.len() / 4) * 3;
-            if bytes_to_encode > input.len() {
-                // force nn to be a multiple of three o we can encode cleanly
-                bytes_to_encode = input.len();
-                bytes_to_encode -= bytes_to_encode % 3;
-            }
+        // encode in big chunks where possible
+        let max_input_chunk_len = (self.output.len() / 4) * 3;
+        // only handle complete triples
+        let input_triples_len = input.len() - (input.len() % 3);
+        for ref chunk in input[0..input_triples_len].chunks(max_input_chunk_len) {
             let encoded_size = encode_to_slice(
-                &input[..bytes_to_encode],
+                &chunk,
                 &mut self.output[..],
                 self.config.char_set.encode_table(),
             );
-            input_read_cnt += bytes_to_encode;
-            input = &input[bytes_to_encode..];
+            input_read_cnt += chunk.len();
             let _ = self.w.write(&self.output[..encoded_size])?;
         }
+        input = &input[input_triples_len..];
 
         // stash leftover bytes
         let mut i = 0;
