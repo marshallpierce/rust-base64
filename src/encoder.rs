@@ -3,6 +3,7 @@ use encode::encode_to_slice;
 use {encode_config_slice, Config};
 use std::io::{Result, Write};
 
+// TODO clearer name
 /// A `Write` proxy that base64-encodes written data and hands the result off to another writer.
 pub struct Base64Encoder<'a> {
     config: Config,
@@ -27,6 +28,8 @@ impl<'a> fmt::Debug for Base64Encoder<'a> {
 impl<'a> Base64Encoder<'a> {
     /// Create a new encoder around an existing writer.
     pub fn new(w: &'a mut Write, config: Config) -> Base64Encoder<'a> {
+        // TODO decide what to do about line wraps
+        assert_eq!(::LineWrap::NoWrap, config.line_wrap);
         Base64Encoder {
             config,
             w,                   // writer to write encoded data to

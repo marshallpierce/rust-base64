@@ -104,7 +104,7 @@ impl CharacterSet {
 }
 
 /// Line ending used in optional line wrapping.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LineEnding {
     /// Unix-style \n
     LF,
@@ -122,7 +122,7 @@ impl LineEnding {
 }
 
 /// Line wrap configuration.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LineWrap {
     /// Don't wrap.
     NoWrap,
