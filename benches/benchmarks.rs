@@ -348,10 +348,10 @@ fn do_encode_bench_stream(b: &mut Bencher, size: usize, config: Config) {
     let mut buf = Vec::new();
 
     b.bytes = v.len() as u64;
-    // conservative estimate of encoded size
-    buf.resize(size * 2, 0);
 
+    buf.reserve(size * 2);
     b.iter(|| {
+        buf.clear();
         let mut stream_enc = Base64Encoder::new(&mut buf, config);
         stream_enc.write(&v).unwrap();
         stream_enc.flush().unwrap();
