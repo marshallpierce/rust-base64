@@ -98,11 +98,12 @@ pub fn random_config<R: Rng>(rng: &mut R, line_len_range: &Range<usize>) -> Conf
         LineWrap::Wrap(line_len, line_ending)
     };
 
-    let charset = if rng.gen() {
-        CharacterSet::UrlSafe
-    } else {
-        CharacterSet::Standard
-    };
+    const CHARSETS: &[CharacterSet] = &[
+        CharacterSet::UrlSafe,
+        CharacterSet::Standard,
+        CharacterSet::Crypt,
+    ];
+    let charset = *rng.choose(CHARSETS).unwrap();
 
     let strip_whitespace = match line_wrap {
         LineWrap::NoWrap => false,
