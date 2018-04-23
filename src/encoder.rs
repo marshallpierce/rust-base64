@@ -8,9 +8,15 @@ use {encode_config_slice, Config};
 pub struct Base64Encoder<'a> {
     config: Config,
     w: &'a mut Write,
+    /// Holds a partial chunk, if any, after the last `write()`, so that we may then fill the chunk
+    /// with the next `write()`, encode it, then proceed with the rest of the input normally.
     extra: [u8; 3],
+    /// How much of `extra` is occupied.
     extra_len: usize,
+    /// Buffer to encode into
     output: [u8; 1024],
+    /// True iff padding / partial last chunk has been written.
+    output_finished: bool,
 }
 
 impl<'a> fmt::Debug for Base64Encoder<'a> {
@@ -36,12 +42,40 @@ impl<'a> Base64Encoder<'a> {
             extra: [0u8; 3],     // extra data left over from previous write
             extra_len: 0,        // how much extra data
             output: [0u8; 1024], // output buffer
+            output_finished: false,
         }
+    }
+
+    /// Flush all buffered data, including any padding or trailing incomplete triples.
+    ///
+    /// Once this is called, no further writes can be performed.
+    pub fn finish(&mut self) -> Result<()> {
+        if self.output_finished {
+            // TODO disallow subsequent writes?
+            return Ok(());
+        };
+
+        self.output_finished = true;
+
+        if self.extra_len > 0 {
+            let sz = encode_config_slice(
+                &self.extra[..self.extra_len],
+                self.config,
+                &mut self.output[..],
+            );
+            let _ = self.w.write(&self.output[..sz])?;
+        }
+
+        self.flush()
     }
 }
 
 impl<'a> Write for Base64Encoder<'a> {
     fn write(&mut self, input: &[u8]) -> Result<usize> {
+        if self.output_finished {
+            panic!("Cannot write more after writing the trailing padding/partial chunk");
+        }
+
         // TODO handle line breaks
         let mut input = input;
         let mut input_read_cnt = 0;
@@ -98,18 +132,17 @@ impl<'a> Write for Base64Encoder<'a> {
         return Ok(input_read_cnt);
     }
 
+    /// Because this is usually treated as OK to call multiple times, it will *not* flush any
+    /// incomplete chunks of input or write padding.
     fn flush(&mut self) -> Result<()> {
-        if self.extra_len > 0 {
-            // TODO should not write padding on each flush() -- should be able to flush() > 1x
-            let sz = encode_config_slice(
-                &self.extra[..self.extra_len],
-                self.config,
-                &mut self.output[..],
-            );
-            let _ = self.w.write(&self.output[..sz])?;
-        }
-
         self.w.flush()
+    }
+}
+
+impl<'a> Drop for Base64Encoder<'a> {
+    fn drop(&mut self) {
+        // TODO error handling?
+        let _ = self.finish();
     }
 }
 
@@ -157,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_one_two() {
+    fn encode_one_then_two_bytes() {
         let mut c = Cursor::new(Vec::new());
         {
             let mut enc = Base64Encoder::new(&mut c, URL_SAFE);
@@ -171,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_one_five() {
+    fn encode_one_then_five_bytes() {
         let mut c = Cursor::new(Vec::new());
         {
             let mut enc = Base64Encoder::new(&mut c, URL_SAFE);
@@ -188,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn encode_1_2_3() {
+    fn encode_1_2_3_bytes() {
         let mut c = Cursor::new(Vec::new());
         {
             let mut enc = Base64Encoder::new(&mut c, URL_SAFE);
@@ -232,6 +265,26 @@ mod tests {
             let _ = enc.write(b"g").unwrap();
 
             enc.flush().unwrap();
+        }
+        assert_eq!(
+            &c.get_ref()[..],
+            encode_config("abcdefg", URL_SAFE).as_bytes()
+        );
+    }
+
+    #[test]
+    fn finish_writes_extra_byte() {
+        let mut c = Cursor::new(Vec::new());
+        {
+            let mut enc = Base64Encoder::new(&mut c, URL_SAFE);
+
+            assert_eq!(6, enc.write(b"abcdef").unwrap());
+
+            // will be in extra
+            assert_eq!(1, enc.write(b"g").unwrap());
+
+            // 1 trailing byte = 2 encoded chars
+            let _ = enc.finish().unwrap();
         }
         assert_eq!(
             &c.get_ref()[..],
