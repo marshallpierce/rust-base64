@@ -1,7 +1,7 @@
-use {Config, LineEnding, LineWrap};
 use encode::{add_padding, encode_to_slice};
 use line_wrap::line_wrap;
 use std::cmp;
+use {Config, LineEnding, LineWrap};
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -167,14 +167,14 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> Result<usize, Ch
 pub mod tests {
     extern crate rand;
 
-    use ::*;
-    use tests::random_config;
     use super::*;
+    use tests::random_config;
+    use *;
 
     use std::str;
 
-    use self::rand::Rng;
     use self::rand::distributions::{IndependentSample, Range};
+    use self::rand::Rng;
 
     #[test]
     fn chunked_encode_empty() {

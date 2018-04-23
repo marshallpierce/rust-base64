@@ -1,5 +1,5 @@
-use {tables, CharacterSet, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
+use {tables, CharacterSet, Config, STANDARD};
 
 use std::{error, fmt, str};
 
@@ -534,12 +534,12 @@ fn decode_chunk_precise(
 mod tests {
     extern crate rand;
 
-    use tests::{assert_encode_sanity, random_config};
-    use encode::encode_config_buf;
     use super::*;
+    use encode::encode_config_buf;
+    use tests::{assert_encode_sanity, random_config};
 
-    use self::rand::Rng;
     use self::rand::distributions::{IndependentSample, Range};
+    use self::rand::Rng;
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {

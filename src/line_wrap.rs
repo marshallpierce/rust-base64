@@ -163,8 +163,8 @@ mod tests {
 
     use super::*;
 
-    use self::rand::Rng;
     use self::rand::distributions::{IndependentSample, Range};
+    use self::rand::Rng;
 
     #[test]
     fn line_params_perfect_multiple_of_line_length_lf() {

@@ -1,7 +1,7 @@
-use std::fmt;
 use encode::encode_to_slice;
-use {encode_config_slice, Config};
+use std::fmt;
 use std::io::{Result, Write};
+use {encode_config_slice, Config};
 
 // TODO clearer name
 /// A `Write` proxy that base64-encodes written data and hands the result off to another writer.
@@ -118,14 +118,14 @@ mod tests {
     extern crate rand;
 
     use super::Base64Encoder;
-    use {encode_config, encode_config_buf, URL_SAFE};
     use tests::random_config;
+    use {encode_config, encode_config_buf, URL_SAFE};
 
     use std::io::{Cursor, Write};
     use std::str;
 
-    use self::rand::Rng;
     use self::rand::distributions::range;
+    use self::rand::Rng;
 
     #[test]
     fn encode_three_bytes() {

@@ -9,8 +9,8 @@
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", wrapper));
 //! ```
 
-use super::Config;
 use super::chunked_encoder::{ChunkedEncoder, ChunkedEncoderError};
+use super::Config;
 use std::fmt::{Display, Formatter};
 use std::{fmt, str};
 
@@ -78,10 +78,10 @@ impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::*;
     use super::super::chunked_encoder::tests::{chunked_encode_matches_normal_encode_random,
                                                SinkTestHelper};
+    use super::super::*;
+    use super::*;
 
     #[test]
     fn basic_display() {

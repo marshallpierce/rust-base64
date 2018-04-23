@@ -55,16 +55,18 @@
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
-#![deny(missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates,
-        unused_import_braces, unused_results, variant_size_differences, warnings)]
+#![deny(
+    missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+    unused_results, variant_size_differences, warnings
+)]
 
 extern crate byteorder;
 
-pub mod display;
-mod tables;
 mod chunked_encoder;
-mod line_wrap;
+pub mod display;
 mod encoder;
+mod line_wrap;
+mod tables;
 pub use encoder::Base64Encoder;
 
 use line_wrap::{line_wrap, line_wrap_parameters};

@@ -4,13 +4,13 @@ extern crate base64;
 extern crate rand;
 extern crate test;
 
+use base64::display;
 use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf,
              encode_config_slice, Base64Encoder, Config, MIME, STANDARD};
-use base64::display;
 
+use rand::Rng;
 use std::io::Write;
 use test::Bencher;
-use rand::Rng;
 
 #[bench]
 fn encode_3b(b: &mut Bencher) {
