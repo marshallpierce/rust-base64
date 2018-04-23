@@ -64,10 +64,9 @@ extern crate byteorder;
 
 mod chunked_encoder;
 pub mod display;
-mod encoder;
+pub mod write;
 mod line_wrap;
 mod tables;
-pub use encoder::Base64Encoder;
 
 use line_wrap::{line_wrap, line_wrap_parameters};
 
