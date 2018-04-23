@@ -1,5 +1,5 @@
-use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
+use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -346,15 +346,15 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
 mod tests {
     extern crate rand;
 
-    use {CharacterSet, Config, LineEnding, LineWrap, MIME, STANDARD, URL_SAFE_NO_PAD};
-    use tests::{assert_encode_sanity, random_config};
-    use decode::decode_config_buf;
     use super::*;
+    use decode::decode_config_buf;
+    use tests::{assert_encode_sanity, random_config};
+    use {CharacterSet, Config, LineEnding, LineWrap, MIME, STANDARD, URL_SAFE_NO_PAD};
 
+    use self::rand::distributions::{IndependentSample, Range};
+    use self::rand::Rng;
     use std;
     use std::str;
-    use self::rand::Rng;
-    use self::rand::distributions::{IndependentSample, Range};
 
     #[test]
     fn encoded_size_correct_standard() {

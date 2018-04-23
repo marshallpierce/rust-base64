@@ -55,15 +55,17 @@
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
-#![deny(missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates,
-        unused_import_braces, unused_results, variant_size_differences, warnings)]
+#![deny(
+    missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
+    unused_results, variant_size_differences, warnings
+)]
 
 extern crate byteorder;
 
-pub mod display;
-mod tables;
 mod chunked_encoder;
+pub mod display;
 mod line_wrap;
+mod tables;
 
 use line_wrap::{line_wrap, line_wrap_parameters};
 
@@ -84,7 +86,7 @@ pub enum CharacterSet {
     /// The URL safe character set (uses `-` and `_`)
     UrlSafe,
     /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`)
-    Crypt
+    Crypt,
 }
 
 impl CharacterSet {
@@ -216,4 +218,3 @@ pub const CRYPT: Config = Config {
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
-

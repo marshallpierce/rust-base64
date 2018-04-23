@@ -1,13 +1,13 @@
 extern crate rand;
 
-use ::*;
 use encode::encoded_size;
 use line_wrap::line_wrap_parameters;
+use *;
 
 use std::str;
 
-use self::rand::Rng;
 use self::rand::distributions::{IndependentSample, Range};
+use self::rand::Rng;
 
 #[test]
 fn roundtrip_random_config_short() {
