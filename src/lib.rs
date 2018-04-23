@@ -83,6 +83,8 @@ pub enum CharacterSet {
     Standard,
     /// The URL safe character set (uses `-` and `_`)
     UrlSafe,
+    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`)
+    Crypt
 }
 
 impl CharacterSet {
@@ -90,6 +92,7 @@ impl CharacterSet {
         match *self {
             CharacterSet::Standard => tables::STANDARD_ENCODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
+            CharacterSet::Crypt => tables::CRYPT_ENCODE,
         }
     }
 
@@ -97,6 +100,7 @@ impl CharacterSet {
         match *self {
             CharacterSet::Standard => tables::STANDARD_DECODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
+            CharacterSet::Crypt => tables::CRYPT_DECODE,
         }
     }
 }
@@ -204,3 +208,12 @@ pub const URL_SAFE_NO_PAD: Config = Config {
     strip_whitespace: false,
     line_wrap: LineWrap::NoWrap,
 };
+
+/// As per `crypt(3)` requirements
+pub const CRYPT: Config = Config {
+    char_set: CharacterSet::Crypt,
+    pad: false,
+    strip_whitespace: false,
+    line_wrap: LineWrap::NoWrap,
+};
+
