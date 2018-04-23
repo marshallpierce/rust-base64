@@ -1,3 +1,7 @@
+# 0.9.1
+
+- Add support for `crypt(3)`'s base64 variant.
+
 # 0.9.0
 
 - `decode_config_slice` function for no-allocation decoding, analogous to `encode_config_slice`

@@ -10,6 +10,8 @@ use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_conf
 
 use rand::Rng;
 use std::io::Write;
+
+use rand::Rng;
 use test::Bencher;
 
 #[bench]
