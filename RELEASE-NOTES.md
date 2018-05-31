@@ -1,3 +1,7 @@
+# 0.9.2
+
+- Derive `Clone` for `DecodeError`.
+
 # 0.9.1
 
 - Add support for `crypt(3)`'s base64 variant.
