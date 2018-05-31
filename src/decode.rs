@@ -19,7 +19,7 @@ const DECODED_BLOCK_LEN: usize =
     CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
 /// Errors that can occur while decoding.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     /// An invalid byte was found in the input. The offset and offending byte are provided.
     InvalidByte(usize, u8),
