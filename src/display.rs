@@ -11,8 +11,8 @@
 
 use super::chunked_encoder::{ChunkedEncoder, ChunkedEncoderError};
 use super::Config;
-use std::fmt::{Display, Formatter};
-use std::{fmt, str};
+use core::fmt::{Display, Formatter};
+use core::{fmt, str};
 
 // I'm not convinced that we should expose ChunkedEncoder or its error type since it's just an
 // implementation detail, so use a different error type.
@@ -82,6 +82,7 @@ mod tests {
                                                SinkTestHelper};
     use super::super::*;
     use super::*;
+    use std::string::String;
 
     #[test]
     fn basic_display() {

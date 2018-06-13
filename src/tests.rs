@@ -4,6 +4,7 @@ use encode::encoded_size;
 use line_wrap::line_wrap_parameters;
 use *;
 
+use std::prelude::v1::*;
 use std::str;
 
 use self::rand::distributions::{IndependentSample, Range};

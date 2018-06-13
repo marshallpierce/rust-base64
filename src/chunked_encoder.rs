@@ -1,6 +1,6 @@
 use encode::{add_padding, encode_to_slice};
 use line_wrap::line_wrap;
-use std::cmp;
+use core::cmp;
 use {Config, LineEnding, LineWrap};
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
@@ -171,6 +171,7 @@ pub mod tests {
     use tests::random_config;
     use *;
 
+    use std::prelude::v1::*;
     use std::str;
 
     use self::rand::distributions::{IndependentSample, Range};

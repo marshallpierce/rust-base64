@@ -1,3 +1,7 @@
+#[cfg(feature = "std")]
+use std::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::String;
 use byteorder::{BigEndian, ByteOrder};
 use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
 
@@ -354,6 +358,7 @@ mod tests {
     use self::rand::distributions::{IndependentSample, Range};
     use self::rand::Rng;
     use std;
+    use std::prelude::v1::*;
     use std::str;
 
     #[test]

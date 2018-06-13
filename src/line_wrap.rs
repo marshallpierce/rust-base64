@@ -165,6 +165,7 @@ mod tests {
 
     use self::rand::distributions::{IndependentSample, Range};
     use self::rand::Rng;
+    use std::prelude::v1::*;
 
     #[test]
     fn line_params_perfect_multiple_of_line_length_lf() {

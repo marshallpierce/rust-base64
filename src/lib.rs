@@ -60,6 +60,15 @@
     unused_results, variant_size_differences, warnings
 )]
 
+#![cfg_attr(not(feature = "std"), feature(alloc))]
+#![no_std]
+
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 extern crate byteorder;
 
 mod chunked_encoder;

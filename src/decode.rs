@@ -1,7 +1,13 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::Vec;
 use byteorder::{BigEndian, ByteOrder};
 use {tables, CharacterSet, Config, STANDARD};
 
-use std::{error, fmt, str};
+use core::fmt;
+#[cfg(feature = "std")]
+use std::{error, str};
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -38,6 +44,7 @@ impl fmt::Display for DecodeError {
     }
 }
 
+#[cfg(feature = "std")]
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
@@ -540,6 +547,7 @@ mod tests {
 
     use self::rand::distributions::{IndependentSample, Range};
     use self::rand::Rng;
+    use std::prelude::v1::*;
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
