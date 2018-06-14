@@ -19,6 +19,7 @@ rand = "0.4"
 
 [features]
 std = ["safemem/std"]
+alloc = []
 default = ["std"]
 
 [profile.bench]

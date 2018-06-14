@@ -102,9 +102,13 @@ no_std support
 
 This crate has a feature flag `std` that is enabled by default.
 
-To use in a *no_std* environment, you can disable default
-features. You must setup an allocator because this API makes use of
-the dynamically-sized `Vec` and `String` types.
+To use in a *no_std* environment, you can disable default features. To
+use the full API, enable feature `alloc` and setup an allocator.
+
+In environments without an allocator, the API provides only the
+`encode_config_slice()` and `decode_config_slice()` functions (which
+do not use the dynamically-sized `Vec` type) and the
+`strip_whitespace` config must be disabled.
 
 License
 ---

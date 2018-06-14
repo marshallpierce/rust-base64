@@ -1,9 +1,9 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::Vec;
 use byteorder::{BigEndian, ByteOrder};
-use {tables, CharacterSet, Config, STANDARD};
+use {tables, CharacterSet, Config};
 
 use core::fmt;
 #[cfg(feature = "std")]
@@ -31,6 +31,10 @@ pub enum DecodeError {
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
     InvalidLength,
+    /// This will be returned if you configure the decoder to strip
+    /// whitespace but there is not `Vec` in absence of the `alloc`
+    /// feature.
+    CannotStripWhitespace,
 }
 
 impl fmt::Display for DecodeError {
@@ -40,6 +44,7 @@ impl fmt::Display for DecodeError {
                 write!(f, "Invalid byte {}, offset {}.", byte, index)
             }
             DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            DecodeError::CannotStripWhitespace => write!(f, "Configured to strip white-space but no allocator available"),
         }
     }
 }
@@ -50,6 +55,7 @@ impl error::Error for DecodeError {
         match *self {
             DecodeError::InvalidByte(_, _) => "invalid byte",
             DecodeError::InvalidLength => "invalid length",
+            DecodeError::CannotStripWhitespace => "cannot strip whitespace",
         }
     }
 
@@ -72,7 +78,9 @@ impl error::Error for DecodeError {
 ///    println!("{:?}", bytes);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
+    use STANDARD;
     decode_config(input, STANDARD)
 }
 
@@ -92,6 +100,7 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
     input: &T,
     config: Config,
@@ -122,6 +131,7 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///    println!("{:?}", buffer);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     input: &T,
     config: Config,
@@ -169,10 +179,17 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
     config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
+    #[cfg(any(feature = "std", feature = "alloc"))]
     let input_copy;
     let input_bytes = if config.strip_whitespace {
-        input_copy = copy_without_whitespace(input.as_ref());
-        input_copy.as_ref()
+        #[cfg(not(any(feature = "std", feature = "alloc")))]
+        return Err(DecodeError::CannotStripWhitespace);
+
+        #[cfg(any(feature = "std", feature = "alloc"))]
+        {
+            input_copy = copy_without_whitespace(input.as_ref());
+            input_copy.as_ref()
+        }
     } else {
         input.as_ref()
     };
@@ -193,6 +210,7 @@ fn num_chunks(input: &[u8]) -> usize {
         .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
 fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
     let mut input_copy = Vec::<u8>::with_capacity(input.len());
     input_copy.extend(input.iter().filter(|b| !b" \n\t\r\x0b\x0c".contains(b)));

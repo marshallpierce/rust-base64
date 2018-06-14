@@ -60,13 +60,13 @@
     unused_results, variant_size_differences, warnings
 )]
 
-#![cfg_attr(not(feature = "std"), feature(alloc))]
+#![cfg_attr(feature = "alloc", feature(alloc))]
 #![no_std]
 
 #[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 extern crate byteorder;
@@ -79,10 +79,14 @@ mod tables;
 use line_wrap::{line_wrap, line_wrap_parameters};
 
 mod encode;
-pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use encode::encode_config_slice;
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub use encode::{encode, encode_config, encode_config_buf};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
+pub use decode::{decode_config_slice, DecodeError};
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub use decode::{decode, decode_config, decode_config_buf};
 
 #[cfg(test)]
 mod tests;

@@ -1,9 +1,9 @@
 #[cfg(feature = "std")]
 use std::string::String;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "alloc")]
 use alloc::String;
 use byteorder::{BigEndian, ByteOrder};
-use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
+use {line_wrap, line_wrap_parameters, Config, LineWrap};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -19,7 +19,9 @@ use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
 ///    println!("{}", b64);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
+    use STANDARD;
     encode_config(input, STANDARD)
 }
 
@@ -39,6 +41,7 @@ pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
 ///    println!("{}", b64_url);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
     let mut buf = match encoded_size(input.as_ref().len(), &config) {
         Some(n) => String::with_capacity(n),
@@ -68,6 +71,7 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
 ///    println!("{}", buf);
 ///}
 ///```
+#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
     let input_bytes = input.as_ref();
 
