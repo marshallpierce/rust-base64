@@ -7,7 +7,7 @@ It's base64. What more could anyone want?
 Example
 ---
 
-In Cargo.toml: `base64 = "~0.6.0"`
+In Cargo.toml: `base64 = "~0.9.2"`
 
 ```rust
 extern crate base64;
