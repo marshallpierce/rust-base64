@@ -1,6 +1,6 @@
-extern crate safemem;
-
 use super::*;
+use safemem;
+
 
 #[derive(Debug, PartialEq)]
 pub struct LineWrapParameters {
