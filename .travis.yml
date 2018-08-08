@@ -1,0 +1,36 @@
+---
+language: rust
+dist: trusty
+sudo: required
+
+matrix:
+  include:
+    - rust: 1.23.0
+    - rust: stable
+      addons:
+        apt:
+          packages:
+            # cargo-tarpaulin needs this
+            - libssl-dev
+      install:
+        # For test coverage. In install step so that it can use cache.
+        - cargo tarpaulin --version || RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+    - rust: beta
+    - rust: nightly
+  allow_failures:
+    - rust: nightly
+
+cache: cargo
+
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo doc --verbose
+  - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo bench --no-run; fi'
+
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" = stable ]]; then
+    # Calculate test coverage
+    cargo tarpaulin --out Xml
+    bash <(curl -s https://codecov.io/bash)
+  fi
