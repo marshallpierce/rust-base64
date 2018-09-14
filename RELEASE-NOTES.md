@@ -1,3 +1,7 @@
+# 0.9.3
+
+- Update safemem
+
 # 0.9.2
 
 - Derive `Clone` for `DecodeError`.
