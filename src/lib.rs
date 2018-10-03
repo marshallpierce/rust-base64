@@ -81,11 +81,17 @@ mod tests;
 /// Available encoding character sets
 #[derive(Clone, Copy, Debug)]
 pub enum CharacterSet {
-    /// The standard character set (uses `+` and `/`)
+    /// The standard character set (uses `+` and `/`).
+    ///
+    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
     Standard,
-    /// The URL safe character set (uses `-` and `_`)
+    /// The URL safe character set (uses `-` and `_`).
+    ///
+    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-4).
     UrlSafe,
-    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`)
+    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`).
+    ///
+    /// Not standardized, but folk wisdom on the net asserts that this alphabet is what crypt uses.
     Crypt,
 }
 
