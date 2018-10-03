@@ -11,11 +11,11 @@ categories = ["encoding"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-byteorder = "1.1.0"
+byteorder = "1.2.6"
 safemem = "0.3"
 
 [dev-dependencies]
-rand = "0.4"
+rand = "0.5.5"
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`

@@ -4,7 +4,7 @@ extern crate ring;
 
 use self::base64::*;
 use self::rand::{Rng, SeedableRng, XorShiftRng};
-use self::rand::distributions::{IndependentSample, Range};
+use self::rand::distributions::{Distribution, Range};
 use self::ring::digest;
 
 pub fn random_config(data: &[u8]) -> Config {
@@ -26,7 +26,7 @@ pub fn random_config(data: &[u8]) -> Config {
     let (line_wrap, strip_whitespace) = if rng.gen() {
         (LineWrap::NoWrap, rng.gen())
     } else {
-        let line_len = line_len_range.ind_sample(&mut rng);
+        let line_len = line_len_range.sample(&mut rng);
 
         let line_ending = if rng.gen() {
             LineEnding::LF

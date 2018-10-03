@@ -6,8 +6,8 @@ use *;
 
 use std::str;
 
-use self::rand::distributions::{IndependentSample, Range};
-use self::rand::Rng;
+use self::rand::distributions::{Distribution, Range};
+use self::rand::{Rng, FromEntropy};
 
 #[test]
 fn roundtrip_random_config_short() {
@@ -61,13 +61,13 @@ fn roundtrip_random_config(
 ) {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
-    let mut rng = rand::weak_rng();
+    let mut rng = rand::rngs::SmallRng::from_entropy();
 
     for _ in 0..iterations {
         input_buf.clear();
         encoded_buf.clear();
 
-        let input_len = input_len_range.ind_sample(&mut rng);
+        let input_len = input_len_range.sample(&mut rng);
 
         let config = random_config(&mut rng, &line_len_range);
 
@@ -87,7 +87,7 @@ pub fn random_config<R: Rng>(rng: &mut R, line_len_range: &Range<usize>) -> Conf
     let line_wrap = if rng.gen() {
         LineWrap::NoWrap
     } else {
-        let line_len = line_len_range.ind_sample(rng);
+        let line_len = line_len_range.sample(rng);
 
         let line_ending = if rng.gen() {
             LineEnding::LF
