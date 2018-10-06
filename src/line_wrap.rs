@@ -163,8 +163,8 @@ mod tests {
 
     use super::*;
 
-    use self::rand::distributions::{IndependentSample, Range};
-    use self::rand::Rng;
+    use self::rand::distributions::{Distribution, Range};
+    use self::rand::{Rng, FromEntropy};
 
     #[test]
     fn line_params_perfect_multiple_of_line_length_lf() {
@@ -305,13 +305,13 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         let buf_range = Range::new(10, 1000);
         let line_range = Range::new(10, 100);
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             buf.clear();
 
-            let buf_len = buf_range.ind_sample(&mut rng);
-            let line_len = line_range.ind_sample(&mut rng);
+            let buf_len = buf_range.sample(&mut rng);
+            let line_len = line_range.sample(&mut rng);
             let line_ending = if rng.gen() {
                 LineEnding::LF
             } else {
@@ -343,7 +343,7 @@ mod tests {
     }
 
     fn do_line_wrap(buf: &mut Vec<u8>, line_len: usize, line_ending: LineEnding) -> usize {
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         let orig_len = buf.len();
 

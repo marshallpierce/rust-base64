@@ -1,13 +1,11 @@
 [base64](https://crates.io/crates/base64)
 ===
-[![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64)
+[![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64)
 
 It's base64. What more could anyone want?
 
 Example
 ---
-
-In Cargo.toml: `base64 = "~0.6.0"`
 
 ```rust
 extern crate base64;

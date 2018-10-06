@@ -157,7 +157,7 @@ mod tests {
     use std::io::{Cursor, Write};
     use std::str;
 
-    use self::rand::distributions::range;
+    use self::rand::distributions::uniform;
     use self::rand::Rng;
 
     #[test]
@@ -298,7 +298,7 @@ mod tests {
         let mut orig_data = Vec::<u8>::new();
         let mut stream_encoded = Vec::<u8>::new();
         let mut normal_encoded = String::new();
-        let line_len_range = range::Range::new(1, 2000);
+        let line_len_range = uniform::Uniform::new(1, 2000);
 
         for _ in 0..1_000 {
             orig_data.clear();

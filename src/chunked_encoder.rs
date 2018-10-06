@@ -173,8 +173,8 @@ pub mod tests {
 
     use std::str;
 
-    use self::rand::distributions::{IndependentSample, Range};
-    use self::rand::Rng;
+    use self::rand::distributions::{Distribution, Range};
+    use self::rand::{Rng, FromEntropy};
 
     #[test]
     fn chunked_encode_empty() {
@@ -398,7 +398,7 @@ pub mod tests {
     pub fn chunked_encode_matches_normal_encode_random<S: SinkTestHelper>(sink_test_helper: &S) {
         let mut input_buf: Vec<u8> = Vec::new();
         let mut output_buf = String::new();
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
         let line_len_range = Range::new(1, 1020);
         let input_len_range = Range::new(1, 10_000);
 
@@ -406,7 +406,7 @@ pub mod tests {
             input_buf.clear();
             output_buf.clear();
 
-            let buf_len = input_len_range.ind_sample(&mut rng);
+            let buf_len = input_len_range.sample(&mut rng);
             for _ in 0..buf_len {
                 input_buf.push(rng.gen());
             }

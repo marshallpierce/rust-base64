@@ -351,8 +351,8 @@ mod tests {
     use tests::{assert_encode_sanity, random_config};
     use {CharacterSet, Config, LineEnding, LineWrap, MIME, STANDARD, URL_SAFE_NO_PAD};
 
-    use self::rand::distributions::{IndependentSample, Range};
-    use self::rand::Rng;
+    use self::rand::distributions::{Distribution, Range};
+    use self::rand::{Rng, FromEntropy};
     use std;
     use std::str;
 
@@ -485,7 +485,7 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -494,13 +494,13 @@ mod tests {
             encoded_data_with_prefix.clear();
             decoded.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
             }
 
-            let prefix_len = prefix_len_range.ind_sample(&mut rng);
+            let prefix_len = prefix_len_range.sample(&mut rng);
             for _ in 0..prefix_len {
                 // getting convenient random single-byte printable chars that aren't base64 is
                 // annoying
@@ -539,7 +539,7 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -547,7 +547,7 @@ mod tests {
             encoded_data_original_state.clear();
             decoded.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
@@ -594,14 +594,14 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
             encoded_data.clear();
             decoded.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
@@ -637,13 +637,13 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             input.clear();
             output.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 input.push(rng.gen());
@@ -678,13 +678,13 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             input.clear();
             output.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 input.push(rng.gen());
@@ -719,7 +719,7 @@ mod tests {
     fn add_padding_random_valid_utf8() {
         let mut output = Vec::new();
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         // cover our bases for length % 3
         for input_len in 0..10 {
@@ -746,7 +746,7 @@ mod tests {
         assert_eq!(encoded_len, encoded_size(input_len, &config).unwrap());
 
         let mut bytes: Vec<u8> = Vec::new();
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..input_len {
             bytes.push(rng.gen());

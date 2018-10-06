@@ -6,11 +6,10 @@ extern crate test;
 
 use base64::display;
 use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf,
-             encode_config_slice, Base64Encoder, Config, MIME, STANDARD};
+             encode_config_slice, write, Config, MIME, STANDARD};
 
-use rand::Rng;
+use rand::{Rng, FromEntropy};
 use std::io::Write;
-
 use test::Bencher;
 
 #[bench]
@@ -353,7 +352,7 @@ fn do_encode_bench_stream(b: &mut Bencher, size: usize, config: Config) {
     buf.reserve(size * 2);
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = Base64Encoder::new(&mut buf, config);
+        let mut stream_enc = write::Base64Encoder::new(&mut buf, config);
         stream_enc.write(&v).unwrap();
         stream_enc.flush().unwrap();
     });
@@ -362,7 +361,7 @@ fn do_encode_bench_stream(b: &mut Bencher, size: usize, config: Config) {
 fn fill(v: &mut Vec<u8>) {
     let cap = v.capacity();
     // weak randomness is plenty; we just want to not be completely friendly to the branch predictor
-    let mut r = rand::weak_rng();
+    let mut r = rand::rngs::SmallRng::from_entropy();
     while v.len() < cap {
         v.push(r.gen::<u8>());
     }

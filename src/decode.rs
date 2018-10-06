@@ -19,7 +19,7 @@ const DECODED_BLOCK_LEN: usize =
     CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
 /// Errors that can occur while decoding.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     /// An invalid byte was found in the input. The offset and offending byte are provided.
     InvalidByte(usize, u8),
@@ -538,8 +538,9 @@ mod tests {
     use encode::encode_config_buf;
     use tests::{assert_encode_sanity, random_config};
 
-    use self::rand::distributions::{IndependentSample, Range};
-    use self::rand::Rng;
+    use self::rand::distributions::{Distribution, Range};
+    use self::rand::{Rng, FromEntropy};
+
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
@@ -569,7 +570,7 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -578,7 +579,7 @@ mod tests {
             decoded_without_prefix.clear();
             prefix.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
@@ -588,7 +589,7 @@ mod tests {
             encode_config_buf(&orig_data, config, &mut encoded_data);
             assert_encode_sanity(&encoded_data, &config, input_len);
 
-            let prefix_len = prefix_len_range.ind_sample(&mut rng);
+            let prefix_len = prefix_len_range.sample(&mut rng);
 
             // fill the buf with a prefix
             for _ in 0..prefix_len {
@@ -626,7 +627,7 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -634,7 +635,7 @@ mod tests {
             decode_buf.clear();
             decode_buf_copy.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
@@ -680,14 +681,14 @@ mod tests {
         let input_len_range = Range::new(0, 1000);
         let line_len_range = Range::new(1, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
             encoded_data.clear();
             decode_buf.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());

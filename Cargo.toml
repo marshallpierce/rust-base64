@@ -1,6 +1,6 @@
 [package]
 name = "base64"
-version = "0.9.1"
+version = "0.9.3"
 authors = ["Alice Maz <alice@alicemaz.com>", "Marshall Pierce <marshall@mpierce.org>"]
 description = "encodes and decodes base64 as bytes or utf8"
 repository = "https://github.com/alicemaz/rust-base64"
@@ -11,11 +11,11 @@ categories = ["encoding"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-byteorder = "1.1.0"
-safemem = "0.2.0"
+byteorder = "1.2.6"
+safemem = "0.3"
 
 [dev-dependencies]
-rand = "0.4"
+rand = "0.5.5"
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`
