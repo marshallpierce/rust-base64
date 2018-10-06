@@ -352,8 +352,8 @@ fn do_encode_bench_stream(b: &mut Bencher, size: usize, config: Config) {
     buf.reserve(size * 2);
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = write::Base64Encoder::new(&mut buf, config);
-        stream_enc.write(&v).unwrap();
+        let mut stream_enc = write::EncoderWriter::new(&mut buf, config);
+        stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
     });
 }

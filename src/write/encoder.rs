@@ -1,25 +1,77 @@
-use encode::encode_to_slice;
-use std::fmt;
+use ::encode::encode_to_slice;
+use std::{cmp, fmt};
 use std::io::{Result, Write};
 use {encode_config_slice, Config};
 
-// TODO clearer name
-/// A `Write` proxy that base64-encodes written data and hands the result off to another writer.
-pub struct Base64Encoder<'a> {
+pub(crate) const BUF_SIZE: usize = 1024;
+/// The most bytes whose encoding will fit in `BUF_SIZE`
+const MAX_INPUT_LEN: usize = BUF_SIZE / 4 * 3;
+// 3 bytes of input = 4 bytes of base64, always (because we don't allow line wrapping)
+const MIN_ENCODE_CHUNK_SIZE: usize = 3;
+
+/// A `Write` implementation that base64 encodes data before delegating to the wrapped writer.
+///
+/// Because base64 has special handling for the end of the input data (padding, etc), there's a
+/// `finish()` method on this type that encodes any leftover input bytes and adds padding if
+/// appropriate. It's called automatically when deallocated (see the `Drop` implementation), but
+/// any error that occurs when invoking the underlying writer will be suppressed. If you want to
+/// handle such errors, call `finish()` yourself.
+///
+/// # Examples
+///
+/// ```
+/// use std::io::Write;
+///
+/// // use a vec as the simplest possible `Write` -- in real code this is probably a file, etc.
+/// let mut wrapped_writer = Vec::new();
+/// {
+///     let mut enc = base64::write::EncoderWriter::new(
+///         &mut wrapped_writer, base64::STANDARD);
+///
+///     // handle errors as you normally would
+///     enc.write_all(b"asdf").unwrap();
+///     // could leave this out to be called by Drop, if you don't care
+///     // about handling errors
+///     enc.finish().unwrap();
+///
+/// }
+///
+/// // base64 was written to the writer
+/// assert_eq!(b"YXNkZg==", &wrapped_writer[..]);
+///
+/// ```
+///
+/// # Panics
+///
+/// Calling `write()` after `finish()` is invalid and will panic.
+///
+/// # Errors
+///
+/// Base64 encoding itself does not generate errors, but errors from the wrapped writer will be
+/// returned as per the contract of `Write`.
+///
+/// # Performance
+///
+/// It has some minor performance loss compared to encoding slices (a couple percent).
+/// It does not do any heap allocation.
+pub struct EncoderWriter<'a, W: 'a + Write> {
     config: Config,
-    w: &'a mut Write,
+    /// Where encoded data is written to
+    w: &'a mut W,
     /// Holds a partial chunk, if any, after the last `write()`, so that we may then fill the chunk
     /// with the next `write()`, encode it, then proceed with the rest of the input normally.
-    extra: [u8; 3],
-    /// How much of `extra` is occupied.
+    extra: [u8; MIN_ENCODE_CHUNK_SIZE],
+    /// How much of `extra` is occupied, in `[0, MIN_ENCODE_CHUNK_SIZE]`.
     extra_len: usize,
-    /// Buffer to encode into
-    output: [u8; 1024],
+    /// Buffer to encode into.
+    output: [u8; BUF_SIZE],
     /// True iff padding / partial last chunk has been written.
-    output_finished: bool,
+    finished: bool,
+    /// panic safety: don't write again in destructor if writer panicked while we were writing to it
+    panicked: bool
 }
 
-impl<'a> fmt::Debug for Base64Encoder<'a> {
+impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -31,105 +83,160 @@ impl<'a> fmt::Debug for Base64Encoder<'a> {
     }
 }
 
-impl<'a> Base64Encoder<'a> {
+impl<'a, W: Write> EncoderWriter<'a, W> {
     /// Create a new encoder around an existing writer.
-    pub fn new(w: &'a mut Write, config: Config) -> Base64Encoder<'a> {
-        // TODO decide what to do about line wraps
+    ///
+    /// Pending the [removal of line wrapping](https://github.com/alicemaz/rust-base64/issues/60),
+    /// configs that specify line wrapping are not supported, and will panic.
+    pub fn new(w: &'a mut W, config: Config) -> EncoderWriter<'a, W> {
         assert_eq!(::LineWrap::NoWrap, config.line_wrap);
-        Base64Encoder {
+        EncoderWriter {
             config,
-            w,                   // writer to write encoded data to
-            extra: [0u8; 3],     // extra data left over from previous write
-            extra_len: 0,        // how much extra data
-            output: [0u8; 1024], // output buffer
-            output_finished: false,
+            w,
+            extra: [0u8; MIN_ENCODE_CHUNK_SIZE],
+            extra_len: 0,
+            output: [0u8; BUF_SIZE],
+            finished: false,
+            panicked: false
         }
     }
 
-    /// Flush all buffered data, including any padding or trailing incomplete triples.
+    /// Encode all remaining buffered data and write it, including any trailing incomplete input
+    /// triples and associated padding.
     ///
-    /// Once this is called, no further writes can be performed.
+    /// Once this succeeds, no further writes can be performed, as that would produce invalid
+    /// base64.
+    ///
+    /// # Errors
+    ///
+    /// Assuming the wrapped writer obeys the `Write` contract, if this returns `Err`, no data was
+    /// written, and `finish()` may be retried if appropriate for the type of error, etc.
     pub fn finish(&mut self) -> Result<()> {
-        if self.output_finished {
-            // TODO disallow subsequent writes?
+        if self.finished {
             return Ok(());
         };
 
-        self.output_finished = true;
-
         if self.extra_len > 0 {
-            let sz = encode_config_slice(
+            let encoded_len = encode_config_slice(
                 &self.extra[..self.extra_len],
                 self.config,
                 &mut self.output[..],
             );
-            let _ = self.w.write(&self.output[..sz])?;
+            self.panicked = true;
+            let _ = self.w.write(&self.output[..encoded_len])?;
+            self.panicked = false;
+            // write succeeded, do not write the encoding of extra again if finish() is retried
+            self.extra_len = 0;
         }
 
-        self.flush()
+        self.finished = true;
+        Ok(())
     }
 }
 
-impl<'a> Write for Base64Encoder<'a> {
+impl<'a, W: Write> Write for EncoderWriter<'a, W> {
     fn write(&mut self, input: &[u8]) -> Result<usize> {
-        if self.output_finished {
-            panic!("Cannot write more after writing the trailing padding/partial chunk");
+        if self.finished {
+            panic!("Cannot write more after calling finish()");
         }
 
-        // TODO handle line breaks
+        if input.len() == 0 {
+            return Ok(0);
+        }
+
+        // The contract of `Write::write` places some constraints on this implementation:
+        // - a call to `write()` represents at most one call to a wrapped `Write`, so we can't
+        // iterate over the input and encode multiple chunks.
+        // - Errors mean that "no bytes were written to this writer", so we need to reset the
+        // internal state to what it was before the error occurred
+
+        let mut extra_input_read_len = 0;
         let mut input = input;
-        let mut input_read_cnt = 0;
+
+        let orig_extra_len = self.extra_len;
+
+        // if we encode `extra`, we will take up a bit of space in `output`
+        let mut encoded_size = 0;
+        // always a multiple of MIN_ENCODE_CHUNK_SIZE
+        let mut max_input_len = MAX_INPUT_LEN;
 
         // process leftover stuff from last write
         if self.extra_len > 0 {
-            let mut i = 0;
-            while i < input.len() && self.extra_len < 3 {
-                self.extra[self.extra_len] = input[i];
+            debug_assert!(self.extra_len < 3);
+            if input.len() + self.extra_len >= MIN_ENCODE_CHUNK_SIZE {
+                // Fill up `extra`, encode that into `output`, and consume as much of the rest of
+                // `input` as possible.
+                // We could write just the encoding of `extra` by itself but then we'd have to
+                // return after writing only 4 bytes, which is inefficient if the underlying writer
+                // would make a syscall.
+                extra_input_read_len = MIN_ENCODE_CHUNK_SIZE - self.extra_len;
+                debug_assert!(extra_input_read_len > 0);
+                // overwrite only bytes that weren't already used. If we need to rollback extra_len
+                // (when the subsequent write errors), the old leading bytes will still be there.
+                self.extra[self.extra_len..MIN_ENCODE_CHUNK_SIZE].copy_from_slice(&input[0..extra_input_read_len]);
+
+                let len = encode_to_slice(&self.extra[0..MIN_ENCODE_CHUNK_SIZE],
+                                          &mut self.output[..],
+                                          self.config.char_set.encode_table());
+                debug_assert_eq!(4, len);
+
+                input = &input[extra_input_read_len..];
+
+                // consider extra to be used up, since we encoded it
+                self.extra_len = 0;
+                // don't clobber where we just encoded to
+                encoded_size = 4;
+                // and don't read more than can be encoded
+                max_input_len = MAX_INPUT_LEN - MIN_ENCODE_CHUNK_SIZE;
+
+                // fall through to normal encoding
+            } else {
+                // `extra` and `input` are non empty, but `|extra| + |input| < 3`, so there must be
+                // 1 byte in each.
+                debug_assert_eq!(1, input.len());
+                debug_assert_eq!(1, self.extra_len);
+
+                self.extra[self.extra_len] = input[0];
                 self.extra_len += 1;
-                i += 1;
+                return Ok(1);
+            };
+        } else if input.len() < MIN_ENCODE_CHUNK_SIZE {
+            // `extra` is empty, and `input` fits inside it
+            self.extra[0..input.len()].copy_from_slice(input);
+            self.extra_len = input.len();
+            return Ok(input.len());
+        };
+
+        // either 0 or 1 complete chunks encoded from extra
+        debug_assert!(encoded_size == 0 || encoded_size == 4);
+        debug_assert!(MAX_INPUT_LEN - max_input_len == 0
+            || MAX_INPUT_LEN - max_input_len == MIN_ENCODE_CHUNK_SIZE);
+
+        // handle complete triples
+        let input_complete_chunks_len = input.len() - (input.len() % MIN_ENCODE_CHUNK_SIZE);
+        let input_chunks_to_encode_len = cmp::min(input_complete_chunks_len, max_input_len);
+        debug_assert_eq!(0, max_input_len % MIN_ENCODE_CHUNK_SIZE);
+        debug_assert_eq!(0, input_chunks_to_encode_len % MIN_ENCODE_CHUNK_SIZE);
+
+        encoded_size += encode_to_slice(
+            &input[..(input_chunks_to_encode_len)],
+            &mut self.output[encoded_size..],
+            self.config.char_set.encode_table(),
+        );
+        self.panicked = true;
+        let r = self.w.write(&self.output[..encoded_size]);
+        self.panicked = false;
+        match r {
+            Ok(_) => return Ok(extra_input_read_len + input_chunks_to_encode_len),
+            Err(_) => {
+                // in case we filled and encoded `extra`, reset extra_len
+                self.extra_len = orig_extra_len;
+                return r;
             }
-            input_read_cnt += i;
-            input = &input[i..];
-
-            if self.extra_len < 3 {
-                // not enough to actually encode, yet.
-                return Ok(input_read_cnt);
-            }
-
-            let encoded_size = encode_to_slice(
-                &self.extra[..3],
-                &mut self.output[..],
-                self.config.char_set.encode_table(),
-            );
-            self.extra_len = 0;
-            let _ = self.w.write(&self.output[..encoded_size])?;
         }
 
-        // encode in big chunks where possible
-        let max_input_chunk_len = (self.output.len() / 4) * 3;
-        // only handle complete triples
-        let input_triples_len = input.len() - (input.len() % 3);
-        for ref chunk in input[0..input_triples_len].chunks(max_input_chunk_len) {
-            let encoded_size = encode_to_slice(
-                &chunk,
-                &mut self.output[..],
-                self.config.char_set.encode_table(),
-            );
-            input_read_cnt += chunk.len();
-            let _ = self.w.write(&self.output[..encoded_size])?;
-        }
-        input = &input[input_triples_len..];
-
-        // stash leftover bytes
-        let mut i = 0;
-        while i < input.len() {
-            self.extra[i] = input[i];
-            i += 1;
-        }
-        input_read_cnt += input.len();
-        self.extra_len = input.len();
-
-        return Ok(input_read_cnt);
+        // we could hypothetically copy a few more bytes into `extra` but the extra 1-2 bytes
+        // are not worth all the complexity (and branches)
     }
 
     /// Because this is usually treated as OK to call multiple times, it will *not* flush any
@@ -139,10 +246,11 @@ impl<'a> Write for Base64Encoder<'a> {
     }
 }
 
-impl<'a> Drop for Base64Encoder<'a> {
+impl<'a, W: Write> Drop for EncoderWriter<'a, W> {
     fn drop(&mut self) {
-        // TODO error handling?
-        let _ = self.finish();
+        if !self.panicked {
+            // like `BufWriter`, ignore errors during drop
+            let _ = self.finish();
+        }
     }
 }
-
