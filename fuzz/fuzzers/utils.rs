@@ -3,22 +3,17 @@ extern crate rand;
 extern crate ring;
 
 use self::base64::*;
-use self::rand::{Rng, SeedableRng, XorShiftRng};
+use self::rand::{Rng, SeedableRng};
+use self::rand::prng::XorShiftRng;
 use self::rand::distributions::{Distribution, Range};
 use self::ring::digest;
 
 pub fn random_config(data: &[u8]) -> Config {
     // use sha256 of data as rng seed so it's repeatable
     let sha = digest::digest(&digest::SHA256, data);
-    let sha_bytes = sha.as_ref();
 
-    let mut seed = [0; 4];
-    for seed_u32_index in 0..4 {
-        seed[seed_u32_index] = (sha_bytes[seed_u32_index * 4 + 0] as u32) << 24 |
-            (sha_bytes[seed_u32_index * 4 + 1] as u32) << 16 |
-            (sha_bytes[seed_u32_index * 4 + 2] as u32) << 8 |
-            (sha_bytes[seed_u32_index * 4 + 3] as u32)
-    }
+    let mut seed: [u8; 16] = [0; 16];
+    seed.copy_from_slice(&sha.as_ref()[0..16]);
 
     let mut rng = XorShiftRng::from_seed(seed);
     let line_len_range = Range::new(10, 100);
