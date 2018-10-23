@@ -9,8 +9,8 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-rand = "0.3.15"
-ring = "0.9.4"
+rand = "0.5.5"
+ring = "0.13.2"
 [dependencies.base64]
 path = ".."
 [dependencies.libfuzzer-sys]
