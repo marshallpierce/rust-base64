@@ -1,5 +1,6 @@
 use byteorder::{BigEndian, ByteOrder};
 use {line_wrap, line_wrap_parameters, Config, LineWrap, STANDARD};
+use std::str;
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -70,24 +71,10 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     let encoded_size = encoded_size(input_bytes.len(), &config)
         .expect("usize overflow when calculating buffer size");
 
-    let orig_buf_len = buf.len();
-
-    // we're only going to insert valid utf8
-    let buf_bytes;
-    unsafe {
-        buf_bytes = buf.as_mut_vec();
-    }
-
-    buf_bytes.resize(
-        orig_buf_len
-            .checked_add(encoded_size)
-            .expect("usize overflow when calculating expanded buffer size"),
-        0,
-    );
-
-    let mut b64_output = &mut buf_bytes[orig_buf_len..];
-
+    let mut b64_output = vec![0u8; encoded_size];
     encode_with_padding_line_wrap(&input_bytes, &config, encoded_size, &mut b64_output);
+    buf.push_str(str::from_utf8(&b64_output)
+                 .expect("illegal CharacterSet used"));
 }
 
 /// Encode arbitrary octets as base64.
