@@ -89,7 +89,6 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
     /// Pending the [removal of line wrapping](https://github.com/alicemaz/rust-base64/issues/60),
     /// configs that specify line wrapping are not supported, and will panic.
     pub fn new(w: &'a mut W, config: Config) -> EncoderWriter<'a, W> {
-        assert_eq!(::LineWrap::NoWrap, config.line_wrap);
         EncoderWriter {
             config,
             w,

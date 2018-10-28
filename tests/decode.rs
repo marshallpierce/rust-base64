@@ -6,10 +6,10 @@ mod helpers;
 
 use helpers::*;
 
-fn compare_decode_mime(expected: &str, target: &str) {
+fn compare_decode_strip_ws(expected: &str, target: &str) {
     assert_eq!(
         expected,
-        String::from_utf8(decode_config(target, MIME).unwrap()).unwrap()
+        String::from_utf8(decode_config(target, config_std_strip_whitespace()).unwrap()).unwrap()
     );
 }
 
@@ -75,46 +75,46 @@ fn decode_rfc4648_6() {
 }
 
 #[test]
-fn decode_mime_allow_space() {
-    assert!(decode_config("YWx pY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_space() {
+    assert!(decode_config("YWx pY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_allow_tab() {
-    assert!(decode_config("YWx\tpY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_tab() {
+    assert!(decode_config("YWx\tpY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_allow_ff() {
-    assert!(decode_config("YWx\x0cpY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_ff() {
+    assert!(decode_config("YWx\x0cpY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_allow_vtab() {
-    assert!(decode_config("YWx\x0bpY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_vtab() {
+    assert!(decode_config("YWx\x0bpY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_allow_nl() {
-    assert!(decode_config("YWx\npY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_nl() {
+    assert!(decode_config("YWx\npY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_allow_crnl() {
-    assert!(decode_config("YWx\r\npY2U=", MIME).is_ok());
+fn decode_strip_ws_allow_crnl() {
+    assert!(decode_config("YWx\r\npY2U=", config_std_strip_whitespace()).is_ok());
 }
 
 #[test]
-fn decode_mime_reject_null() {
+fn decode_strip_ws_reject_null() {
     assert_eq!(
         DecodeError::InvalidByte(3, 0x0),
-        decode_config("YWx\0pY2U==", MIME).unwrap_err()
+        decode_config("YWx\0pY2U==", config_std_strip_whitespace()).unwrap_err()
     );
 }
 
 #[test]
 fn decode_mime_absurd_whitespace() {
-    compare_decode_mime(
+    compare_decode_strip_ws(
         "how could you let this happen",
         "\n aG93I\n\nG\x0bNvd\r\nWxkI HlvdSB \tsZXQgdGh\rpcyBo\x0cYXBwZW4 =   ",
     );
@@ -348,4 +348,8 @@ fn decode_reject_invalid_bytes_with_correct_error() {
             }
         }
     }
+}
+
+fn config_std_strip_whitespace() -> Config {
+    Config::new(CharacterSet::Standard, true, true)
 }

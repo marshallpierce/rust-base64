@@ -12,7 +12,6 @@ license = "MIT/Apache-2.0"
 
 [dependencies]
 byteorder = "1.2.6"
-safemem = "0.3"
 
 [dev-dependencies]
 rand = "0.5.5"

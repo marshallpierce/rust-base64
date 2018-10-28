@@ -7,7 +7,6 @@ use {encode_config, encode_config_buf, URL_SAFE, STANDARD_NO_PAD};
 use std::io::{Cursor, Write};
 use std::{cmp, str, io};
 
-use self::rand::distributions::uniform;
 use self::rand::Rng;
 
 #[test]
@@ -296,7 +295,7 @@ fn every_possible_split_of_input() {
             orig_data.push(rng.gen());
         }
 
-        let config = random_config_no_line_wrap(&mut rng);
+        let config = random_config(&mut rng);
         encode_config_buf(&orig_data, config, &mut normal_encoded);
 
         {
@@ -339,7 +338,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
         }
 
         // encode the normal way
-        let config = random_config_no_line_wrap(&mut rng);
+        let config = random_config(&mut rng);
         encode_config_buf(&orig_data, config, &mut normal_encoded);
 
         // encode via the stream encoder
@@ -424,7 +423,7 @@ fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
         }
 
         // encode the normal way
-        let config = random_config_no_line_wrap(&mut rng);
+        let config = random_config(&mut rng);
         encode_config_buf(&orig_data, config, &mut normal_encoded);
 
         // encode via the stream encoder
@@ -450,18 +449,6 @@ fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
 
         assert_eq!(normal_encoded, str::from_utf8(&stream_encoded).unwrap());
     }
-}
-
-fn random_config_no_line_wrap<R: Rng>(rng: &mut R) -> ::Config {
-    // ignored since we throw away line wraps
-    let line_len_range = uniform::Uniform::new(1, 10);
-
-    let mut config = random_config(rng, &line_len_range);
-    while let ::LineWrap::Wrap(_, _) = config.line_wrap {
-        config = random_config(rng, &line_len_range)
-    }
-
-    return config;
 }
 
 /// A `Write` implementation that returns Interrupted some fraction of the time, randomly.

@@ -6,7 +6,7 @@ extern crate test;
 
 use base64::display;
 use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf,
-             encode_config_slice, write, Config, MIME, STANDARD};
+             encode_config_slice, write, Config, STANDARD};
 
 use rand::{Rng, FromEntropy};
 use std::io::Write;
@@ -68,11 +68,6 @@ fn encode_500b_reuse_buf(b: &mut Bencher) {
 }
 
 #[bench]
-fn encode_500b_reuse_buf_mime(b: &mut Bencher) {
-    do_encode_bench_reuse_buf(b, 500, MIME)
-}
-
-#[bench]
 fn encode_3kib(b: &mut Bencher) {
     do_encode_bench(b, 3 * 1024)
 }
@@ -90,11 +85,6 @@ fn encode_3kib_reuse_buf(b: &mut Bencher) {
 #[bench]
 fn encode_3kib_slice(b: &mut Bencher) {
     do_encode_bench_slice(b, 3 * 1024, STANDARD)
-}
-
-#[bench]
-fn encode_3kib_reuse_buf_mime(b: &mut Bencher) {
-    do_encode_bench_reuse_buf(b, 3 * 1024, MIME)
 }
 
 #[bench]
@@ -309,7 +299,7 @@ fn do_encode_bench_display(b: &mut Bencher, size: usize) {
 
     b.bytes = v.len() as u64;
     b.iter(|| {
-        let e = format!("{}", display::Base64Display::standard(&v));
+        let e = format!("{}", display::Base64Display::with_config(&v, STANDARD));
         test::black_box(&e);
     });
 }

@@ -1,9 +1,9 @@
 //! # Configs
 //!
 //! There isn't just one type of Base64; that would be too simple. You need to choose a character
-//! set (standard or URL-safe), padding suffix (yes/no), and line wrap (line length, line ending).
+//! set (standard, URL-safe, etc) and padding suffix (yes/no).
 //! The `Config` struct encapsulates this info. There are some common configs included: `STANDARD`,
-//! `MIME`, etc. You can also make your own `Config` if needed.
+//! `URL_SAFE`, etc. You can also make your own `Config` if needed.
 //!
 //! The functions that don't have `config` in the name (e.g. `encode()` and `decode()`) use the
 //! `STANDARD` config .
@@ -25,7 +25,7 @@
 //! | `encode_config_buf`     | Appends to provided `String` | Only if `String` needs to grow |
 //! | `encode_config_slice`   | Writes to provided `&[u8]`   | Never                          |
 //!
-//! All of the encoding functions that take a `Config` will pad, line wrap, etc, as per the config.
+//! All of the encoding functions that take a `Config` will pad as per the config.
 //!
 //! # Decoding
 //!
@@ -33,7 +33,7 @@
 //!
 //! Note that all decode functions that take a config will allocate a copy of the input if you
 //! specify a config that requires whitespace to be stripped. If you care about speed, don't use
-//! formats that line wrap and then require whitespace stripping.
+//! formats that require whitespace stripping.
 //!
 //! | Function                | Output                        | Allocates                      |
 //! | ----------------------- | ----------------------------- | ------------------------------ |
@@ -65,10 +65,7 @@ extern crate byteorder;
 mod chunked_encoder;
 pub mod display;
 pub mod write;
-mod line_wrap;
 mod tables;
-
-use line_wrap::{line_wrap, line_wrap_parameters};
 
 mod encode;
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
@@ -114,33 +111,6 @@ impl CharacterSet {
     }
 }
 
-/// Line ending used in optional line wrapping.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LineEnding {
-    /// Unix-style \n
-    LF,
-    /// Windows-style \r\n
-    CRLF,
-}
-
-impl LineEnding {
-    fn len(&self) -> usize {
-        match *self {
-            LineEnding::LF => 1,
-            LineEnding::CRLF => 2,
-        }
-    }
-}
-
-/// Line wrap configuration.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LineWrap {
-    /// Don't wrap.
-    NoWrap,
-    /// Wrap lines with the specified length and line ending. The length must be > 0.
-    Wrap(usize, LineEnding),
-}
-
 /// Contains configuration parameters for base64 encoding
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
@@ -151,9 +121,6 @@ pub struct Config {
     /// Remove whitespace before decoding, at the cost of an allocation. Whitespace is defined
     /// according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space.
     strip_whitespace: bool,
-    /// ADT signifying whether to linewrap output, and if so by how many characters and with what
-    /// ending
-    line_wrap: LineWrap,
 }
 
 impl Config {
@@ -161,19 +128,12 @@ impl Config {
     pub fn new(
         char_set: CharacterSet,
         pad: bool,
-        strip_whitespace: bool,
-        input_line_wrap: LineWrap,
+        strip_whitespace: bool
     ) -> Config {
-        let line_wrap = match input_line_wrap {
-            LineWrap::Wrap(0, _) => LineWrap::NoWrap,
-            _ => input_line_wrap,
-        };
-
         Config {
             char_set,
             pad,
             strip_whitespace,
-            line_wrap,
         }
     }
 }
@@ -183,7 +143,6 @@ pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
     strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
 };
 
 /// Standard character set without padding.
@@ -191,15 +150,6 @@ pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
     strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
-};
-
-/// As per standards for MIME encoded messages
-pub const MIME: Config = Config {
-    char_set: CharacterSet::Standard,
-    pad: true,
-    strip_whitespace: true,
-    line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
 };
 
 /// URL-safe character set with padding
@@ -207,7 +157,6 @@ pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
     strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
 };
 
 /// URL-safe character set without padding
@@ -215,7 +164,6 @@ pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
     strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
 };
 
 /// As per `crypt(3)` requirements
@@ -223,5 +171,4 @@ pub const CRYPT: Config = Config {
     char_set: CharacterSet::Crypt,
     pad: false,
     strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
 };
