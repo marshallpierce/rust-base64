@@ -37,13 +37,14 @@ pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
 ///```
 pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
     let mut buf = match encoded_size(input.as_ref().len(), &config) {
-        Some(n) => String::with_capacity(n),
+        Some(n) => vec![0; n],
         None => panic!("integer overflow when calculating buffer size"),
     };
 
-    encode_config_buf(input, config, &mut buf);
+    let encoded_len = encode_config_slice(input.as_ref(), config, &mut buf[..]);
+    debug_assert_eq!(encoded_len, buf.len());
 
-    buf
+    return String::from_utf8(buf).expect("Invalid UTF8");
 }
 
 ///Encode arbitrary octets as base64.
