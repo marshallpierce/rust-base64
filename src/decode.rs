@@ -120,13 +120,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     config: Config,
     buffer: &mut Vec<u8>,
 ) -> Result<(), DecodeError> {
-    let input_copy;
-    let input_bytes = if config.strip_whitespace {
-        input_copy = copy_without_whitespace(input.as_ref());
-        input_copy.as_ref()
-    } else {
-        input.as_ref()
-    };
+    let input_bytes = input.as_ref();
 
     let starting_output_len = buffer.len();
 
@@ -162,13 +156,7 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
     config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
-    let input_copy;
-    let input_bytes = if config.strip_whitespace {
-        input_copy = copy_without_whitespace(input.as_ref());
-        input_copy.as_ref()
-    } else {
-        input.as_ref()
-    };
+    let input_bytes = input.as_ref();
 
     decode_helper(
         input_bytes,
@@ -184,13 +172,6 @@ fn num_chunks(input: &[u8]) -> usize {
         .len()
         .checked_add(INPUT_CHUNK_LEN - 1)
         .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
-}
-
-fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
-    let mut input_copy = Vec::<u8>::with_capacity(input.len());
-    input_copy.extend(input.iter().filter(|b| !b" \n\t\r\x0b\x0c".contains(b)));
-
-    input_copy
 }
 
 /// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.

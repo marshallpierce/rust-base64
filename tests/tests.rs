@@ -53,7 +53,7 @@ fn calculate_number_of_rounds(byte_len: usize, approx_values_per_byte: u8, max: 
 }
 
 fn no_pad_config() -> Config {
-    Config::new(CharacterSet::Standard, false, false)
+    Config::new(CharacterSet::Standard, false)
 }
 
 #[test]
