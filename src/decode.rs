@@ -744,7 +744,7 @@ mod tests {
 
     #[test]
     fn detect_invalid_last_symbol_every_possible_three_symbols() {
-        let mut base64_to_bytes = std::collections::HashMap::new();
+        let mut base64_to_bytes = ::std::collections::HashMap::new();
 
         let mut bytes = [0_u8; 2];
         for b1 in 0_u16..256 {
@@ -753,7 +753,7 @@ mod tests {
                 bytes[1] = b2 as u8;
                 let mut b64 = vec![0_u8; 4];
                 assert_eq!(4, ::encode_config_slice(&bytes, STANDARD, &mut b64[..]));
-                let mut v = std::vec::Vec::with_capacity(2);
+                let mut v = ::std::vec::Vec::with_capacity(2);
                 v.extend_from_slice(&bytes[..]);
 
                 assert!(base64_to_bytes.insert(b64, v).is_none());
@@ -783,12 +783,12 @@ mod tests {
 
     #[test]
     fn detect_invalid_last_symbol_every_possible_two_symbols() {
-        let mut base64_to_bytes = std::collections::HashMap::new();
+        let mut base64_to_bytes = ::std::collections::HashMap::new();
 
         for b in 0_u16..256 {
             let mut b64 = vec![0_u8; 4];
             assert_eq!(4, ::encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
-            let mut v = std::vec::Vec::with_capacity(1);
+            let mut v = ::std::vec::Vec::with_capacity(1);
             v.push(b as u8);
 
             assert!(base64_to_bytes.insert(b64, v).is_none());
