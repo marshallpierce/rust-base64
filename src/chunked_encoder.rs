@@ -1,5 +1,5 @@
 use encode::{add_padding, encode_to_slice};
-use std::cmp;
+use std::{cmp, str};
 use Config;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
@@ -77,6 +77,30 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> usize {
     (effective_buf_len / 4) * 3
 }
 
+
+// A really simple sink that just appends to a string for testing
+pub(crate) struct StringSink<'a> {
+    string: &'a mut String,
+}
+
+impl<'a> StringSink<'a> {
+    pub(crate) fn new(s: &mut String) -> StringSink {
+        StringSink {
+            string: s,
+        }
+    }
+}
+
+impl<'a> Sink for StringSink<'a> {
+    type Error = ();
+
+    fn write_encoded_bytes(&mut self, s: &[u8]) -> Result<(), Self::Error> {
+        self.string.push_str(str::from_utf8(s).unwrap());
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     extern crate rand;
@@ -84,8 +108,6 @@ pub mod tests {
     use super::*;
     use tests::random_config;
     use *;
-
-    use std::str;
 
     use self::rand::distributions::{Distribution, Range};
     use self::rand::{Rng, FromEntropy};
@@ -188,14 +210,14 @@ pub mod tests {
     }
 
     fn chunked_encode_str(bytes: &[u8], config: Config) -> String {
-        let mut sink = StringSink::new();
-
+        let mut s = String::new();
         {
+            let mut sink = StringSink::new(&mut s);
             let encoder = ChunkedEncoder::new(config);
             encoder.encode(bytes, &mut sink).unwrap();
         }
 
-        return sink.string;
+        return s;
     }
 
     fn config_with_pad(pad: bool) -> Config {
@@ -207,39 +229,18 @@ pub mod tests {
         fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String;
     }
 
-    // A really simple sink that just appends to a string for testing
-    struct StringSink {
-        string: String,
-    }
-
-    impl StringSink {
-        fn new() -> StringSink {
-            StringSink {
-                string: String::new(),
-            }
-        }
-    }
-
-    impl Sink for StringSink {
-        type Error = ();
-
-        fn write_encoded_bytes(&mut self, s: &[u8]) -> Result<(), Self::Error> {
-            self.string.push_str(str::from_utf8(s).unwrap());
-
-            Ok(())
-        }
-    }
-
     struct StringSinkTestHelper;
 
     impl SinkTestHelper for StringSinkTestHelper {
         fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String {
             let encoder = ChunkedEncoder::new(config);
-            let mut sink = StringSink::new();
+            let mut s = String::new();
+            {
+                let mut sink = StringSink::new(&mut s);
+                encoder.encode(bytes, &mut sink).unwrap();
+            }
 
-            encoder.encode(bytes, &mut sink).unwrap();
-
-            sink.string
+            s
         }
     }
 

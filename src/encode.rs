@@ -67,27 +67,13 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
 pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
     let input_bytes = input.as_ref();
 
-    let encoded_size = encoded_size(input_bytes.len(), &config)
-        .expect("usize overflow when calculating buffer size");
+    {
+        let mut sink = ::chunked_encoder::StringSink::new(buf);
+        let encoder = ::chunked_encoder::ChunkedEncoder::new(config);
 
-    let orig_buf_len = buf.len();
-
-    // we're only going to insert valid utf8
-    let buf_bytes;
-    unsafe {
-        buf_bytes = buf.as_mut_vec();
+        encoder.encode(input_bytes, &mut sink).expect("Writing to a String shouldn't fail")
     }
 
-    buf_bytes.resize(
-        orig_buf_len
-            .checked_add(encoded_size)
-            .expect("usize overflow when calculating expanded buffer size"),
-        0,
-    );
-
-    let mut b64_output = &mut buf_bytes[orig_buf_len..];
-
-    encode_with_padding(&input_bytes, &config, encoded_size, &mut b64_output);
 }
 
 /// Encode arbitrary octets as base64.
