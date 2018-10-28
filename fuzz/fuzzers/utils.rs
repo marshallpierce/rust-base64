@@ -5,7 +5,6 @@ extern crate ring;
 use self::base64::*;
 use self::rand::{Rng, SeedableRng};
 use self::rand::prng::XorShiftRng;
-use self::rand::distributions::{Distribution, Range};
 use self::ring::digest;
 
 pub fn random_config(data: &[u8]) -> Config {
@@ -16,22 +15,8 @@ pub fn random_config(data: &[u8]) -> Config {
     seed.copy_from_slice(&sha.as_ref()[0..16]);
 
     let mut rng = XorShiftRng::from_seed(seed);
-    let line_len_range = Range::new(10, 100);
 
-    let (line_wrap, strip_whitespace) = if rng.gen() {
-        (LineWrap::NoWrap, rng.gen())
-    } else {
-        let line_len = line_len_range.sample(&mut rng);
-
-        let line_ending = if rng.gen() {
-            LineEnding::LF
-        } else {
-            LineEnding::CRLF
-        };
-
-        // always strip whttespace if we're wrapping
-        (LineWrap::Wrap(line_len, line_ending), true)
-    };
+    let strip_whitespace = rng.gen();
 
     let charset = if rng.gen() {
         CharacterSet::UrlSafe
@@ -39,5 +24,5 @@ pub fn random_config(data: &[u8]) -> Config {
         CharacterSet::Standard
     };
 
-    Config::new(charset, rng.gen(), strip_whitespace, line_wrap)
+    Config::new(charset, rng.gen(), strip_whitespace)
 }

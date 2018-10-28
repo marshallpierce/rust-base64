@@ -28,11 +28,6 @@ path = "fuzzers/roundtrip.rs"
 name = "roundtrip_no_pad"
 path = "fuzzers/roundtrip_no_pad.rs"
 
-
-[[bin]]
-name = "roundtrip_mime"
-path = "fuzzers/roundtrip_mime.rs"
-
 [[bin]]
 name = "roundtrip_random_config"
 path = "fuzzers/roundtrip_random_config.rs"

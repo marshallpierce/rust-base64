@@ -568,7 +568,6 @@ mod tests {
 
         let prefix_len_range = Range::new(0, 1000);
         let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -585,7 +584,7 @@ mod tests {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
             assert_encode_sanity(&encoded_data, &config, input_len);
 
@@ -625,7 +624,6 @@ mod tests {
         let mut decode_buf_copy: Vec<u8> = Vec::new();
 
         let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -641,7 +639,7 @@ mod tests {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
             assert_encode_sanity(&encoded_data, &config, input_len);
 
@@ -679,7 +677,6 @@ mod tests {
         let mut decode_buf = Vec::new();
 
         let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -694,7 +691,7 @@ mod tests {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
             assert_encode_sanity(&encoded_data, &config, input_len);
 

@@ -1,3 +1,10 @@
+# 0.10.0
+
+- Remove line wrapping. Line wrapping was never a great conceptual fit in this library, and other features (streaming encoding, etc) either couldn't support it or could support only special cases of it with a great increase in complexity. Line wrapping has been pulled out into a [line-wrap](https://crates.io/crates/line-wrap) crate, so it's still available if you need it.
+  - `Base64Display` creation no longer uses a `Result` because it can't fail, which means its helper methods for common
+  configs that `unwrap()` for you are no longer needed
+  
+
 # 0.9.3
 
 - Update safemem

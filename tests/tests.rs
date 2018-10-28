@@ -53,7 +53,7 @@ fn calculate_number_of_rounds(byte_len: usize, approx_values_per_byte: u8, max: 
 }
 
 fn no_pad_config() -> Config {
-    Config::new(CharacterSet::Standard, false, false, LineWrap::NoWrap)
+    Config::new(CharacterSet::Standard, false, false)
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn display_wrapper_matches_normal_encode() {
 
     assert_eq!(
         encode(&bytes),
-        format!("{}", base64::display::Base64Display::standard(&bytes))
+        format!("{}", base64::display::Base64Display::with_config(&bytes, STANDARD))
     );
 }
 
