@@ -4,6 +4,7 @@
   - `Base64Display` creation no longer uses a `Result` because it can't fail, which means its helper methods for common
   configs that `unwrap()` for you are no longer needed
 - Add a streaming encoder `Write` impl to transparently base64 as you write.
+- Remove the remaining `unsafe` code.
 
 # 0.9.3
 
