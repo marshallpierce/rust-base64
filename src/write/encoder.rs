@@ -85,9 +85,6 @@ impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
 
 impl<'a, W: Write> EncoderWriter<'a, W> {
     /// Create a new encoder around an existing writer.
-    ///
-    /// Pending the [removal of line wrapping](https://github.com/alicemaz/rust-base64/issues/60),
-    /// configs that specify line wrapping are not supported, and will panic.
     pub fn new(w: &'a mut W, config: Config) -> EncoderWriter<'a, W> {
         EncoderWriter {
             config,
@@ -149,12 +146,12 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
         // - Errors mean that "no bytes were written to this writer", so we need to reset the
         // internal state to what it was before the error occurred
 
+        // how many bytes, if any, were read into `extra` to create a triple to encode
         let mut extra_input_read_len = 0;
         let mut input = input;
 
         let orig_extra_len = self.extra_len;
 
-        // if we encode `extra`, we will take up a bit of space in `output`
         let mut encoded_size = 0;
         // always a multiple of MIN_ENCODE_CHUNK_SIZE
         let mut max_input_len = MAX_INPUT_LEN;
