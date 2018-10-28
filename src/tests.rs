@@ -78,7 +78,5 @@ pub fn random_config<R: Rng>(rng: &mut R) -> Config {
     ];
     let charset = *rng.choose(CHARSETS).unwrap();
 
-    let strip_whitespace = rng.gen();
-
-    Config::new(charset, rng.gen(), strip_whitespace)
+    Config::new(charset, rng.gen())
 }

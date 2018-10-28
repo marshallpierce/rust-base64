@@ -31,10 +31,6 @@
 //!
 //! Just as for encoding, there are different decoding functions available.
 //!
-//! Note that all decode functions that take a config will allocate a copy of the input if you
-//! specify a config that requires whitespace to be stripped. If you care about speed, don't use
-//! formats that require whitespace stripping.
-//!
 //! | Function                | Output                        | Allocates                      |
 //! | ----------------------- | ----------------------------- | ------------------------------ |
 //! | `decode`                | Returns a new `Vec<u8>`       | Always                         |
@@ -45,9 +41,7 @@
 //! Unlike encoding, where all possible input is valid, decoding can fail (see `DecodeError`).
 //!
 //! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
-//! valid, but excess padding is not.)
-//!
-//! Whitespace in the input is invalid unless `strip_whitespace` is enabled in the `Config` used.
+//! valid, but excess padding is not.) Whitespace in the input is invalid.
 //!
 //! # Panics
 //!
@@ -118,9 +112,6 @@ pub struct Config {
     char_set: CharacterSet,
     /// True to pad output with `=` characters
     pad: bool,
-    /// Remove whitespace before decoding, at the cost of an allocation. Whitespace is defined
-    /// according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space.
-    strip_whitespace: bool,
 }
 
 impl Config {
@@ -128,12 +119,10 @@ impl Config {
     pub fn new(
         char_set: CharacterSet,
         pad: bool,
-        strip_whitespace: bool
     ) -> Config {
         Config {
             char_set,
             pad,
-            strip_whitespace,
         }
     }
 }
@@ -142,33 +131,28 @@ impl Config {
 pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
-    strip_whitespace: false,
 };
 
 /// Standard character set without padding.
 pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
-    strip_whitespace: false,
 };
 
 /// URL-safe character set with padding
 pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
-    strip_whitespace: false,
 };
 
 /// URL-safe character set without padding
 pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
-    strip_whitespace: false,
 };
 
 /// As per `crypt(3)` requirements
 pub const CRYPT: Config = Config {
     char_set: CharacterSet::Crypt,
     pad: false,
-    strip_whitespace: false,
 };

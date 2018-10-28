@@ -5,6 +5,7 @@
   configs that `unwrap()` for you are no longer needed
 - Add a streaming encoder `Write` impl to transparently base64 as you write.
 - Remove the remaining `unsafe` code.
+- Remove whitespace stripping to simplify `no_std` support. No out of the box configs use it, and it's trivial to do yourself if needed: `filter(|b| !b" \n\t\r\x0b\x0c".contains(b)`.
 
 # 0.9.3
 

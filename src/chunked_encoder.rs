@@ -176,7 +176,6 @@ pub mod tests {
         let config = Config::new(
             CharacterSet::Standard,
             false,
-            false,
         );
         assert_eq!(300, max_input_length(401, &config));
     }
@@ -221,7 +220,7 @@ pub mod tests {
     }
 
     fn config_with_pad(pad: bool) -> Config {
-        Config::new(CharacterSet::Standard, pad, false)
+        Config::new(CharacterSet::Standard, pad)
     }
 
     // An abstraction around sinks so that we can have tests that easily to any sink implementation
