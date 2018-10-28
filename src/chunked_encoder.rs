@@ -78,7 +78,7 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> usize {
 }
 
 
-// A really simple sink that just appends to a string for testing
+// A really simple sink that just appends to a string
 pub(crate) struct StringSink<'a> {
     string: &'a mut String,
 }
