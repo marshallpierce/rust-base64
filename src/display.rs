@@ -1,10 +1,10 @@
 //! Enables base64'd output anywhere you might use a `Display` implementation, like a format string.
 //!
 //! ```
-//! use base64::{STANDARD, display::Base64Display};
+//! use base64::display::Base64Display;
 //!
 //! let data = vec![0x0, 0x1, 0x2, 0x3];
-//! let wrapper = Base64Display::with_config(&data, STANDARD);
+//! let wrapper = Base64Display::with_config(&data, base64::STANDARD);
 //!
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", wrapper));
 //! ```
