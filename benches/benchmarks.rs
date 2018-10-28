@@ -6,9 +6,10 @@ extern crate test;
 
 use base64::display;
 use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf,
-             encode_config_slice, Config, STANDARD};
+             encode_config_slice, write, Config, STANDARD};
 
 use rand::{Rng, FromEntropy};
+use std::io::Write;
 use test::Bencher;
 
 #[bench]
@@ -84,6 +85,11 @@ fn encode_3kib_reuse_buf(b: &mut Bencher) {
 #[bench]
 fn encode_3kib_slice(b: &mut Bencher) {
     do_encode_bench_slice(b, 3 * 1024, STANDARD)
+}
+
+#[bench]
+fn encode_3kib_reuse_buf_stream(b: &mut Bencher) {
+    do_encode_bench_stream(b, 3 * 1024, STANDARD)
 }
 
 #[bench]
@@ -322,6 +328,23 @@ fn do_encode_bench_slice(b: &mut Bencher, size: usize, config: Config) {
     buf.resize(size * 2, 0);
     b.iter(|| {
         encode_config_slice(&v, config, &mut buf);
+    });
+}
+
+fn do_encode_bench_stream(b: &mut Bencher, size: usize, config: Config) {
+    let mut v: Vec<u8> = Vec::with_capacity(size);
+    fill(&mut v);
+
+    let mut buf = Vec::new();
+
+    b.bytes = v.len() as u64;
+
+    buf.reserve(size * 2);
+    b.iter(|| {
+        buf.clear();
+        let mut stream_enc = write::EncoderWriter::new(&mut buf, config);
+        stream_enc.write_all(&v).unwrap();
+        stream_enc.flush().unwrap();
     });
 }
 

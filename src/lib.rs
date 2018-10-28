@@ -64,6 +64,7 @@ extern crate byteorder;
 
 mod chunked_encoder;
 pub mod display;
+pub mod write;
 mod tables;
 
 mod encode;
@@ -109,7 +110,6 @@ impl CharacterSet {
         }
     }
 }
-
 
 /// Contains configuration parameters for base64 encoding
 #[derive(Clone, Copy, Debug)]
