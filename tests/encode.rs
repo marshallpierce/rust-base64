@@ -95,7 +95,6 @@ fn encode_all_bytes_url() {
 }
 
 #[test]
-#[test]
 fn encode_url_safe_without_padding() {
     let encoded = encode_config(b"alice", URL_SAFE_NO_PAD);
     assert_eq!(&encoded, "YWxpY2U");
