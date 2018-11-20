@@ -59,7 +59,6 @@
     unused_results,
     variant_size_differences,
     warnings,
-    unsafe_code
 )]
 
 extern crate byteorder;
