@@ -143,7 +143,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     let bytes_written;
     {
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = decode_helper(input_bytes, num_chunks, &config.char_set, buffer_slice)?;
+        bytes_written = decode_helper(input_bytes, num_chunks, config.char_set, buffer_slice)?;
     }
 
     buffer.truncate(starting_output_len + bytes_written);
@@ -170,7 +170,7 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
     decode_helper(
         input_bytes,
         num_chunks(input_bytes),
-        &config.char_set,
+        config.char_set,
         output,
     )
 }
@@ -193,7 +193,7 @@ fn num_chunks(input: &[u8]) -> usize {
 fn decode_helper(
     input: &[u8],
     num_chunks: usize,
-    char_set: &CharacterSet,
+    char_set: CharacterSet,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
     let decode_table = char_set.decode_table();
@@ -313,7 +313,7 @@ fn decode_helper(
     }
 
     // always have one more (possibly partial) block of 8 input
-    debug_assert!(input.len() - input_index > 1 || input.len() == 0);
+    debug_assert!(input.len() - input_index > 1 || input.is_empty());
     debug_assert!(input.len() - input_index <= 8);
 
     // Stage 4
@@ -593,7 +593,7 @@ mod tests {
 
             let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
             let prefix_len = prefix_len_range.sample(&mut rng);
 
@@ -648,7 +648,7 @@ mod tests {
 
             let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
             // fill the buffer with random garbage, long enough to have some room before and after
             for _ in 0..5000 {
@@ -700,7 +700,7 @@ mod tests {
 
             let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
             decode_buf.resize(input_len, 0);
 

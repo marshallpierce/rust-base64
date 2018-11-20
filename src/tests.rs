@@ -19,7 +19,7 @@ fn roundtrip_random_config_long() {
     roundtrip_random_config(Range::new(0, 1000), 10_000);
 }
 
-pub fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
+pub fn assert_encode_sanity(encoded: &str, config: Config, input_len: usize) {
     let input_rem = input_len % 3;
     let expected_padding_len = if input_rem > 0 {
         if config.pad {
@@ -31,7 +31,7 @@ pub fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
         0
     };
 
-    let expected_encoded_len = encoded_size(input_len, &config).unwrap();
+    let expected_encoded_len = encoded_size(input_len, config).unwrap();
 
     assert_eq!(expected_encoded_len, encoded.len());
 
@@ -61,7 +61,7 @@ fn roundtrip_random_config(input_len_range: Range<usize>, iterations: u32) {
 
         encode_config_buf(&input_buf, config, &mut encoded_buf);
 
-        assert_encode_sanity(&encoded_buf, &config, input_len);
+        assert_encode_sanity(&encoded_buf, config, input_len);
 
         assert_eq!(input_buf, decode_config(&encoded_buf, config).unwrap());
     }

@@ -136,7 +136,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
             panic!("Cannot write more after calling finish()");
         }
 
-        if input.len() == 0 {
+        if input.is_empty() {
             return Ok(0);
         }
 
@@ -228,11 +228,11 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
         let r = self.w.write(&self.output[..encoded_size]);
         self.panicked = false;
         match r {
-            Ok(_) => return Ok(extra_input_read_len + input_chunks_to_encode_len),
+            Ok(_) => Ok(extra_input_read_len + input_chunks_to_encode_len),
             Err(_) => {
                 // in case we filled and encoded `extra`, reset extra_len
                 self.extra_len = orig_extra_len;
-                return r;
+                r
             }
         }
 
