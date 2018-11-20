@@ -2,10 +2,10 @@ extern crate rand;
 
 use super::EncoderWriter;
 use tests::random_config;
-use {encode_config, encode_config_buf, URL_SAFE, STANDARD_NO_PAD};
+use {encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
 
 use std::io::{Cursor, Write};
-use std::{cmp, str, io};
+use std::{cmp, io, str};
 
 use self::rand::Rng;
 
@@ -209,7 +209,8 @@ fn write_2_partials_to_exactly_complete_chunk_encodes_complete_chunk() {
 }
 
 #[test]
-fn write_partial_then_enough_to_complete_chunk_but_not_complete_another_chunk_encodes_complete_chunk_without_consuming_remaining() {
+fn write_partial_then_enough_to_complete_chunk_but_not_complete_another_chunk_encodes_complete_chunk_without_consuming_remaining(
+) {
     let mut c = Cursor::new(Vec::new());
     {
         let mut enc = EncoderWriter::new(&mut c, STANDARD_NO_PAD);
@@ -245,7 +246,8 @@ fn write_partial_then_enough_to_complete_chunk_and_another_chunk_encodes_complet
 }
 
 #[test]
-fn write_partial_then_enough_to_complete_chunk_and_another_chunk_and_another_partial_chunk_encodes_only_complete_chunks() {
+fn write_partial_then_enough_to_complete_chunk_and_another_chunk_and_another_partial_chunk_encodes_only_complete_chunks(
+) {
     let mut c = Cursor::new(Vec::new());
     {
         let mut enc = EncoderWriter::new(&mut c, STANDARD_NO_PAD);
@@ -355,13 +357,13 @@ fn retrying_writes_that_error_with_interrupted_works() {
             while bytes_consumed < orig_len {
                 // use short inputs since we want to use `extra` a lot as that's what needs rollback
                 // when errors occur
-                let input_len: usize = cmp::min(rng.gen_range(0, 10),
-                                                orig_len - bytes_consumed);
+                let input_len: usize = cmp::min(rng.gen_range(0, 10), orig_len - bytes_consumed);
 
                 // write a little bit of the data
-                retry_interrupted_write_all(&mut stream_encoder,
-                                            &orig_data[bytes_consumed..bytes_consumed + input_len])
-                    .unwrap();
+                retry_interrupted_write_all(
+                    &mut stream_encoder,
+                    &orig_data[bytes_consumed..bytes_consumed + input_len],
+                ).unwrap();
 
                 bytes_consumed += input_len;
             }
@@ -372,8 +374,8 @@ fn retrying_writes_that_error_with_interrupted_works() {
                     Ok(_) => break,
                     Err(e) => match e.kind() {
                         io::ErrorKind::Interrupted => continue,
-                        _ => Err(e).unwrap() // bail
-                    }
+                        _ => Err(e).unwrap(), // bail
+                    },
                 }
             }
 
@@ -399,7 +401,7 @@ fn retry_interrupted_write_all<W: Write>(w: &mut W, buf: &[u8]) -> io::Result<()
                     println!("got kind: {:?}", e.kind());
                     return Err(e);
                 }
-            }
+            },
         }
     }
 
@@ -431,8 +433,8 @@ fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
             let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, config);
             let mut bytes_consumed = 0;
             while bytes_consumed < orig_len {
-                let input_len: usize = cmp::min(rng.gen_range(0, max_input_len),
-                                                orig_len - bytes_consumed);
+                let input_len: usize =
+                    cmp::min(rng.gen_range(0, max_input_len), orig_len - bytes_consumed);
 
                 // write a little bit of the data
                 stream_encoder

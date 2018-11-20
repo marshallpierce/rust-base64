@@ -5,10 +5,12 @@ extern crate rand;
 extern crate test;
 
 use base64::display;
-use base64::{decode, decode_config_buf, decode_config_slice, encode, encode_config_buf,
-             encode_config_slice, write, Config, STANDARD};
+use base64::{
+    decode, decode_config_buf, decode_config_slice, encode, encode_config_buf, encode_config_slice,
+    write, Config, STANDARD,
+};
 
-use rand::{Rng, FromEntropy};
+use rand::{FromEntropy, Rng};
 use std::io::Write;
 use test::Bencher;
 

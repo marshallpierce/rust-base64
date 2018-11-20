@@ -180,7 +180,8 @@ fn num_chunks(input: &[u8]) -> usize {
     input
         .len()
         .checked_add(INPUT_CHUNK_LEN - 1)
-        .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
+        .expect("Overflow when calculating number of chunks in input")
+        / INPUT_CHUNK_LEN
 }
 
 /// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.
@@ -402,7 +403,10 @@ fn decode_helper(
     let mask = !0 >> leftover_bits_ready_to_append;
     if (leftover_bits & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
-        return Err(DecodeError::InvalidLastSymbol(start_of_leftovers + morsels_in_leftover - 1, last_symbol));
+        return Err(DecodeError::InvalidLastSymbol(
+            start_of_leftovers + morsels_in_leftover - 1,
+            last_symbol,
+        ));
     }
 
     let mut leftover_bits_appended_to_buf = 0;
@@ -543,8 +547,7 @@ mod tests {
     use tests::{assert_encode_sanity, random_config};
 
     use self::rand::distributions::{Distribution, Range};
-    use self::rand::{Rng, FromEntropy};
-
+    use self::rand::{FromEntropy, Rng};
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
@@ -722,7 +725,10 @@ mod tests {
         assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'X')), decode("iYX="));
 
         // also works when there are 2 quads in the last block
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(6, b'X')), decode("AAAAiYX="));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(6, b'X')),
+            decode("AAAAiYX=")
+        );
     }
 
     #[test]
@@ -739,7 +745,10 @@ mod tests {
         assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'/')), decode("//=="));
 
         // also works when there are 2 quads in the last block
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(5, b'x')), decode("AAAA/x=="));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(5, b'x')),
+            decode("AAAA/x==")
+        );
     }
 
     #[test]
@@ -757,7 +766,7 @@ mod tests {
                 v.extend_from_slice(&bytes[..]);
 
                 assert!(base64_to_bytes.insert(b64, v).is_none());
-            };
+            }
         }
 
         // every possible combination of symbols must either decode to 2 bytes or get InvalidLastSymbol
@@ -772,9 +781,13 @@ mod tests {
                     symbols[3] = b'=';
 
                     match base64_to_bytes.get(&symbols[..]) {
-                        Some(bytes) => assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD)),
-                        None => assert_eq!(Err(DecodeError::InvalidLastSymbol(2, s3)),
-                                           decode_config(&symbols[..], STANDARD))
+                        Some(bytes) => {
+                            assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD))
+                        }
+                        None => assert_eq!(
+                            Err(DecodeError::InvalidLastSymbol(2, s3)),
+                            decode_config(&symbols[..], STANDARD)
+                        ),
                     }
                 }
             }
@@ -792,7 +805,7 @@ mod tests {
             v.push(b as u8);
 
             assert!(base64_to_bytes.insert(b64, v).is_none());
-        };
+        }
 
         // every possible combination of symbols must either decode to 1 byte or get InvalidLastSymbol
 
@@ -805,9 +818,13 @@ mod tests {
                 symbols[3] = b'=';
 
                 match base64_to_bytes.get(&symbols[..]) {
-                    Some(bytes) => assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD)),
-                    None => assert_eq!(Err(DecodeError::InvalidLastSymbol(1, s2)),
-                                       decode_config(&symbols[..], STANDARD))
+                    Some(bytes) => {
+                        assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD))
+                    }
+                    None => assert_eq!(
+                        Err(DecodeError::InvalidLastSymbol(1, s2)),
+                        decode_config(&symbols[..], STANDARD)
+                    ),
                 }
             }
         }

@@ -77,7 +77,6 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> usize {
     (effective_buf_len / 4) * 3
 }
 
-
 // A really simple sink that just appends to a string
 pub(crate) struct StringSink<'a> {
     string: &'a mut String,
@@ -85,9 +84,7 @@ pub(crate) struct StringSink<'a> {
 
 impl<'a> StringSink<'a> {
     pub(crate) fn new(s: &mut String) -> StringSink {
-        StringSink {
-            string: s,
-        }
+        StringSink { string: s }
     }
 }
 
@@ -110,7 +107,7 @@ pub mod tests {
     use *;
 
     use self::rand::distributions::{Distribution, Range};
-    use self::rand::{Rng, FromEntropy};
+    use self::rand::{FromEntropy, Rng};
 
     #[test]
     fn chunked_encode_empty() {
@@ -173,10 +170,7 @@ pub mod tests {
 
     #[test]
     fn max_input_length_cant_use_extra_single_encoded_byte() {
-        let config = Config::new(
-            CharacterSet::Standard,
-            false,
-        );
+        let config = Config::new(CharacterSet::Standard, false);
         assert_eq!(300, max_input_length(401, &config));
     }
 

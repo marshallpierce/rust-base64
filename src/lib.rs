@@ -50,16 +50,23 @@
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
 #![deny(
-    missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-    unused_results, variant_size_differences, warnings, unsafe_code
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_results,
+    variant_size_differences,
+    warnings,
+    unsafe_code
 )]
 
 extern crate byteorder;
 
 mod chunked_encoder;
 pub mod display;
-pub mod write;
 mod tables;
+pub mod write;
 
 mod encode;
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
@@ -116,14 +123,8 @@ pub struct Config {
 
 impl Config {
     /// Create a new `Config`.
-    pub fn new(
-        char_set: CharacterSet,
-        pad: bool,
-    ) -> Config {
-        Config {
-            char_set,
-            pad,
-        }
+    pub fn new(char_set: CharacterSet, pad: bool) -> Config {
+        Config { char_set, pad }
     }
 }
 

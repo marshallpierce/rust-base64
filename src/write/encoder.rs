@@ -1,6 +1,6 @@
-use ::encode::encode_to_slice;
-use std::{cmp, fmt};
+use encode::encode_to_slice;
 use std::io::{Result, Write};
+use std::{cmp, fmt};
 use {encode_config_slice, Config};
 
 pub(crate) const BUF_SIZE: usize = 1024;
@@ -68,7 +68,7 @@ pub struct EncoderWriter<'a, W: 'a + Write> {
     /// True iff padding / partial last chunk has been written.
     finished: bool,
     /// panic safety: don't write again in destructor if writer panicked while we were writing to it
-    panicked: bool
+    panicked: bool,
 }
 
 impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
@@ -93,7 +93,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
             extra_len: 0,
             output: [0u8; BUF_SIZE],
             finished: false,
-            panicked: false
+            panicked: false,
         }
     }
 
@@ -169,11 +169,14 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
                 debug_assert!(extra_input_read_len > 0);
                 // overwrite only bytes that weren't already used. If we need to rollback extra_len
                 // (when the subsequent write errors), the old leading bytes will still be there.
-                self.extra[self.extra_len..MIN_ENCODE_CHUNK_SIZE].copy_from_slice(&input[0..extra_input_read_len]);
+                self.extra[self.extra_len..MIN_ENCODE_CHUNK_SIZE]
+                    .copy_from_slice(&input[0..extra_input_read_len]);
 
-                let len = encode_to_slice(&self.extra[0..MIN_ENCODE_CHUNK_SIZE],
-                                          &mut self.output[..],
-                                          self.config.char_set.encode_table());
+                let len = encode_to_slice(
+                    &self.extra[0..MIN_ENCODE_CHUNK_SIZE],
+                    &mut self.output[..],
+                    self.config.char_set.encode_table(),
+                );
                 debug_assert_eq!(4, len);
 
                 input = &input[extra_input_read_len..];
@@ -185,7 +188,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
                 // and don't read more than can be encoded
                 max_input_len = MAX_INPUT_LEN - MIN_ENCODE_CHUNK_SIZE;
 
-                // fall through to normal encoding
+            // fall through to normal encoding
             } else {
                 // `extra` and `input` are non empty, but `|extra| + |input| < 3`, so there must be
                 // 1 byte in each.
@@ -205,8 +208,10 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
 
         // either 0 or 1 complete chunks encoded from extra
         debug_assert!(encoded_size == 0 || encoded_size == 4);
-        debug_assert!(MAX_INPUT_LEN - max_input_len == 0
-            || MAX_INPUT_LEN - max_input_len == MIN_ENCODE_CHUNK_SIZE);
+        debug_assert!(
+            MAX_INPUT_LEN - max_input_len == 0
+                || MAX_INPUT_LEN - max_input_len == MIN_ENCODE_CHUNK_SIZE
+        );
 
         // handle complete triples
         let input_complete_chunks_len = input.len() - (input.len() % MIN_ENCODE_CHUNK_SIZE);

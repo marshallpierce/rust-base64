@@ -6,7 +6,7 @@ use *;
 use std::str;
 
 use self::rand::distributions::{Distribution, Range};
-use self::rand::{Rng, FromEntropy};
+use self::rand::{FromEntropy, Rng};
 
 #[test]
 fn roundtrip_random_config_short() {
@@ -42,10 +42,7 @@ pub fn assert_encode_sanity(encoded: &str, config: &Config, input_len: usize) {
     let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
 }
 
-fn roundtrip_random_config(
-    input_len_range: Range<usize>,
-    iterations: u32,
-) {
+fn roundtrip_random_config(input_len_range: Range<usize>, iterations: u32) {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
     let mut rng = rand::rngs::SmallRng::from_entropy();

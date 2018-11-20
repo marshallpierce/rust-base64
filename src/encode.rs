@@ -72,9 +72,10 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
         let mut sink = ::chunked_encoder::StringSink::new(buf);
         let encoder = ::chunked_encoder::ChunkedEncoder::new(config);
 
-        encoder.encode(input_bytes, &mut sink).expect("Writing to a String shouldn't fail")
+        encoder
+            .encode(input_bytes, &mut sink)
+            .expect("Writing to a String shouldn't fail")
     }
-
 }
 
 /// Encode arbitrary octets as base64.
@@ -134,12 +135,7 @@ pub fn encode_config_slice<T: ?Sized + AsRef<[u8]>>(
 /// `output` must be of size `encoded_size`.
 ///
 /// All bytes in `output` will be written to since it is exactly the size of the output.
-fn encode_with_padding(
-    input: &[u8],
-    config: &Config,
-    encoded_size: usize,
-    output: &mut [u8],
-) {
+fn encode_with_padding(input: &[u8], config: &Config, encoded_size: usize, output: &mut [u8]) {
     debug_assert_eq!(encoded_size, output.len());
 
     let b64_bytes_written = encode_to_slice(input, output, config.char_set.encode_table());
@@ -326,7 +322,7 @@ mod tests {
     use {Config, STANDARD, URL_SAFE_NO_PAD};
 
     use self::rand::distributions::{Distribution, Range};
-    use self::rand::{Rng, FromEntropy};
+    use self::rand::{FromEntropy, Rng};
     use std;
     use std::str;
 
@@ -607,12 +603,7 @@ mod tests {
 
             let orig_output_buf = output.to_vec();
 
-            encode_with_padding(
-                &input,
-                &config,
-                encoded_size,
-                &mut output[0..encoded_size],
-            );
+            encode_with_padding(&input, &config, encoded_size, &mut output[0..encoded_size]);
 
             // make sure the part beyond b64 is the same garbage it was before
             assert_eq!(orig_output_buf[encoded_size..], output[encoded_size..]);
