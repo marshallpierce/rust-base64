@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use {Config, STANDARD};
+use {CharacterSet, Config, STANDARD};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -138,7 +138,7 @@ pub fn encode_config_slice<T: ?Sized + AsRef<[u8]>>(
 fn encode_with_padding(input: &[u8], config: Config, encoded_size: usize, output: &mut [u8]) {
     debug_assert_eq!(encoded_size, output.len());
 
-    let b64_bytes_written = encode_to_slice(input, output, config.char_set.encode_table());
+    let b64_bytes_written = encode_to_slice(input, output, config.char_set);
 
     let padding_bytes = if config.pad {
         add_padding(input.len(), &mut output[b64_bytes_written..])
@@ -157,89 +157,20 @@ fn encode_with_padding(input: &[u8], config: Config, encoded_size: usize, output
 /// `output` must be long enough to hold the encoded `input` without padding.
 /// Returns the number of bytes written.
 #[inline]
-pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64]) -> usize {
-    let mut input_index: usize = 0;
-
-    const BLOCKS_PER_FAST_LOOP: usize = 4;
-    const LOW_SIX_BITS: u64 = 0x3F;
-
-    // we read 8 bytes at a time (u64) but only actually consume 6 of those bytes. Thus, we need
-    // 2 trailing bytes to be available to read..
-    let last_fast_index = input.len().saturating_sub(BLOCKS_PER_FAST_LOOP * 6 + 2);
-    let mut output_index = 0;
-
-    if last_fast_index > 0 {
-        while input_index <= last_fast_index {
-            // Major performance wins from letting the optimizer do the bounds check once, mostly
-            // on the output side
-            let input_chunk = &input[input_index..(input_index + (BLOCKS_PER_FAST_LOOP * 6 + 2))];
-            let output_chunk = &mut output[output_index..(output_index + BLOCKS_PER_FAST_LOOP * 8)];
-
-            // Hand-unrolling for 32 vs 16 or 8 bytes produces yields performance about equivalent
-            // to unsafe pointer code on a Xeon E5-1650v3. 64 byte unrolling was slightly better for
-            // large inputs but significantly worse for 50-byte input, unsurprisingly. I suspect
-            // that it's a not uncommon use case to encode smallish chunks of data (e.g. a 64-byte
-            // SHA-512 digest), so it would be nice if that fit in the unrolled loop at least once.
-            // Plus, single-digit percentage performance differences might well be quite different
-            // on different hardware.
-
-            let input_u64 = BigEndian::read_u64(&input_chunk[0..]);
-
-            output_chunk[0] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
-            output_chunk[1] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
-            output_chunk[2] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
-            output_chunk[3] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
-            output_chunk[4] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
-            output_chunk[5] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
-            output_chunk[6] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
-            output_chunk[7] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
-
-            let input_u64 = BigEndian::read_u64(&input_chunk[6..]);
-
-            output_chunk[8] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
-            output_chunk[9] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
-            output_chunk[10] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
-            output_chunk[11] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
-            output_chunk[12] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
-            output_chunk[13] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
-            output_chunk[14] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
-            output_chunk[15] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
-
-            let input_u64 = BigEndian::read_u64(&input_chunk[12..]);
-
-            output_chunk[16] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
-            output_chunk[17] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
-            output_chunk[18] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
-            output_chunk[19] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
-            output_chunk[20] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
-            output_chunk[21] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
-            output_chunk[22] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
-            output_chunk[23] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
-
-            let input_u64 = BigEndian::read_u64(&input_chunk[18..]);
-
-            output_chunk[24] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
-            output_chunk[25] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
-            output_chunk[26] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
-            output_chunk[27] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
-            output_chunk[28] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
-            output_chunk[29] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
-            output_chunk[30] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
-            output_chunk[31] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
-
-            output_index += BLOCKS_PER_FAST_LOOP * 8;
-            input_index += BLOCKS_PER_FAST_LOOP * 6;
-        }
-    }
-
-    // Encode what's left after the fast loop.
-
+pub fn encode_to_slice(input: &[u8], output: &mut [u8], char_set: CharacterSet) -> usize {
+    let encode_table = char_set.encode_table();
+    // Only perform bulk_encode_to_slice if the size of the input is large
+    // enough to warrant the function call overhead. This is merely an
+    // optimization so small input doesn't pay the overhead of simd feature
+    // detection.
+    let (mut input_index, mut output_index) = if input.len() < sse::REGISTER_BYTES {
+        (0, 0)
+    } else {
+        bulk_encode_to_slice(input, output, char_set)
+    };
     const LOW_SIX_BITS_U8: u8 = 0x3F;
-
     let rem = input.len() % 3;
     let start_of_rem = input.len() - rem;
-
-    // start at the first index not handled by fast loop, which may be 0.
 
     while input_index < start_of_rem {
         let input_chunk = &input[input_index..(input_index + 3)];
@@ -255,7 +186,6 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
         input_index += 3;
         output_index += 4;
     }
-
     if rem == 2 {
         output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
         output[output_index + 1] =
@@ -272,6 +202,362 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
     }
 
     output_index
+}
+
+/// Encode input bytes to utf8 output bytes. Does not pad. Performs the
+/// conversion in batches that may not consume the entire input buffer. The
+/// returned value is the number of input bytes consumed and the number of output
+/// bytes produced.
+#[inline]
+fn bulk_encode_to_slice(input: &[u8], output: &mut [u8], char_set: CharacterSet) -> (usize, usize) {
+    #[cfg(all(
+        feature = "simd",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ))]
+    {
+        if input.len() >= avx2::REGISTER_BYTES && is_x86_feature_detected!("avx2") {
+            return unsafe { avx2::bulk_encode_to_slice(input, output, char_set) };
+        }
+        if input.len() >= sse::REGISTER_BYTES && is_x86_feature_detected!("sse") {
+            return unsafe { sse::bulk_encode_to_slice(input, output, char_set) };
+        }
+    }
+
+    let encode_table = char_set.encode_table();
+    // Fallback to non-simd variant.
+    let mut input_index: usize = 0;
+
+    const BLOCKS_PER_FAST_LOOP: usize = 4;
+    const LOW_SIX_BITS: u64 = 0x3F;
+
+    // we read 8 bytes at a time (u64) but only actually consume 6 of those bytes. Thus, we need
+    // 2 trailing bytes to be available to read..
+    let last_fast_index: isize = input.len() as isize - (BLOCKS_PER_FAST_LOOP * 6 + 2) as isize;
+    let mut output_index = 0;
+
+    while input_index as isize <= last_fast_index {
+        // Major performance wins from letting the optimizer do the bounds check once, mostly
+        // on the output side
+        let input_chunk = &input[input_index..(input_index + (BLOCKS_PER_FAST_LOOP * 6 + 2))];
+        let output_chunk = &mut output[output_index..(output_index + BLOCKS_PER_FAST_LOOP * 8)];
+
+        // Hand-unrolling for 32 vs 16 or 8 bytes produces yields performance about equivalent
+        // to unsafe pointer code on a Xeon E5-1650v3. 64 byte unrolling was slightly better for
+        // large inputs but significantly worse for 50-byte input, unsurprisingly. I suspect
+        // that it's a not uncommon use case to encode smallish chunks of data (e.g. a 64-byte
+        // SHA-512 digest), so it would be nice if that fit in the unrolled loop at least once.
+        // Plus, single-digit percentage performance differences might well be quite different
+        // on different hardware.
+
+        let input_u64 = BigEndian::read_u64(&input_chunk[0..]);
+
+        output_chunk[0] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+        output_chunk[1] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+        output_chunk[2] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+        output_chunk[3] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+        output_chunk[4] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+        output_chunk[5] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+        output_chunk[6] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+        output_chunk[7] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
+
+        let input_u64 = BigEndian::read_u64(&input_chunk[6..]);
+
+        output_chunk[8] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+        output_chunk[9] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+        output_chunk[10] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+        output_chunk[11] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+        output_chunk[12] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+        output_chunk[13] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+        output_chunk[14] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+        output_chunk[15] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
+
+        let input_u64 = BigEndian::read_u64(&input_chunk[12..]);
+
+        output_chunk[16] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+        output_chunk[17] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+        output_chunk[18] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+        output_chunk[19] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+        output_chunk[20] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+        output_chunk[21] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+        output_chunk[22] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+        output_chunk[23] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
+
+        let input_u64 = BigEndian::read_u64(&input_chunk[18..]);
+
+        output_chunk[24] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
+        output_chunk[25] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
+        output_chunk[26] = encode_table[((input_u64 >> 46) & LOW_SIX_BITS) as usize];
+        output_chunk[27] = encode_table[((input_u64 >> 40) & LOW_SIX_BITS) as usize];
+        output_chunk[28] = encode_table[((input_u64 >> 34) & LOW_SIX_BITS) as usize];
+        output_chunk[29] = encode_table[((input_u64 >> 28) & LOW_SIX_BITS) as usize];
+        output_chunk[30] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
+        output_chunk[31] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
+
+        output_index += BLOCKS_PER_FAST_LOOP * 8;
+        input_index += BLOCKS_PER_FAST_LOOP * 6;
+    }
+    (input_index, output_index)
+}
+
+/// SSE implementation of B64 encoding. Methods in this module are only
+/// safe to invoke after verifying the CPU supports SSE intrinsics.
+#[cfg(all(
+    feature = "simd",
+    any(target_arch = "x86", target_arch = "x86_64")
+))]
+mod sse {
+    pub(super) const REGISTER_BYTES: usize = 16;
+
+    use super::CharacterSet;
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::*;
+
+    #[inline]
+    #[target_feature(enable = "sse")]
+    pub(super) unsafe fn bulk_encode_to_slice(
+        input: &[u8],
+        output: &mut [u8],
+        char_set: CharacterSet,
+    ) -> (usize, usize) {
+        let mut input_index = 0;
+        let mut output_index: usize = 0;
+        let last_index = input.len() as isize - REGISTER_BYTES as isize;
+        while input_index as isize <= last_index {
+            // SSE implementation description has been detailed here: http://www.alfredklomp.com/programming/sse-base64/
+            // Very briefly this loads 16 byte chunks, arranges the first 12
+            // bytes into 4 separate lanes of 3 bytes each. Each 3 byte lane is
+            // then encoded into the 4 bytes of it's base64 encoding.
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
+            let mut data = _mm_loadu_si128(input.as_ptr().add(input_index) as *const __m128i);
+            data = _mm_shuffle_epi8(
+                data,
+                _mm_setr_epi8(2, 2, 1, 0, 5, 5, 4, 3, 8, 8, 7, 6, 11, 11, 10, 9),
+            );
+            let mut mask = _mm_set1_epi32(0x3F00_0000);
+            let mut res = _mm_and_si128(_mm_srli_epi32(data, 2), mask);
+            mask = _mm_srli_epi32(mask, 8);
+            res = _mm_or_si128(res, _mm_and_si128(_mm_srli_epi32(data, 4), mask));
+            mask = _mm_srli_epi32(mask, 8);
+            res = _mm_or_si128(res, _mm_and_si128(_mm_srli_epi32(data, 6), mask));
+            mask = _mm_srli_epi32(mask, 8);
+            res = _mm_or_si128(res, _mm_and_si128(data, mask));
+
+            res = _mm_shuffle_epi8(
+                res,
+                _mm_setr_epi8(3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12),
+            );
+
+            res = match char_set {
+                CharacterSet::Standard => translate_mm128i_standard_encoding(res),
+                CharacterSet::UrlSafe => translate_mm128i_urlsafe_encoding(res),
+                CharacterSet::Crypt => translate_mm128i_crypt_encoding(res),
+            };
+
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
+            _mm_storeu_si128(output.as_mut_ptr().add(output_index) as *mut __m128i, res);
+            input_index += 12;
+            output_index += 16;
+        }
+        (input_index, output_index)
+    }
+
+    #[inline]
+    #[target_feature(enable = "sse")]
+    unsafe fn translate_mm128i_standard_encoding(input: __m128i) -> __m128i {
+        let s1mask = _mm_cmplt_epi8(input, _mm_set1_epi8(26));
+        let mut blockmask = s1mask;
+        let s2mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(52)));
+        blockmask = _mm_or_si128(blockmask, s2mask);
+        let s3mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(62)));
+        blockmask = _mm_or_si128(blockmask, s3mask);
+        let s4mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(63)));
+        blockmask = _mm_or_si128(blockmask, s4mask);
+        let s1 = _mm_and_si128(s1mask, _mm_add_epi8(input, _mm_set1_epi8(b'A' as i8)));
+        let s2 = _mm_and_si128(s2mask, _mm_add_epi8(input, _mm_set1_epi8(b'a' as i8 - 26)));
+        let s3 = _mm_and_si128(s3mask, _mm_add_epi8(input, _mm_set1_epi8(b'0' as i8 - 52)));
+        let s4 = _mm_and_si128(s4mask, _mm_set1_epi8(b'+' as i8));
+        let s5 = _mm_andnot_si128(blockmask, _mm_set1_epi8(b'/' as i8));
+        _mm_or_si128(s1, _mm_or_si128(s2, _mm_or_si128(s3, _mm_or_si128(s4, s5))))
+    }
+
+    #[inline]
+    #[target_feature(enable = "sse")]
+    unsafe fn translate_mm128i_urlsafe_encoding(input: __m128i) -> __m128i {
+        let s1mask = _mm_cmplt_epi8(input, _mm_set1_epi8(26));
+        let mut blockmask = s1mask;
+        let s2mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(52)));
+        blockmask = _mm_or_si128(blockmask, s2mask);
+        let s3mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(62)));
+        blockmask = _mm_or_si128(blockmask, s3mask);
+        let s4mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(63)));
+        blockmask = _mm_or_si128(blockmask, s4mask);
+        let s1 = _mm_and_si128(s1mask, _mm_add_epi8(input, _mm_set1_epi8(b'A' as i8)));
+        let s2 = _mm_and_si128(s2mask, _mm_add_epi8(input, _mm_set1_epi8(b'a' as i8 - 26)));
+        let s3 = _mm_and_si128(s3mask, _mm_add_epi8(input, _mm_set1_epi8(b'0' as i8 - 52)));
+        let s4 = _mm_and_si128(s4mask, _mm_set1_epi8(b'-' as i8));
+        let s5 = _mm_andnot_si128(blockmask, _mm_set1_epi8(b'_' as i8));
+        _mm_or_si128(s1, _mm_or_si128(s2, _mm_or_si128(s3, _mm_or_si128(s4, s5))))
+    }
+
+    #[inline]
+    #[target_feature(enable = "sse")]
+    unsafe fn translate_mm128i_crypt_encoding(input: __m128i) -> __m128i {
+        let s1mask = _mm_cmplt_epi8(input, _mm_set1_epi8(12));
+        let mut blockmask = s1mask;
+        let s2mask = _mm_andnot_si128(blockmask, _mm_cmplt_epi8(input, _mm_set1_epi8(38)));
+        blockmask = _mm_or_si128(blockmask, s2mask);
+        let s1 = _mm_and_si128(s1mask, _mm_add_epi8(input, _mm_set1_epi8(b'.' as i8)));
+        let s2 = _mm_and_si128(s2mask, _mm_add_epi8(input, _mm_set1_epi8(b'A' as i8 - 12)));
+        let s3 = _mm_andnot_si128(
+            blockmask,
+            _mm_add_epi8(input, _mm_set1_epi8(b'a' as i8 - 38)),
+        );
+        _mm_or_si128(s1, _mm_or_si128(s2, s3))
+    }
+}
+
+/// AVX2 implementation of B64 encoding. Methods in this module are only
+/// safe to invoke after verifying the CPU supports AVX2 intrinsics.
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+mod avx2 {
+    pub(super) const REGISTER_BYTES: usize = 32;
+
+    use super::CharacterSet;
+    use std::arch::x86_64::*;
+
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    pub(super) unsafe fn bulk_encode_to_slice(
+        input: &[u8],
+        output: &mut [u8],
+        char_set: CharacterSet,
+    ) -> (usize, usize) {
+        let mut output_index: usize = 0;
+        let last_index = input.len() as isize - REGISTER_BYTES as isize;
+        let mut input_index = 0;
+        while input_index as isize <= last_index {
+            // This is a straightforward adaptation of the SSE implemenation
+            // above, just extended for 256 bit registers.
+            let input_ptr = input.as_ptr().add(input_index);
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
+            let lo_data = _mm_loadu_si128(input_ptr as *const __m128i);
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
+            let hi_data = _mm_loadu_si128(input_ptr.add(12) as *const __m128i);
+            let mut data = _mm256_set_m128i(hi_data, lo_data);
+            data = _mm256_shuffle_epi8(
+                data,
+                _mm256_setr_epi8(
+                    2, 2, 1, 0, 5, 5, 4, 3, 8, 8, 7, 6, 11, 11, 10, 9, 2, 2, 1, 0, 5, 5, 4, 3, 8,
+                    8, 7, 6, 11, 11, 10, 9,
+                ),
+            );
+            let mut mask = _mm256_set1_epi32(0x3F00_0000);
+            let mut res = _mm256_and_si256(_mm256_srli_epi32(data, 2), mask);
+            mask = _mm256_srli_epi32(mask, 8);
+            res = _mm256_or_si256(res, _mm256_and_si256(_mm256_srli_epi32(data, 4), mask));
+            mask = _mm256_srli_epi32(mask, 8);
+            res = _mm256_or_si256(res, _mm256_and_si256(_mm256_srli_epi32(data, 6), mask));
+            mask = _mm256_srli_epi32(mask, 8);
+            res = _mm256_or_si256(res, _mm256_and_si256(data, mask));
+
+            res = _mm256_shuffle_epi8(
+                res,
+                _mm256_setr_epi8(
+                    3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22,
+                    21, 20, 27, 26, 25, 24, 31, 30, 29, 28,
+                ),
+            );
+
+            res = match char_set {
+                CharacterSet::Standard => translate_mm256i_standard_encoding(res),
+                CharacterSet::UrlSafe => translate_mm256i_urlsafe_encoding(res),
+                CharacterSet::Crypt => translate_mm256i_crypt_encoding(res),
+            };
+
+            #[cfg_attr(feature = "cargo-clippy", allow(cast_ptr_alignment))]
+            _mm256_storeu_si256(output.as_mut_ptr().add(output_index) as *mut __m256i, res);
+            input_index += 24;
+            output_index += 32;
+        }
+        (input_index, output_index)
+    }
+
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    unsafe fn translate_mm256i_standard_encoding(input: __m256i) -> __m256i {
+        let s1mask = _mm256_cmpgt_epi8(_mm256_set1_epi8(26), input);
+        let mut blockmask = s1mask;
+        let s2mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(52), input));
+        blockmask = _mm256_or_si256(blockmask, s2mask);
+        let s3mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(62), input));
+        blockmask = _mm256_or_si256(blockmask, s3mask);
+        let s4mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(63), input));
+        blockmask = _mm256_or_si256(blockmask, s4mask);
+        let s1 = _mm256_and_si256(s1mask, _mm256_add_epi8(input, _mm256_set1_epi8(b'A' as i8)));
+        let s2 = _mm256_and_si256(
+            s2mask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'a' as i8 - 26)),
+        );
+        let s3 = _mm256_and_si256(
+            s3mask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'0' as i8 - 4)),
+        );
+        let s4 = _mm256_and_si256(s4mask, _mm256_set1_epi8(b'+' as i8));
+        let s5 = _mm256_andnot_si256(blockmask, _mm256_set1_epi8(b'/' as i8));
+        _mm256_or_si256(
+            s1,
+            _mm256_or_si256(s2, _mm256_or_si256(s3, _mm256_or_si256(s4, s5))),
+        )
+    }
+
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    unsafe fn translate_mm256i_urlsafe_encoding(input: __m256i) -> __m256i {
+        let s1mask = _mm256_cmpgt_epi8(_mm256_set1_epi8(26), input);
+        let mut blockmask = s1mask;
+        let s2mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(52), input));
+        blockmask = _mm256_or_si256(blockmask, s2mask);
+        let s3mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(62), input));
+        blockmask = _mm256_or_si256(blockmask, s3mask);
+        let s4mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(63), input));
+        blockmask = _mm256_or_si256(blockmask, s4mask);
+        let s1 = _mm256_and_si256(s1mask, _mm256_add_epi8(input, _mm256_set1_epi8(b'A' as i8)));
+        let s2 = _mm256_and_si256(
+            s2mask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'a' as i8 - 26)),
+        );
+        let s3 = _mm256_and_si256(
+            s3mask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'0' as i8 - 52)),
+        );
+        let s4 = _mm256_and_si256(s4mask, _mm256_set1_epi8(b'-' as i8));
+        let s5 = _mm256_andnot_si256(blockmask, _mm256_set1_epi8(b'_' as i8));
+        _mm256_or_si256(
+            s1,
+            _mm256_or_si256(s2, _mm256_or_si256(s3, _mm256_or_si256(s4, s5))),
+        )
+    }
+
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    unsafe fn translate_mm256i_crypt_encoding(input: __m256i) -> __m256i {
+        let s1mask = _mm256_cmpgt_epi8(_mm256_set1_epi8(12), input);
+        let mut blockmask = s1mask;
+        let s2mask = _mm256_andnot_si256(blockmask, _mm256_cmpgt_epi8(_mm256_set1_epi8(38), input));
+        blockmask = _mm256_or_si256(blockmask, s2mask);
+        let s1 = _mm256_and_si256(s1mask, _mm256_add_epi8(input, _mm256_set1_epi8(b'.' as i8)));
+        let s2 = _mm256_and_si256(
+            s2mask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'A' as i8 - 12)),
+        );
+        let s3 = _mm256_andnot_si256(
+            blockmask,
+            _mm256_add_epi8(input, _mm256_set1_epi8(b'a' as i8 - 38)),
+        );
+        _mm256_or_si256(s1, _mm256_or_si256(s2, s3))
+    }
 }
 
 /// calculate the base64 encoded string size, including padding if appropriate
@@ -563,8 +849,7 @@ mod tests {
 
             let orig_output_buf = output.to_vec();
 
-            let bytes_written =
-                encode_to_slice(&input, &mut output, config.char_set.encode_table());
+            let bytes_written = encode_to_slice(&input, &mut output, config.char_set);
 
             // make sure the part beyond bytes_written is the same garbage it was before
             assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);

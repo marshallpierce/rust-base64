@@ -28,7 +28,6 @@ impl ChunkedEncoder {
 
     pub fn encode<S: Sink>(&self, bytes: &[u8], sink: &mut S) -> Result<(), S::Error> {
         let mut encode_buf: [u8; BUF_SIZE] = [0; BUF_SIZE];
-        let encode_table = self.config.char_set.encode_table();
 
         let mut input_index = 0;
 
@@ -38,7 +37,8 @@ impl ChunkedEncoder {
 
             let chunk = &bytes[input_index..(input_index + input_chunk_len)];
 
-            let mut b64_bytes_written = encode_to_slice(chunk, &mut encode_buf, encode_table);
+            let mut b64_bytes_written =
+                encode_to_slice(chunk, &mut encode_buf, self.config.char_set);
 
             input_index += input_chunk_len;
             let more_input_left = input_index < bytes.len();

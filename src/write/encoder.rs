@@ -175,7 +175,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
                 let len = encode_to_slice(
                     &self.extra[0..MIN_ENCODE_CHUNK_SIZE],
                     &mut self.output[..],
-                    self.config.char_set.encode_table(),
+                    self.config.char_set,
                 );
                 debug_assert_eq!(4, len);
 
@@ -222,7 +222,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
         encoded_size += encode_to_slice(
             &input[..(input_chunks_to_encode_len)],
             &mut self.output[encoded_size..],
-            self.config.char_set.encode_table(),
+            self.config.char_set,
         );
         self.panicked = true;
         let r = self.w.write(&self.output[..encoded_size]);
