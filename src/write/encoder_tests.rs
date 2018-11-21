@@ -1,12 +1,13 @@
+extern crate quickcheck;
 extern crate rand;
 
 use super::EncoderWriter;
-use tests::random_config;
-use {encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
+use {encode_config, encode_config_buf, Config, STANDARD_NO_PAD, URL_SAFE};
 
 use std::io::{Cursor, Write};
-use std::{cmp, io, str};
+use std::{cmp, io};
 
+use self::quickcheck::{QuickCheck, StdThreadGen};
 use self::rand::Rng;
 
 #[test]
@@ -281,93 +282,95 @@ fn drop_calls_finish_for_you() {
 
 #[test]
 fn every_possible_split_of_input() {
-    let mut rng = rand::thread_rng();
-    let mut orig_data = Vec::<u8>::new();
-    let mut stream_encoded = Vec::<u8>::new();
-    let mut normal_encoded = String::new();
-
-    let size = 5_000;
-
-    for i in 0..size {
-        orig_data.clear();
-        stream_encoded.clear();
-        normal_encoded.clear();
-
-        for _ in 0..size {
-            orig_data.push(rng.gen());
+    fn property((input, config): (Vec<u8>, Config)) {
+        let mut normal_output = String::new();
+        encode_config_buf(&input, config, &mut normal_output);
+        let mut stream_output = Vec::new();
+        for i in 0..input.len() {
+            stream_output.clear();
+            {
+                let mut stream_encoder = EncoderWriter::new(&mut stream_output, config);
+                // Write the first i bytes, then the rest
+                stream_encoder.write_all(&input[0..i]).unwrap();
+                stream_encoder.write_all(&input[i..]).unwrap();
+            }
+            assert_eq!(normal_output.as_bytes(), stream_output.as_slice());
         }
-
-        let config = random_config(&mut rng);
-        encode_config_buf(&orig_data, config, &mut normal_encoded);
-
-        {
-            let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, config);
-            // Write the first i bytes, then the rest
-            stream_encoder.write_all(&orig_data[0..i]).unwrap();
-            stream_encoder.write_all(&orig_data[i..]).unwrap();
-        }
-
-        assert_eq!(normal_encoded, str::from_utf8(&stream_encoded).unwrap());
     }
+    let property: fn((Vec<u8>, Config)) = property;
+    QuickCheck::with_gen(StdThreadGen::new(5000))
+        .tests(2)
+        .quickcheck(property);
 }
 
 #[test]
-fn encode_random_config_matches_normal_encode_reasonable_input_len() {
-    // choose up to 2 * buf size, so ~half the time it'll use a full buffer
-    do_encode_random_config_matches_normal_encode(super::encoder::BUF_SIZE * 2)
+fn qc_encode_matches_normal_encode_reasonable_input_len() {
+    // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
+    let property: fn((Vec<u8>, Config)) = encode_matches_normal_encode;
+    QuickCheck::with_gen(StdThreadGen::new(super::encoder::BUF_SIZE * 2))
+        .tests(1000)
+        .quickcheck(property);
 }
 
 #[test]
-fn encode_random_config_matches_normal_encode_tiny_input_len() {
-    do_encode_random_config_matches_normal_encode(10)
+fn qc_encode_matches_normal_encode_tiny_input_len() {
+    // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
+    let property: fn((Vec<u8>, Config)) = encode_matches_normal_encode;
+    QuickCheck::with_gen(StdThreadGen::new(10))
+        .tests(1000)
+        .quickcheck(property);
+}
+
+fn encode_matches_normal_encode((input, config): (Vec<u8>, Config)) {
+    let mut stream_output = Vec::new();
+    let mut normal_output = String::new();
+    encode_config_buf(&input, config, &mut normal_output);
+    {
+        let mut rng = rand::thread_rng();
+        let mut stream_encoder = EncoderWriter::new(&mut stream_output, config);
+        let mut bytes_consumed = 0;
+        while bytes_consumed < input.len() {
+            let input_len: usize = cmp::min(rng.gen_range(0, 10), input.len() - bytes_consumed);
+
+            // write a little bit of the data
+            stream_encoder
+                .write_all(&input[bytes_consumed..bytes_consumed + input_len])
+                .unwrap();
+
+            bytes_consumed += input_len;
+        }
+        stream_encoder.finish().unwrap();
+        assert_eq!(input.len(), bytes_consumed);
+    }
+    assert_eq!(normal_output.as_bytes(), stream_output.as_slice())
 }
 
 #[test]
 fn retrying_writes_that_error_with_interrupted_works() {
-    let mut rng = rand::thread_rng();
-    let mut orig_data = Vec::<u8>::new();
-    let mut stream_encoded = Vec::<u8>::new();
-    let mut normal_encoded = String::new();
-
-    for _ in 0..1_000 {
-        orig_data.clear();
-        stream_encoded.clear();
-        normal_encoded.clear();
-
-        let orig_len: usize = rng.gen_range(100, 20_000);
-        for _ in 0..orig_len {
-            orig_data.push(rng.gen());
-        }
-
-        // encode the normal way
-        let config = random_config(&mut rng);
-        encode_config_buf(&orig_data, config, &mut normal_encoded);
-
-        // encode via the stream encoder
+    fn property((input, config): (Vec<u8>, Config)) {
+        let mut stream_output = Vec::new();
+        let mut normal_output = String::new();
+        encode_config_buf(&input, config, &mut normal_output);
         {
             let mut interrupt_rng = rand::thread_rng();
             let mut interrupting_writer = InterruptingWriter {
-                w: &mut stream_encoded,
+                w: &mut stream_output,
                 rng: &mut interrupt_rng,
                 fraction: 0.8,
             };
-
+            let mut rng = rand::thread_rng();
             let mut stream_encoder = EncoderWriter::new(&mut interrupting_writer, config);
             let mut bytes_consumed = 0;
-            while bytes_consumed < orig_len {
-                // use short inputs since we want to use `extra` a lot as that's what needs rollback
-                // when errors occur
-                let input_len: usize = cmp::min(rng.gen_range(0, 10), orig_len - bytes_consumed);
+            while bytes_consumed < input.len() {
+                let input_len: usize = cmp::min(rng.gen_range(0, 10), input.len() - bytes_consumed);
 
                 // write a little bit of the data
-                retry_interrupted_write_all(
-                    &mut stream_encoder,
-                    &orig_data[bytes_consumed..bytes_consumed + input_len],
-                ).unwrap();
+                stream_encoder
+                    .write_all(&input[bytes_consumed..bytes_consumed + input_len])
+                    .unwrap();
 
                 bytes_consumed += input_len;
             }
-
             loop {
                 let res = stream_encoder.finish();
                 match res {
@@ -379,78 +382,14 @@ fn retrying_writes_that_error_with_interrupted_works() {
                 }
             }
 
-            assert_eq!(orig_len, bytes_consumed);
+            assert_eq!(input.len(), bytes_consumed);
         }
-
-        assert_eq!(normal_encoded, str::from_utf8(&stream_encoded).unwrap());
+        assert_eq!(normal_output.as_bytes(), stream_output.as_slice())
     }
-}
-
-/// Retry writes until all the data is written or an error that isn't Interrupted is returned.
-fn retry_interrupted_write_all<W: Write>(w: &mut W, buf: &[u8]) -> io::Result<()> {
-    let mut written = 0;
-
-    while written < buf.len() {
-        let res = w.write(&buf[written..]);
-
-        match res {
-            Ok(len) => written += len,
-            Err(e) => match e.kind() {
-                io::ErrorKind::Interrupted => continue,
-                _ => {
-                    println!("got kind: {:?}", e.kind());
-                    return Err(e);
-                }
-            },
-        }
-    }
-
-    Ok(())
-}
-
-fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
-    let mut rng = rand::thread_rng();
-    let mut orig_data = Vec::<u8>::new();
-    let mut stream_encoded = Vec::<u8>::new();
-    let mut normal_encoded = String::new();
-
-    for _ in 0..1_000 {
-        orig_data.clear();
-        stream_encoded.clear();
-        normal_encoded.clear();
-
-        let orig_len: usize = rng.gen_range(100, 20_000);
-        for _ in 0..orig_len {
-            orig_data.push(rng.gen());
-        }
-
-        // encode the normal way
-        let config = random_config(&mut rng);
-        encode_config_buf(&orig_data, config, &mut normal_encoded);
-
-        // encode via the stream encoder
-        {
-            let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, config);
-            let mut bytes_consumed = 0;
-            while bytes_consumed < orig_len {
-                let input_len: usize =
-                    cmp::min(rng.gen_range(0, max_input_len), orig_len - bytes_consumed);
-
-                // write a little bit of the data
-                stream_encoder
-                    .write_all(&orig_data[bytes_consumed..bytes_consumed + input_len])
-                    .unwrap();
-
-                bytes_consumed += input_len;
-            }
-
-            stream_encoder.finish().unwrap();
-
-            assert_eq!(orig_len, bytes_consumed);
-        }
-
-        assert_eq!(normal_encoded, str::from_utf8(&stream_encoded).unwrap());
-    }
+    let property: fn((Vec<u8>, Config)) = property;
+    QuickCheck::with_gen(StdThreadGen::new(10))
+        .tests(1000)
+        .quickcheck(property);
 }
 
 /// A `Write` implementation that returns Interrupted some fraction of the time, randomly.

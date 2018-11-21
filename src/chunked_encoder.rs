@@ -100,14 +100,12 @@ impl<'a> Sink for StringSink<'a> {
 
 #[cfg(test)]
 pub mod tests {
-    extern crate rand;
+    extern crate quickcheck;
 
     use super::*;
-    use tests::random_config;
     use *;
 
-    use self::rand::distributions::{Distribution, Range};
-    use self::rand::{FromEntropy, Rng};
+    use self::quickcheck::{QuickCheck, StdThreadGen};
 
     #[test]
     fn chunked_encode_empty() {
@@ -136,12 +134,6 @@ pub mod tests {
     fn chunked_encode_slow_loop_only() {
         // < 8 bytes input, slow loop only
         assert_eq!("Zm9vYmFy", chunked_encode_str(b"foobar", STANDARD));
-    }
-
-    #[test]
-    fn chunked_encode_matches_normal_encode_random_string_sink() {
-        let helper = StringSinkTestHelper;
-        chunked_encode_matches_normal_encode_random(&helper);
     }
 
     #[test]
@@ -174,32 +166,19 @@ pub mod tests {
         assert_eq!(300, max_input_length(401, config));
     }
 
-    pub fn chunked_encode_matches_normal_encode_random<S: SinkTestHelper>(sink_test_helper: &S) {
-        let mut input_buf: Vec<u8> = Vec::new();
-        let mut output_buf = String::new();
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-        let input_len_range = Range::new(1, 10_000);
-
-        for _ in 0..5_000 {
-            input_buf.clear();
-            output_buf.clear();
-
-            let buf_len = input_len_range.sample(&mut rng);
-            for _ in 0..buf_len {
-                input_buf.push(rng.gen());
-            }
-
-            let config = random_config(&mut rng);
-
-            let chunk_encoded_string = sink_test_helper.encode_to_string(config, &input_buf);
-            encode_config_buf(&input_buf, config, &mut output_buf);
-
-            assert_eq!(
-                output_buf, chunk_encoded_string,
-                "input len={}, config: pad={}",
-                buf_len, config.pad
-            );
+    #[test]
+    fn qc_chunked_encode_matches_normal_encode() {
+        fn property((input, config): (Vec<u8>, Config)) {
+            let chunked_output = chunked_encode_str(&input, config);
+            let mut normal_output = String::new();
+            encode_config_buf(&input, config, &mut normal_output);
+            assert_eq!(chunked_output, normal_output);
         }
+        // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
+        let property: fn((Vec<u8>, Config)) = property;
+        QuickCheck::with_gen(StdThreadGen::new(50))
+            .tests(1000)
+            .quickcheck(property);
     }
 
     fn chunked_encode_str(bytes: &[u8], config: Config) -> String {
@@ -216,25 +195,4 @@ pub mod tests {
     fn config_with_pad(pad: bool) -> Config {
         Config::new(CharacterSet::Standard, pad)
     }
-
-    // An abstraction around sinks so that we can have tests that easily to any sink implementation
-    pub trait SinkTestHelper {
-        fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String;
-    }
-
-    struct StringSinkTestHelper;
-
-    impl SinkTestHelper for StringSinkTestHelper {
-        fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String {
-            let encoder = ChunkedEncoder::new(config);
-            let mut s = String::new();
-            {
-                let mut sink = StringSink::new(&mut s);
-                encoder.encode(bytes, &mut sink).unwrap();
-            }
-
-            s
-        }
-    }
-
 }

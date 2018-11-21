@@ -317,300 +317,65 @@ mod tests {
     extern crate rand;
 
     use super::*;
-    use decode::decode_config_buf;
-    use tests::{assert_encode_sanity, random_config};
-    use {Config, STANDARD, URL_SAFE_NO_PAD};
+    use {STANDARD, URL_SAFE_NO_PAD};
 
-    use self::rand::distributions::{Distribution, Range};
     use self::rand::{FromEntropy, Rng};
     use std;
     use std::str;
 
     #[test]
     fn encoded_size_correct_standard() {
-        assert_encoded_length(0, 0, STANDARD);
+        assert_eq!(0, encoded_size(0, STANDARD).unwrap());
 
-        assert_encoded_length(1, 4, STANDARD);
-        assert_encoded_length(2, 4, STANDARD);
-        assert_encoded_length(3, 4, STANDARD);
+        assert_eq!(4, encoded_size(1, STANDARD).unwrap());
+        assert_eq!(4, encoded_size(2, STANDARD).unwrap());
+        assert_eq!(4, encoded_size(3, STANDARD).unwrap());
 
-        assert_encoded_length(4, 8, STANDARD);
-        assert_encoded_length(5, 8, STANDARD);
-        assert_encoded_length(6, 8, STANDARD);
+        assert_eq!(8, encoded_size(4, STANDARD).unwrap());
+        assert_eq!(8, encoded_size(5, STANDARD).unwrap());
+        assert_eq!(8, encoded_size(6, STANDARD).unwrap());
 
-        assert_encoded_length(7, 12, STANDARD);
-        assert_encoded_length(8, 12, STANDARD);
-        assert_encoded_length(9, 12, STANDARD);
+        assert_eq!(12, encoded_size(7, STANDARD).unwrap());
+        assert_eq!(12, encoded_size(8, STANDARD).unwrap());
+        assert_eq!(12, encoded_size(9, STANDARD).unwrap());
 
-        assert_encoded_length(54, 72, STANDARD);
+        assert_eq!(72, encoded_size(54, STANDARD).unwrap());
 
-        assert_encoded_length(55, 76, STANDARD);
-        assert_encoded_length(56, 76, STANDARD);
-        assert_encoded_length(57, 76, STANDARD);
+        assert_eq!(76, encoded_size(55, STANDARD).unwrap());
+        assert_eq!(76, encoded_size(56, STANDARD).unwrap());
+        assert_eq!(76, encoded_size(57, STANDARD).unwrap());
 
-        assert_encoded_length(58, 80, STANDARD);
+        assert_eq!(80, encoded_size(58, STANDARD).unwrap());
     }
 
     #[test]
     fn encoded_size_correct_no_pad() {
-        assert_encoded_length(0, 0, URL_SAFE_NO_PAD);
+        assert_eq!(0, encoded_size(0, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(1, 2, URL_SAFE_NO_PAD);
-        assert_encoded_length(2, 3, URL_SAFE_NO_PAD);
-        assert_encoded_length(3, 4, URL_SAFE_NO_PAD);
+        assert_eq!(2, encoded_size(1, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(3, encoded_size(2, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(4, encoded_size(3, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(4, 6, URL_SAFE_NO_PAD);
-        assert_encoded_length(5, 7, URL_SAFE_NO_PAD);
-        assert_encoded_length(6, 8, URL_SAFE_NO_PAD);
+        assert_eq!(6, encoded_size(4, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(7, encoded_size(5, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(8, encoded_size(6, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(7, 10, URL_SAFE_NO_PAD);
-        assert_encoded_length(8, 11, URL_SAFE_NO_PAD);
-        assert_encoded_length(9, 12, URL_SAFE_NO_PAD);
+        assert_eq!(10, encoded_size(7, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(11, encoded_size(8, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(12, encoded_size(9, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(54, 72, URL_SAFE_NO_PAD);
+        assert_eq!(72, encoded_size(54, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(55, 74, URL_SAFE_NO_PAD);
-        assert_encoded_length(56, 75, URL_SAFE_NO_PAD);
-        assert_encoded_length(57, 76, URL_SAFE_NO_PAD);
+        assert_eq!(74, encoded_size(55, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(75, encoded_size(56, URL_SAFE_NO_PAD).unwrap());
+        assert_eq!(76, encoded_size(57, URL_SAFE_NO_PAD).unwrap());
 
-        assert_encoded_length(58, 78, URL_SAFE_NO_PAD);
+        assert_eq!(78, encoded_size(58, URL_SAFE_NO_PAD).unwrap());
     }
 
     #[test]
     fn encoded_size_overflow() {
         assert_eq!(None, encoded_size(std::usize::MAX, STANDARD));
-    }
-
-    #[test]
-    fn encode_config_buf_into_nonempty_buffer_doesnt_clobber_prefix() {
-        let mut orig_data = Vec::new();
-        let mut prefix = String::new();
-        let mut encoded_data_no_prefix = String::new();
-        let mut encoded_data_with_prefix = String::new();
-        let mut decoded = Vec::new();
-
-        let prefix_len_range = Range::new(0, 1000);
-        let input_len_range = Range::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            prefix.clear();
-            encoded_data_no_prefix.clear();
-            encoded_data_with_prefix.clear();
-            decoded.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            let prefix_len = prefix_len_range.sample(&mut rng);
-            for _ in 0..prefix_len {
-                // getting convenient random single-byte printable chars that aren't base64 is
-                // annoying
-                prefix.push('#');
-            }
-            encoded_data_with_prefix.push_str(&prefix);
-
-            let config = random_config(&mut rng);
-            encode_config_buf(&orig_data, config, &mut encoded_data_no_prefix);
-            encode_config_buf(&orig_data, config, &mut encoded_data_with_prefix);
-
-            assert_eq!(
-                encoded_data_no_prefix.len() + prefix_len,
-                encoded_data_with_prefix.len()
-            );
-            assert_encode_sanity(&encoded_data_no_prefix, config, input_len);
-            assert_encode_sanity(&encoded_data_with_prefix[prefix_len..], config, input_len);
-
-            // append plain encode onto prefix
-            prefix.push_str(&mut encoded_data_no_prefix);
-
-            assert_eq!(prefix, encoded_data_with_prefix);
-
-            decode_config_buf(&encoded_data_no_prefix, config, &mut decoded).unwrap();
-            assert_eq!(orig_data, decoded);
-        }
-    }
-
-    #[test]
-    fn encode_config_slice_into_nonempty_buffer_doesnt_clobber_suffix() {
-        let mut orig_data = Vec::new();
-        let mut encoded_data = Vec::new();
-        let mut encoded_data_original_state = Vec::new();
-        let mut decoded = Vec::new();
-
-        let input_len_range = Range::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            encoded_data.clear();
-            encoded_data_original_state.clear();
-            decoded.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            // plenty of existing garbage in the encoded buffer
-            for _ in 0..10 * input_len {
-                encoded_data.push(rng.gen());
-            }
-
-            encoded_data_original_state.extend_from_slice(&encoded_data);
-
-            let config = random_config(&mut rng);
-
-            let encoded_size = encoded_size(input_len, config).unwrap();
-
-            assert_eq!(
-                encoded_size,
-                encode_config_slice(&orig_data, config, &mut encoded_data)
-            );
-
-            assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                config,
-                input_len,
-            );
-
-            assert_eq!(
-                &encoded_data[encoded_size..],
-                &encoded_data_original_state[encoded_size..]
-            );
-
-            decode_config_buf(&encoded_data[0..encoded_size], config, &mut decoded).unwrap();
-            assert_eq!(orig_data, decoded);
-        }
-    }
-
-    #[test]
-    fn encode_config_slice_fits_into_precisely_sized_slice() {
-        let mut orig_data = Vec::new();
-        let mut encoded_data = Vec::new();
-        let mut decoded = Vec::new();
-
-        let input_len_range = Range::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            encoded_data.clear();
-            decoded.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            let config = random_config(&mut rng);
-
-            let encoded_size = encoded_size(input_len, config).unwrap();
-
-            encoded_data.resize(encoded_size, 0);
-
-            assert_eq!(
-                encoded_size,
-                encode_config_slice(&orig_data, config, &mut encoded_data)
-            );
-
-            assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                config,
-                input_len,
-            );
-
-            decode_config_buf(&encoded_data[0..encoded_size], config, &mut decoded).unwrap();
-            assert_eq!(orig_data, decoded);
-        }
-    }
-
-    #[test]
-    fn encode_to_slice_random_valid_utf8() {
-        let mut input = Vec::new();
-        let mut output = Vec::new();
-
-        let input_len_range = Range::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            input.clear();
-            output.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                input.push(rng.gen());
-            }
-
-            let config = random_config(&mut rng);
-
-            // fill up the output buffer with garbage
-            let encoded_size = encoded_size(input_len, config).unwrap();
-            for _ in 0..encoded_size {
-                output.push(rng.gen());
-            }
-
-            let orig_output_buf = output.to_vec();
-
-            let bytes_written =
-                encode_to_slice(&input, &mut output, config.char_set.encode_table());
-
-            // make sure the part beyond bytes_written is the same garbage it was before
-            assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
-
-            // make sure the encoded bytes are UTF-8
-            let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
-        }
-    }
-
-    #[test]
-    fn encode_with_padding_random_valid_utf8() {
-        let mut input = Vec::new();
-        let mut output = Vec::new();
-
-        let input_len_range = Range::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            input.clear();
-            output.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                input.push(rng.gen());
-            }
-
-            let config = random_config(&mut rng);
-
-            // fill up the output buffer with garbage
-            let encoded_size = encoded_size(input_len, config).unwrap();
-            for _ in 0..encoded_size + 1000 {
-                output.push(rng.gen());
-            }
-
-            let orig_output_buf = output.to_vec();
-
-            encode_with_padding(&input, config, encoded_size, &mut output[0..encoded_size]);
-
-            // make sure the part beyond b64 is the same garbage it was before
-            assert_eq!(orig_output_buf[encoded_size..], output[encoded_size..]);
-
-            // make sure the encoded bytes are UTF-8
-            let _ = str::from_utf8(&output[0..encoded_size]).unwrap();
-        }
     }
 
     #[test]
@@ -639,21 +404,4 @@ mod tests {
             let _ = str::from_utf8(&output[0..bytes_written]).unwrap();
         }
     }
-
-    fn assert_encoded_length(input_len: usize, encoded_len: usize, config: Config) {
-        assert_eq!(encoded_len, encoded_size(input_len, config).unwrap());
-
-        let mut bytes: Vec<u8> = Vec::new();
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..input_len {
-            bytes.push(rng.gen());
-        }
-
-        let encoded = encode_config(&bytes, config);
-        assert_encode_sanity(&encoded, config, input_len);
-
-        assert_eq!(encoded_len, encoded.len());
-    }
-
 }

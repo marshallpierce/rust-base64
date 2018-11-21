@@ -20,6 +20,7 @@ byteorder = "1.2.6"
 [dev-dependencies]
 criterion = "0.2"
 rand = "0.5.5"
+quickcheck = "0.7"
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`
