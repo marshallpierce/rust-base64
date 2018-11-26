@@ -49,17 +49,25 @@
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
+#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
 #![deny(
-    missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-    unused_results, variant_size_differences, warnings, unsafe_code
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_results,
+    variant_size_differences,
+    warnings,
+    unsafe_code
 )]
 
 extern crate byteorder;
 
 mod chunked_encoder;
 pub mod display;
-pub mod write;
 mod tables;
+pub mod write;
 
 mod encode;
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
@@ -88,16 +96,16 @@ pub enum CharacterSet {
 }
 
 impl CharacterSet {
-    fn encode_table(&self) -> &'static [u8; 64] {
-        match *self {
+    fn encode_table(self) -> &'static [u8; 64] {
+        match self {
             CharacterSet::Standard => tables::STANDARD_ENCODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
             CharacterSet::Crypt => tables::CRYPT_ENCODE,
         }
     }
 
-    fn decode_table(&self) -> &'static [u8; 256] {
-        match *self {
+    fn decode_table(self) -> &'static [u8; 256] {
+        match self {
             CharacterSet::Standard => tables::STANDARD_DECODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
             CharacterSet::Crypt => tables::CRYPT_DECODE,
@@ -116,14 +124,8 @@ pub struct Config {
 
 impl Config {
     /// Create a new `Config`.
-    pub fn new(
-        char_set: CharacterSet,
-        pad: bool,
-    ) -> Config {
-        Config {
-            char_set,
-            pad,
-        }
+    pub fn new(char_set: CharacterSet, pad: bool) -> Config {
+        Config { char_set, pad }
     }
 }
 

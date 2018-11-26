@@ -22,7 +22,7 @@ impl ChunkedEncoder {
     pub fn new(config: Config) -> ChunkedEncoder {
         ChunkedEncoder {
             config,
-            max_input_chunk_len: max_input_length(BUF_SIZE, &config),
+            max_input_chunk_len: max_input_length(BUF_SIZE, config),
         }
     }
 
@@ -63,7 +63,7 @@ impl ChunkedEncoder {
 ///
 /// The input length will always be a multiple of 3 so that no encoding state has to be carried over
 /// between chunks.
-fn max_input_length(encoded_buf_len: usize, config: &Config) -> usize {
+fn max_input_length(encoded_buf_len: usize, config: Config) -> usize {
     let effective_buf_len = if config.pad {
         // make room for padding
         encoded_buf_len
@@ -77,7 +77,6 @@ fn max_input_length(encoded_buf_len: usize, config: &Config) -> usize {
     (effective_buf_len / 4) * 3
 }
 
-
 // A really simple sink that just appends to a string
 pub(crate) struct StringSink<'a> {
     string: &'a mut String,
@@ -85,9 +84,7 @@ pub(crate) struct StringSink<'a> {
 
 impl<'a> StringSink<'a> {
     pub(crate) fn new(s: &mut String) -> StringSink {
-        StringSink {
-            string: s,
-        }
+        StringSink { string: s }
     }
 }
 
@@ -110,7 +107,7 @@ pub mod tests {
     use *;
 
     use self::rand::distributions::{Distribution, Range};
-    use self::rand::{Rng, FromEntropy};
+    use self::rand::{FromEntropy, Rng};
 
     #[test]
     fn chunked_encode_empty() {
@@ -150,34 +147,31 @@ pub mod tests {
     #[test]
     fn max_input_length_no_pad() {
         let config = config_with_pad(false);
-        assert_eq!(768, max_input_length(1024, &config));
+        assert_eq!(768, max_input_length(1024, config));
     }
 
     #[test]
     fn max_input_length_with_pad_decrements_one_triple() {
         let config = config_with_pad(true);
-        assert_eq!(765, max_input_length(1024, &config));
+        assert_eq!(765, max_input_length(1024, config));
     }
 
     #[test]
     fn max_input_length_with_pad_one_byte_short() {
         let config = config_with_pad(true);
-        assert_eq!(765, max_input_length(1025, &config));
+        assert_eq!(765, max_input_length(1025, config));
     }
 
     #[test]
     fn max_input_length_with_pad_fits_exactly() {
         let config = config_with_pad(true);
-        assert_eq!(768, max_input_length(1026, &config));
+        assert_eq!(768, max_input_length(1026, config));
     }
 
     #[test]
     fn max_input_length_cant_use_extra_single_encoded_byte() {
-        let config = Config::new(
-            CharacterSet::Standard,
-            false,
-        );
-        assert_eq!(300, max_input_length(401, &config));
+        let config = Config::new(CharacterSet::Standard, false);
+        assert_eq!(300, max_input_length(401, config));
     }
 
     pub fn chunked_encode_matches_normal_encode_random<S: SinkTestHelper>(sink_test_helper: &S) {
