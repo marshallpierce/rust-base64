@@ -1,3 +1,7 @@
+# Next
+
+- Minimum rust version 1.27.2
+
 # 0.10.0
 
 - Remove line wrapping. Line wrapping was never a great conceptual fit in this library, and other features (streaming encoding, etc) either couldn't support it or could support only special cases of it with a great increase in complexity. Line wrapping has been pulled out into a [line-wrap](https://crates.io/crates/line-wrap) crate, so it's still available if you need it.
