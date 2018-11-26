@@ -5,7 +5,7 @@ sudo: required
 
 matrix:
   include:
-    - rust: 1.23.0
+    - rust: 1.27.2
     - rust: stable
     - rust: beta
     - rust: nightly
