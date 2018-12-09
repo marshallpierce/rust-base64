@@ -119,7 +119,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
                 &mut self.output[..],
             );
             self.panicked = true;
-            let _ = self.w.write(&self.output[..encoded_len])?;
+            let _ = self.w.write_all(&self.output[..encoded_len])?;
             self.panicked = false;
             // write succeeded, do not write the encoding of extra again if finish() is retried
             self.extra_len = 0;
@@ -225,14 +225,14 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
             self.config.char_set.encode_table(),
         );
         self.panicked = true;
-        let r = self.w.write(&self.output[..encoded_size]);
+        let r = self.w.write_all(&self.output[..encoded_size]);
         self.panicked = false;
         match r {
             Ok(_) => Ok(extra_input_read_len + input_chunks_to_encode_len),
-            Err(_) => {
+            Err(err) => {
                 // in case we filled and encoded `extra`, reset extra_len
                 self.extra_len = orig_extra_len;
-                r
+                Err(err)
             }
         }
 
