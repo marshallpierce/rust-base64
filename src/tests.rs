@@ -51,6 +51,57 @@ fn roundtrip_long() {
         .quickcheck(property);
 }
 
+#[test]
+fn custom_config_matches_builtin() {
+    fn property((input, config): (Vec<u8>, Configs)) {
+        use self::Configs::*;
+        let custom_config = match config {
+            Standard(_) => ConfigBuilder::with_alphabet(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+            )
+            .build()
+            .unwrap(),
+            StandardNoPad(_) => ConfigBuilder::with_alphabet(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+            )
+            .no_padding()
+            .build()
+            .unwrap(),
+            UrlSafe(_) => ConfigBuilder::with_alphabet(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+            )
+            .build()
+            .unwrap(),
+            UrlSafeNoPad(_) => ConfigBuilder::with_alphabet(
+                b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+            )
+            .no_padding()
+            .build()
+            .unwrap(),
+            Crypt(_) => ConfigBuilder::with_alphabet(
+                b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+            )
+            .build()
+            .unwrap(),
+            CryptNoPad(_) => ConfigBuilder::with_alphabet(
+                b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+            )
+            .no_padding()
+            .build()
+            .unwrap(),
+        };
+        let custom_encoded = custom_config.encode(&input);
+        let builtin_encoded = config.encode(&input);
+        assert_eq!(custom_encoded, builtin_encoded);
+        let custom_decoded = custom_config.decode(&builtin_encoded).unwrap();
+        assert_eq!(input, custom_decoded);
+    }
+    let property: fn((Vec<u8>, Configs)) = property;
+    QuickCheck::with_gen(StdThreadGen::new(1024))
+        .tests(1000)
+        .quickcheck(property);
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Configs {
     Standard(Standard),

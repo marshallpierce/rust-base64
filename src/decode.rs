@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use {CryptAlphabet, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
+use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
 
 use std::{error, fmt, str};
 
@@ -601,6 +601,13 @@ impl Decoding for CryptAlphabet {
     #[inline]
     fn decode_u8(self, input: u8) -> u8 {
         decode_by_table(input, ::tables::CRYPT_DECODE)
+    }
+}
+
+impl Decoding for &CustomConfig {
+    #[inline]
+    fn decode_u8(self, input: u8) -> u8 {
+        decode_by_table(input, &self.decode_table)
     }
 }
 

@@ -63,6 +63,7 @@
 )]
 
 extern crate byteorder;
+use std::fmt;
 
 mod chunked_encoder;
 pub mod display;
@@ -79,24 +80,6 @@ pub use decode::{
 
 #[cfg(test)]
 mod tests;
-
-/// The type of the standard config with padding.
-pub type Standard = Config<StdAlphabet, StdPadding>;
-
-/// The type of the standard config *without* padding.
-pub type StandardNoPad = Config<StdAlphabet, NoPadding>;
-
-/// The type of the urlsafe config with padding.
-pub type UrlSafe = Config<UrlSafeAlphabet, StdPadding>;
-
-/// The type of the urlsafe config *without* padding.
-pub type UrlSafeNoPad = Config<UrlSafeAlphabet, NoPadding>;
-
-/// The type of the crypt config with padding.
-pub type Crypt = Config<CryptAlphabet, StdPadding>;
-
-/// The type of the crypt config *without* padding.
-pub type CryptNoPad = Config<CryptAlphabet, NoPadding>;
 
 /// Encode + Decode using the standard character set with padding.
 ///
@@ -122,6 +105,24 @@ pub const CRYPT: Crypt = Config(CryptAlphabet, StdPadding);
 
 /// Encode + Decode using the `crypt(3)` character set *without* padding.
 pub const CRYPT_NO_PAD: CryptNoPad = Config(CryptAlphabet, NoPadding);
+
+/// The type of the standard config with padding.
+pub type Standard = Config<StdAlphabet, StdPadding>;
+
+/// The type of the standard config *without* padding.
+pub type StandardNoPad = Config<StdAlphabet, NoPadding>;
+
+/// The type of the urlsafe config with padding.
+pub type UrlSafe = Config<UrlSafeAlphabet, StdPadding>;
+
+/// The type of the urlsafe config *without* padding.
+pub type UrlSafeNoPad = Config<UrlSafeAlphabet, NoPadding>;
+
+/// The type of the crypt config with padding.
+pub type Crypt = Config<CryptAlphabet, StdPadding>;
+
+/// The type of the crypt config *without* padding.
+pub type CryptNoPad = Config<CryptAlphabet, NoPadding>;
 
 // Module for trait sealing. The configuration traits are part of the public API
 // because public functions (e.g. encode_config, decode_config, etc.) are
@@ -237,3 +238,116 @@ pub struct CryptAlphabet;
 impl ::private::Sealed for StdAlphabet {}
 impl ::private::Sealed for UrlSafeAlphabet {}
 impl ::private::Sealed for CryptAlphabet {}
+
+/// Use ConfigBuilder to build a custom configuration.
+#[derive(Clone)]
+pub struct ConfigBuilder<'a> {
+    alphabet: &'a [u8; 64],
+    padding_byte: Option<u8>,
+}
+
+impl<'a> fmt::Debug for ConfigBuilder<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "ConfigBuilder{{alphabet: {:?}, padding_byte: {:?}}}",
+            &self.alphabet[..],
+            self.padding_byte
+        )
+    }
+}
+
+impl<'a> ConfigBuilder<'a> {
+    /// Provide the set of characters to use when encoding and decoding. The
+    /// provided characters will be encoded following the provided alphabet in
+    /// the order specified. All characters in the alphabet are required to be
+    /// ascii so that encoded values are valid UTF-8.
+    pub fn with_alphabet(alphabet: &'a [u8; 64]) -> ConfigBuilder<'a> {
+        ConfigBuilder {
+            alphabet,
+            padding_byte: Some(b'='),
+        }
+    }
+
+    /// Use the specified padding_byte when encoding and decoding. The default padding is b'='.
+    /// The padding is required to be ascii so that encoded values are valid UTF-8.
+    pub fn with_padding(mut self, padding_byte: u8) -> ConfigBuilder<'a> {
+        self.padding_byte = Some(padding_byte);
+        self
+    }
+
+    /// Don't use padding when encoding and decoding.
+    pub fn no_padding(mut self) -> ConfigBuilder<'a> {
+        self.padding_byte = None;
+        self
+    }
+
+    /// Create a CustomConfig that can be used to encode and decode.
+    pub fn build(self) -> Result<CustomConfig, CustomConfigError> {
+        if let Some(&b) = self.alphabet.iter().find(|b| !b.is_ascii()) {
+            return Err(CustomConfigError::NonAscii(b));
+        }
+        if let Some(b) = self.padding_byte {
+            if !b.is_ascii() {
+                return Err(CustomConfigError::NonAscii(b));
+            }
+        }
+        let mut decode_scratch: Vec<u8> = vec![::tables::INVALID_VALUE; 256];
+        for (i, b) in self.alphabet.iter().cloned().enumerate() {
+            if decode_scratch[b as usize] != ::tables::INVALID_VALUE {
+                return Err(CustomConfigError::DuplicateValue(b));
+            }
+            decode_scratch[b as usize] = i as u8;
+        }
+        let mut encode_table = [0; 64];
+        encode_table.copy_from_slice(self.alphabet);
+        let mut decode_table = [0; 256];
+        decode_table.copy_from_slice(&decode_scratch);
+        Ok(CustomConfig {
+            encode_table,
+            decode_table,
+            padding_byte: self.padding_byte,
+        })
+    }
+}
+
+/// Errors that can be returned when building a CustomConfig.
+#[derive(Debug, Clone)]
+pub enum CustomConfigError {
+    /// There was a non-ascii character in the provided alphabet.
+    NonAscii(u8),
+    /// There was a duplicate value in the provided alphabet.
+    DuplicateValue(u8),
+}
+
+/// CustomConfig can be used to encode and decode with a custom alphabet and/or
+/// padding character. A configuration is a somewhat large struct (~2.5KB). For
+/// this CustomConfig does not implement the Encoding/Decoding traits and instead
+/// those traits are implemented for &CustomConfig.
+#[derive(Clone)]
+pub struct CustomConfig {
+    encode_table: [u8; 64],
+    decode_table: [u8; 256],
+    padding_byte: Option<u8>,
+}
+
+impl fmt::Debug for CustomConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "CustomConfig{{encode_table: {:?}, decode_table: {:?}, padding_byte: {:?}}}",
+            &self.encode_table[..],
+            &self.decode_table[..],
+            self.padding_byte
+        )
+    }
+}
+
+impl Padding for &CustomConfig {
+    #[inline]
+    fn padding_byte(self) -> Option<u8> {
+        self.padding_byte
+    }
+}
+
+impl private::Sealed for &CustomConfig {}

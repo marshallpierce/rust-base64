@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use {CryptAlphabet, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
+use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -382,6 +382,13 @@ impl Encoding for CryptAlphabet {
     #[inline]
     fn encode_u6(self, input: u8) -> u8 {
         encode_u6_by_table(input, ::tables::CRYPT_ENCODE)
+    }
+}
+
+impl Encoding for &CustomConfig {
+    #[inline]
+    fn encode_u6(self, input: u8) -> u8 {
+        encode_u6_by_table(input, &self.encode_table)
     }
 }
 
