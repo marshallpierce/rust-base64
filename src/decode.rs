@@ -98,7 +98,7 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
     input: &T,
     config: Config,
 ) -> Result<Vec<u8>, DecodeError> {
-    let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
+    let mut buffer = Vec::<u8>::new();
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
 }
