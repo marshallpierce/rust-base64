@@ -363,7 +363,8 @@ fn retrying_writes_that_error_with_interrupted_works() {
                 retry_interrupted_write_all(
                     &mut stream_encoder,
                     &orig_data[bytes_consumed..bytes_consumed + input_len],
-                ).unwrap();
+                )
+                .unwrap();
 
                 bytes_consumed += input_len;
             }

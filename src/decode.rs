@@ -339,16 +339,17 @@ fn decode_helper(
 
             if i % 4 < 2 {
                 // Check for case #2.
-                let bad_padding_index = start_of_leftovers + if padding_bytes > 0 {
-                    // If we've already seen padding, report the first padding index.
-                    // This is to be consistent with the faster logic above: it will report an
-                    // error on the first padding character (since it doesn't expect to see
-                    // anything but actual encoded data).
-                    first_padding_index
-                } else {
-                    // haven't seen padding before, just use where we are now
-                    i
-                };
+                let bad_padding_index = start_of_leftovers
+                    + if padding_bytes > 0 {
+                        // If we've already seen padding, report the first padding index.
+                        // This is to be consistent with the faster logic above: it will report an
+                        // error on the first padding character (since it doesn't expect to see
+                        // anything but actual encoded data).
+                        first_padding_index
+                    } else {
+                        // haven't seen padding before, just use where we are now
+                        i
+                    };
                 return Err(DecodeError::InvalidByte(bad_padding_index, *b));
             }
 
