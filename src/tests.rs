@@ -1,3 +1,4 @@
+extern crate quickcheck;
 extern crate rand;
 
 use encode::encoded_size;
@@ -5,75 +6,60 @@ use *;
 
 use std::str;
 
-use self::rand::distributions::{Distribution, Range};
-use self::rand::{FromEntropy, Rng};
+use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdThreadGen};
+use self::rand::Rng;
 
-#[test]
-fn roundtrip_random_config_short() {
-    // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
-    roundtrip_random_config(Range::new(0, 50), 10_000);
-}
+impl Arbitrary for Config {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        const CHARSETS: &[CharacterSet] = &[
+            CharacterSet::UrlSafe,
+            CharacterSet::Standard,
+            CharacterSet::Crypt,
+        ];
+        let charset = *g.choose(CHARSETS).unwrap();
 
-#[test]
-fn roundtrip_random_config_long() {
-    roundtrip_random_config(Range::new(0, 1000), 10_000);
-}
-
-pub fn assert_encode_sanity(encoded: &str, config: Config, input_len: usize) {
-    let input_rem = input_len % 3;
-    let expected_padding_len = if input_rem > 0 {
-        if config.pad {
-            3 - input_rem
-        } else {
-            0
-        }
-    } else {
-        0
-    };
-
-    let expected_encoded_len = encoded_size(input_len, config).unwrap();
-
-    assert_eq!(expected_encoded_len, encoded.len());
-
-    let padding_len = encoded.chars().filter(|&c| c == '=').count();
-
-    assert_eq!(expected_padding_len, padding_len);
-
-    let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
-}
-
-fn roundtrip_random_config(input_len_range: Range<usize>, iterations: u32) {
-    let mut input_buf: Vec<u8> = Vec::new();
-    let mut encoded_buf = String::new();
-    let mut rng = rand::rngs::SmallRng::from_entropy();
-
-    for _ in 0..iterations {
-        input_buf.clear();
-        encoded_buf.clear();
-
-        let input_len = input_len_range.sample(&mut rng);
-
-        let config = random_config(&mut rng);
-
-        for _ in 0..input_len {
-            input_buf.push(rng.gen());
-        }
-
-        encode_config_buf(&input_buf, config, &mut encoded_buf);
-
-        assert_encode_sanity(&encoded_buf, config, input_len);
-
-        assert_eq!(input_buf, decode_config(&encoded_buf, config).unwrap());
+        Config::new(charset, g.gen())
     }
 }
 
-pub fn random_config<R: Rng>(rng: &mut R) -> Config {
-    const CHARSETS: &[CharacterSet] = &[
-        CharacterSet::UrlSafe,
-        CharacterSet::Standard,
-        CharacterSet::Crypt,
-    ];
-    let charset = *rng.choose(CHARSETS).unwrap();
+fn roundtrip_property((input, config): (Vec<u8>, Config)) {
+    let mut encoded = String::new();
+    encode_config_buf(&input, config, &mut encoded);
+    let decoded = decode_config(&encoded, config).expect("decoding failed");
+    assert_eq!(input, decoded);
+    assert_eq!(
+        encoded.len(),
+        encoded_size(input.len(), config).expect("failed to get encoded_size")
+    );
 
-    Config::new(charset, rng.gen())
+    let input_rem = input.len() % 3;
+    let (not_padding, padding) = if config.pad && input_rem > 0 {
+        let padding_start = encoded.len() - (3 - input_rem);
+        (&encoded[..padding_start], &encoded[padding_start..])
+    } else {
+        (encoded.as_str(), "")
+    };
+    assert!(padding.bytes().all(|c| c == b'='));
+    let decode_table = config.char_set.decode_table();
+    assert!(not_padding
+        .bytes()
+        .all(|c| decode_table[c as usize] != tables::INVALID_VALUE));
+    let _ = str::from_utf8(encoded.as_bytes()).expect("Base64 should be valid utf8");
+}
+
+#[test]
+fn roundtrip_short() {
+    // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
+    let property: fn((Vec<u8>, Config)) = roundtrip_property;
+    QuickCheck::with_gen(StdThreadGen::new(50))
+        .tests(1000)
+        .quickcheck(property);
+}
+
+#[test]
+fn roundtrip_long() {
+    let property: fn((Vec<u8>, Config)) = roundtrip_property;
+    QuickCheck::with_gen(StdThreadGen::new(1024))
+        .tests(1000)
+        .quickcheck(property);
 }

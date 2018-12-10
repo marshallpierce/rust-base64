@@ -54,9 +54,6 @@ impl<'a, 'b: 'a> super::chunked_encoder::Sink for FormatterSink<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::chunked_encoder::tests::{
-        chunked_encode_matches_normal_encode_random, SinkTestHelper,
-    };
     use super::super::*;
     use super::*;
 
@@ -70,19 +67,5 @@ mod tests {
             "~$Zm9vYmFyZg==#*",
             format!("~${}#*", Base64Display::with_config(b"foobarf", STANDARD))
         );
-    }
-
-    #[test]
-    fn display_encode_matches_normal_encode() {
-        let helper = DisplaySinkTestHelper;
-        chunked_encode_matches_normal_encode_random(&helper);
-    }
-
-    struct DisplaySinkTestHelper;
-
-    impl SinkTestHelper for DisplaySinkTestHelper {
-        fn encode_to_string(&self, config: Config, bytes: &[u8]) -> String {
-            format!("{}", Base64Display::with_config(bytes, config))
-        }
     }
 }
