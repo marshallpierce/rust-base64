@@ -1,6 +1,6 @@
-use encode::{add_padding, encode_to_slice};
+use encode::{add_padding, encode_to_slice, Encoding};
 use std::{cmp, str};
-use Config;
+use Padding;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -13,13 +13,16 @@ pub trait Sink {
 const BUF_SIZE: usize = 1024;
 
 /// A base64 encoder that emits encoded bytes in chunks without heap allocation.
-pub struct ChunkedEncoder {
-    config: Config,
+pub struct ChunkedEncoder<C> {
+    config: C,
     max_input_chunk_len: usize,
 }
 
-impl ChunkedEncoder {
-    pub fn new(config: Config) -> ChunkedEncoder {
+impl<C> ChunkedEncoder<C>
+where
+    C: Encoding + Padding,
+{
+    pub fn new(config: C) -> ChunkedEncoder<C> {
         ChunkedEncoder {
             config,
             max_input_chunk_len: max_input_length(BUF_SIZE, config),
@@ -28,7 +31,6 @@ impl ChunkedEncoder {
 
     pub fn encode<S: Sink>(&self, bytes: &[u8], sink: &mut S) -> Result<(), S::Error> {
         let mut encode_buf: [u8; BUF_SIZE] = [0; BUF_SIZE];
-        let encode_table = self.config.char_set.encode_table();
 
         let mut input_index = 0;
 
@@ -38,15 +40,21 @@ impl ChunkedEncoder {
 
             let chunk = &bytes[input_index..(input_index + input_chunk_len)];
 
-            let mut b64_bytes_written = encode_to_slice(chunk, &mut encode_buf, encode_table);
+            let mut b64_bytes_written = encode_to_slice(chunk, &mut encode_buf, self.config);
 
             input_index += input_chunk_len;
             let more_input_left = input_index < bytes.len();
 
-            if self.config.pad && !more_input_left {
-                // no more input, add padding if needed. Buffer will have room because
-                // max_input_length leaves room for it.
-                b64_bytes_written += add_padding(bytes.len(), &mut encode_buf[b64_bytes_written..]);
+            if let Some(padding_byte) = self.config.padding_byte() {
+                if !more_input_left {
+                    // no more input, add padding if needed. Buffer will have room because
+                    // max_input_length leaves room for it.
+                    b64_bytes_written += add_padding(
+                        bytes.len(),
+                        &mut encode_buf[b64_bytes_written..],
+                        padding_byte,
+                    );
+                }
             }
 
             sink.write_encoded_bytes(&encode_buf[0..b64_bytes_written])?;
@@ -63,8 +71,11 @@ impl ChunkedEncoder {
 ///
 /// The input length will always be a multiple of 3 so that no encoding state has to be carried over
 /// between chunks.
-fn max_input_length(encoded_buf_len: usize, config: Config) -> usize {
-    let effective_buf_len = if config.pad {
+fn max_input_length<C>(encoded_buf_len: usize, config: C) -> usize
+where
+    C: Encoding + Padding,
+{
+    let effective_buf_len = if config.has_padding() {
         // make room for padding
         encoded_buf_len
             .checked_sub(2)
@@ -103,6 +114,7 @@ pub mod tests {
     extern crate quickcheck;
 
     use super::*;
+    use tests::Configs;
     use *;
 
     use self::quickcheck::{QuickCheck, StdThreadGen};
@@ -138,50 +150,53 @@ pub mod tests {
 
     #[test]
     fn max_input_length_no_pad() {
-        let config = config_with_pad(false);
+        let config = config_with(NoPadding);
         assert_eq!(768, max_input_length(1024, config));
     }
 
     #[test]
     fn max_input_length_with_pad_decrements_one_triple() {
-        let config = config_with_pad(true);
+        let config = config_with(StdPadding);
         assert_eq!(765, max_input_length(1024, config));
     }
 
     #[test]
     fn max_input_length_with_pad_one_byte_short() {
-        let config = config_with_pad(true);
+        let config = config_with(StdPadding);
         assert_eq!(765, max_input_length(1025, config));
     }
 
     #[test]
     fn max_input_length_with_pad_fits_exactly() {
-        let config = config_with_pad(true);
+        let config = config_with(StdPadding);
         assert_eq!(768, max_input_length(1026, config));
     }
 
     #[test]
     fn max_input_length_cant_use_extra_single_encoded_byte() {
-        let config = Config::new(CharacterSet::Standard, false);
+        let config = STANDARD_NO_PAD;
         assert_eq!(300, max_input_length(401, config));
     }
 
     #[test]
     fn qc_chunked_encode_matches_normal_encode() {
-        fn property((input, config): (Vec<u8>, Config)) {
+        fn property((input, config): (Vec<u8>, Configs)) {
             let chunked_output = chunked_encode_str(&input, config);
             let mut normal_output = String::new();
             encode_config_buf(&input, config, &mut normal_output);
             assert_eq!(chunked_output, normal_output);
         }
         // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
-        let property: fn((Vec<u8>, Config)) = property;
+        let property: fn((Vec<u8>, Configs)) = property;
         QuickCheck::with_gen(StdThreadGen::new(50))
             .tests(1000)
             .quickcheck(property);
     }
 
-    fn chunked_encode_str(bytes: &[u8], config: Config) -> String {
+    fn chunked_encode_str<C>(bytes: &[u8], config: C) -> String
+    where
+        C: Encoding + Padding,
+    {
         let mut s = String::new();
         {
             let mut sink = StringSink::new(&mut s);
@@ -192,7 +207,14 @@ pub mod tests {
         return s;
     }
 
-    fn config_with_pad(pad: bool) -> Config {
-        Config::new(CharacterSet::Standard, pad)
+    fn config_with<P: Padding>(padding: P) -> Config<StdAlphabet, P> {
+        Config(StdAlphabet, padding)
+    }
+
+    // An abstraction around sinks so that we can have tests that easily to any sink implementation
+    pub trait SinkTestHelper {
+        fn encode_to_string<C>(&self, config: C, bytes: &[u8]) -> String
+        where
+            C: Encoding + Padding;
     }
 }

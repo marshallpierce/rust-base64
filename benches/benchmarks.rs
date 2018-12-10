@@ -4,24 +4,21 @@ extern crate criterion;
 extern crate rand;
 
 use base64::display;
-use base64::{
-    decode, decode_config_buf, decode_config_slice, encode, encode_config_buf, encode_config_slice,
-    write, Config,
-};
+use base64::{write, Decoding, Encoding};
 
 use criterion::{black_box, Bencher, Criterion, ParameterizedBenchmark, Throughput};
 use rand::{FromEntropy, Rng};
 use std::io::Write;
 
-const TEST_CONFIG: Config = base64::STANDARD;
+const TEST_CONFIG: base64::Standard = base64::STANDARD;
 
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = TEST_CONFIG.encode(&v);
 
     b.iter(|| {
-        let orig = decode(&encoded);
+        let orig = TEST_CONFIG.decode(&encoded);
         black_box(&orig);
     });
 }
@@ -29,11 +26,11 @@ fn do_decode_bench(b: &mut Bencher, &size: &usize) {
 fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = TEST_CONFIG.encode(&v);
 
     let mut buf = Vec::new();
     b.iter(|| {
-        decode_config_buf(&encoded, TEST_CONFIG, &mut buf).unwrap();
+        TEST_CONFIG.decode_buf(&encoded, &mut buf).unwrap();
         black_box(&buf);
         buf.clear();
     });
@@ -42,12 +39,12 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
 fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = TEST_CONFIG.encode(&v);
 
     let mut buf = Vec::new();
     buf.resize(size, 0);
     b.iter(|| {
-        decode_config_slice(&encoded, TEST_CONFIG, &mut buf).unwrap();
+        TEST_CONFIG.decode_slice(&encoded, &mut buf).unwrap();
         black_box(&buf);
     });
 }
@@ -56,7 +53,7 @@ fn do_encode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
     b.iter(|| {
-        let e = encode(&v);
+        let e = TEST_CONFIG.encode(&v);
         black_box(&e);
     });
 }
@@ -75,7 +72,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
     let mut buf = String::new();
     b.iter(|| {
-        encode_config_buf(&v, TEST_CONFIG, &mut buf);
+        TEST_CONFIG.encode_buf(&v, &mut buf);
         buf.clear();
     });
 }
@@ -87,7 +84,7 @@ fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
     // conservative estimate of encoded size
     buf.resize(v.len() * 2, 0);
     b.iter(|| {
-        encode_config_slice(&v, TEST_CONFIG, &mut buf);
+        TEST_CONFIG.encode_slice(&v, &mut buf);
     });
 }
 

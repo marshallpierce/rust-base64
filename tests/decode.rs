@@ -71,7 +71,7 @@ fn decode_rfc4648_6() {
 fn decode_reject_null() {
     assert_eq!(
         DecodeError::InvalidByte(3, 0x0),
-        decode_config("YWx\0pY2U==", config_std_pad()).unwrap_err()
+        decode_config("YWx\0pY2U==", STANDARD).unwrap_err()
     );
 }
 
@@ -303,8 +303,4 @@ fn decode_reject_invalid_bytes_with_correct_error() {
             }
         }
     }
-}
-
-fn config_std_pad() -> Config {
-    Config::new(CharacterSet::Standard, true)
 }

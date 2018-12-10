@@ -70,91 +70,170 @@ mod tables;
 pub mod write;
 
 mod encode;
-pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice, Encoding};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
+pub use decode::{
+    decode, decode_config, decode_config_buf, decode_config_slice, DecodeError, Decoding,
+};
 
 #[cfg(test)]
 mod tests;
 
-/// Available encoding character sets
-#[derive(Clone, Copy, Debug)]
-pub enum CharacterSet {
-    /// The standard character set (uses `+` and `/`).
-    ///
-    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
-    Standard,
-    /// The URL safe character set (uses `-` and `_`).
-    ///
-    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-4).
-    UrlSafe,
-    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`).
-    ///
-    /// Not standardized, but folk wisdom on the net asserts that this alphabet is what crypt uses.
-    Crypt,
+/// The type of the standard config with padding.
+pub type Standard = Config<StdAlphabet, StdPadding>;
+
+/// The type of the standard config *without* padding.
+pub type StandardNoPad = Config<StdAlphabet, NoPadding>;
+
+/// The type of the urlsafe config with padding.
+pub type UrlSafe = Config<UrlSafeAlphabet, StdPadding>;
+
+/// The type of the urlsafe config *without* padding.
+pub type UrlSafeNoPad = Config<UrlSafeAlphabet, NoPadding>;
+
+/// The type of the crypt config with padding.
+pub type Crypt = Config<CryptAlphabet, StdPadding>;
+
+/// The type of the crypt config *without* padding.
+pub type CryptNoPad = Config<CryptAlphabet, NoPadding>;
+
+/// Encode + Decode using the standard character set with padding.
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+pub const STANDARD: Standard = Config(StdAlphabet, StdPadding);
+
+/// Encode + Decode using the standard character set *without* padding.
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+pub const STANDARD_NO_PAD: StandardNoPad = Config(StdAlphabet, NoPadding);
+
+/// Encode + Decode using the URL safe character set with padding.
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+pub const URL_SAFE: UrlSafe = Config(UrlSafeAlphabet, StdPadding);
+/// Encode + Decode using the URL safe character set *without* padding.
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+pub const URL_SAFE_NO_PAD: UrlSafeNoPad = Config(UrlSafeAlphabet, NoPadding);
+
+/// Encode + Decode using the `crypt(3)` character set with padding.
+pub const CRYPT: Crypt = Config(CryptAlphabet, StdPadding);
+
+/// Encode + Decode using the `crypt(3)` character set *without* padding.
+pub const CRYPT_NO_PAD: CryptNoPad = Config(CryptAlphabet, NoPadding);
+
+// Module for trait sealing. The configuration traits are part of the public API
+// because public functions (e.g. encode_config, decode_config, etc.) are
+// bounded by them, but (atleast for now) we don't intend for outside
+// crates to implement them. This provides more flexibility if we decide to
+// change some of the traits behaviors. By having all the traits require
+// private::Sealed to be implemented, we can effectively enforce that nobody
+// outside this crate can implement the trait because the `private` module is
+// not publicly accessible.
+mod private {
+    pub trait Sealed {}
 }
 
-impl CharacterSet {
-    fn encode_table(self) -> &'static [u8; 64] {
-        match self {
-            CharacterSet::Standard => tables::STANDARD_ENCODE,
-            CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
-            CharacterSet::Crypt => tables::CRYPT_ENCODE,
-        }
+/// Padding defines whether padding is used when encoding/decoding and if so
+/// which character is to be used.
+pub trait Padding: private::Sealed + Copy {
+    /// The character to use for padding. None indicates no padding.
+    fn padding_byte(self) -> Option<u8>;
+
+    /// A boolean indicating whether padding is to be used or not.
+    #[inline]
+    fn has_padding(self) -> bool {
+        self.padding_byte().is_some()
     }
+}
 
-    fn decode_table(self) -> &'static [u8; 256] {
-        match self {
-            CharacterSet::Standard => tables::STANDARD_DECODE,
-            CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
-            CharacterSet::Crypt => tables::CRYPT_DECODE,
-        }
+/// StdPadding specifies to use the standard padding character b'='.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StdPadding;
+impl Padding for StdPadding {
+    #[inline]
+    fn padding_byte(self) -> Option<u8> {
+        Some(b'=')
+    }
+}
+impl private::Sealed for StdPadding {}
+
+/// NoPadding specifies that no padding is used when encoding/decoding.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoPadding;
+impl Padding for NoPadding {
+    #[inline]
+    fn padding_byte(self) -> Option<u8> {
+        None
+    }
+}
+impl private::Sealed for NoPadding {}
+
+/// Config wraps an `alphabet` (a type that implements Encoding+Decoding) and a
+/// Padding. These are the basic requirements to use all the publicly accessible
+/// functions.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Config<A: Copy, P: Copy>(A, P);
+
+impl<A, P> Padding for Config<A, P>
+where
+    A: Copy,
+    P: Padding,
+{
+    #[inline]
+    fn padding_byte(self) -> Option<u8> {
+        self.1.padding_byte()
     }
 }
 
-/// Contains configuration parameters for base64 encoding
-#[derive(Clone, Copy, Debug)]
-pub struct Config {
-    /// Character set to use
-    char_set: CharacterSet,
-    /// True to pad output with `=` characters
-    pad: bool,
-}
-
-impl Config {
-    /// Create a new `Config`.
-    pub fn new(char_set: CharacterSet, pad: bool) -> Config {
-        Config { char_set, pad }
+impl<A, P> Encoding for Config<A, P>
+where
+    A: Encoding,
+    P: Copy,
+{
+    #[inline]
+    fn encode_u6(self, input: u8) -> u8 {
+        self.0.encode_u6(input)
     }
 }
 
-/// Standard character set with padding.
-pub const STANDARD: Config = Config {
-    char_set: CharacterSet::Standard,
-    pad: true,
-};
+impl<A, P> Decoding for Config<A, P>
+where
+    A: Decoding,
+    P: Copy,
+{
+    #[inline]
+    fn decode_u8(self, input: u8) -> u8 {
+        self.0.decode_u8(input)
+    }
+}
 
-/// Standard character set without padding.
-pub const STANDARD_NO_PAD: Config = Config {
-    char_set: CharacterSet::Standard,
-    pad: false,
-};
+impl<A, P> private::Sealed for Config<A, P>
+where
+    A: Copy,
+    P: Copy,
+{
+}
 
-/// URL-safe character set with padding
-pub const URL_SAFE: Config = Config {
-    char_set: CharacterSet::UrlSafe,
-    pad: true,
-};
+/// StdAlphabet encodes+decodes using the standard character set (uses `+` and `/``).
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StdAlphabet;
 
-/// URL-safe character set without padding
-pub const URL_SAFE_NO_PAD: Config = Config {
-    char_set: CharacterSet::UrlSafe,
-    pad: false,
-};
+/// UrlSafeAlphabet implements Encoding + Decoding using the url safe character set (uses `-` and `_`).
+///
+/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-4).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct UrlSafeAlphabet;
 
-/// As per `crypt(3)` requirements
-pub const CRYPT: Config = Config {
-    char_set: CharacterSet::Crypt,
-    pad: false,
-};
+/// CryptAlphabet implements Encoding + Decoding using the `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`).
+///
+/// Not standardized, but folk wisdom on the net asserts this alphabet is what crypt uses.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CryptAlphabet;
+
+impl ::private::Sealed for StdAlphabet {}
+impl ::private::Sealed for UrlSafeAlphabet {}
+impl ::private::Sealed for CryptAlphabet {}

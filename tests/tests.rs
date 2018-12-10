@@ -11,24 +11,98 @@ use helpers::*;
 use quickcheck::{Arbitrary, Gen, QuickCheck, StdThreadGen};
 
 #[derive(Debug, Clone, Copy)]
-struct ArbitraryConfig(Config);
-
-impl From<ArbitraryConfig> for Config {
-    fn from(ac: ArbitraryConfig) -> Config {
-        ac.0
-    }
+pub enum ArbitraryConfig {
+    Standard(Standard),
+    StandardNoPad(StandardNoPad),
+    UrlSafe(UrlSafe),
+    UrlSafeNoPad(UrlSafeNoPad),
+    Crypt(Crypt),
+    CryptNoPad(CryptNoPad),
 }
 
 impl Arbitrary for ArbitraryConfig {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        const CHARSETS: &[CharacterSet] = &[
-            CharacterSet::UrlSafe,
-            CharacterSet::Standard,
-            CharacterSet::Crypt,
-        ];
-        let charset = *g.choose(CHARSETS).unwrap();
+        use std::default::Default;
+        use ArbitraryConfig::*;
+        match g.gen_range(0, 6) {
+            0 => Standard(Default::default()),
+            1 => StandardNoPad(Default::default()),
+            2 => UrlSafe(Default::default()),
+            3 => UrlSafeNoPad(Default::default()),
+            4 => Crypt(Default::default()),
+            5 => CryptNoPad(Default::default()),
+            _ => unreachable!(),
+        }
+    }
+}
 
-        ArbitraryConfig(Config::new(charset, g.gen()))
+impl ArbitraryConfig {
+    fn encode_buf<T: ?Sized + AsRef<[u8]>>(self, input: &T, buf: &mut String) {
+        use ArbitraryConfig::*;
+        match self {
+            Standard(config) => config.encode_buf(input, buf),
+            StandardNoPad(config) => config.encode_buf(input, buf),
+            UrlSafe(config) => config.encode_buf(input, buf),
+            UrlSafeNoPad(config) => config.encode_buf(input, buf),
+            Crypt(config) => config.encode_buf(input, buf),
+            CryptNoPad(config) => config.encode_buf(input, buf),
+        }
+    }
+
+    fn encode_slice<T: ?Sized + AsRef<[u8]>>(self, input: &T, output: &mut [u8]) -> usize {
+        use ArbitraryConfig::*;
+        match self {
+            Standard(config) => config.encode_slice(input, output),
+            StandardNoPad(config) => config.encode_slice(input, output),
+            UrlSafe(config) => config.encode_slice(input, output),
+            UrlSafeNoPad(config) => config.encode_slice(input, output),
+            Crypt(config) => config.encode_slice(input, output),
+            CryptNoPad(config) => config.encode_slice(input, output),
+        }
+    }
+
+    fn decode<T: ?Sized + AsRef<[u8]>>(self, input: &T) -> Result<Vec<u8>, DecodeError> {
+        use ArbitraryConfig::*;
+        match self {
+            Standard(config) => config.decode(input),
+            StandardNoPad(config) => config.decode(input),
+            UrlSafe(config) => config.decode(input),
+            UrlSafeNoPad(config) => config.decode(input),
+            Crypt(config) => config.decode(input),
+            CryptNoPad(config) => config.decode(input),
+        }
+    }
+
+    fn decode_buf<T: ?Sized + AsRef<[u8]>>(
+        self,
+        input: &T,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), DecodeError> {
+        use ArbitraryConfig::*;
+        match self {
+            Standard(config) => config.decode_buf(input, buf),
+            StandardNoPad(config) => config.decode_buf(input, buf),
+            UrlSafe(config) => config.decode_buf(input, buf),
+            UrlSafeNoPad(config) => config.decode_buf(input, buf),
+            Crypt(config) => config.decode_buf(input, buf),
+            CryptNoPad(config) => config.decode_buf(input, buf),
+        }
+    }
+
+    fn decode_slice<T: ?Sized + AsRef<[u8]>>(
+        self,
+        input: &T,
+        output: &mut [u8],
+    ) -> Result<usize, DecodeError> {
+        use ArbitraryConfig::*;
+        match self {
+            Standard(config) => config.decode_slice(input, output),
+            StandardNoPad(config) => config.decode_slice(input, output),
+            UrlSafe(config) => config.decode_slice(input, output),
+            UrlSafeNoPad(config) => config.decode_slice(input, output),
+            Crypt(config) => config.decode_slice(input, output),
+            CryptNoPad(config) => config.decode_slice(input, output),
+        }
     }
 }
 
@@ -62,30 +136,34 @@ macro_rules! qc_test {
 
 qc_test! {
     fn qc_roundtrip((input, config): (Vec<u8>, ArbitraryConfig)) {
-        let config = config.into();
         let mut encoded = String::new();
         let mut decoded = Vec::new();
-        encode_config_buf(&input, config, &mut encoded);
-        decode_config_buf(&encoded, config, &mut decoded).unwrap();
+        config.encode_buf(&input, &mut encoded);
+        config.decode_buf(&encoded, &mut decoded).unwrap();
         assert_eq!(input, decoded);
     }
 
     fn qc_display_matches_encoded((input, config): (Vec<u8>, ArbitraryConfig)) {
-        let config = config.into();
+        use ArbitraryConfig::*;
+        use base64::display::Base64Display;
         let mut encoded = String::new();
-        encode_config_buf(&input, config, &mut encoded);
-        let display = format!(
-            "{}",
-            base64::display::Base64Display::with_config(&input, config)
-        );
+        config.encode_buf(&input, &mut encoded);
+        let display = match config {
+            Standard(config) => format!("{}", Base64Display::with_config(&input, config)),
+            StandardNoPad(config) => format!("{}", Base64Display::with_config(&input, config)),
+            UrlSafe(config) => format!("{}", Base64Display::with_config(&input, config)),
+            UrlSafeNoPad(config) => format!("{}", Base64Display::with_config(&input, config)),
+            Crypt(config) => format!("{}", Base64Display::with_config(&input, config)),
+            CryptNoPad(config) => format!("{}", Base64Display::with_config(&input, config)),
+        };
         assert_eq!(display, encoded);
     }
 
+
     fn qc_encode_slice((input, config): (Vec<u8>, ArbitraryConfig)) {
-        let config = config.into();
         let mut encoded = vec![0xff; input.len()*2+2];  // conservative size for output buffer.
-        let bytes_written = encode_config_slice(&input, config, &mut encoded);
-        let decoded = decode_config(&encoded[..bytes_written], config).unwrap();
+        let bytes_written = config.encode_slice(&input, &mut encoded);
+        let decoded = config.decode(&encoded[..bytes_written]).unwrap();
 
         // Verify that decoded up to bytes_written match input.
         assert_eq!(input, decoded);
@@ -94,12 +172,11 @@ qc_test! {
     }
 
     fn qc_encode_buf((input, config, prefix): (Vec<u8>, ArbitraryConfig, String)) {
-        let config = config.into();
         let mut prefixed_encoded = prefix.clone();
         let mut encoded = String::new();
-        encode_config_buf(&input, config, &mut prefixed_encoded);
-        encode_config_buf(&input, config, &mut encoded);
-        let decoded = decode_config(&encoded, config).unwrap();
+        config.encode_buf(&input, &mut prefixed_encoded);
+        config.encode_buf(&input, &mut encoded);
+        let decoded = config.decode(&encoded).unwrap();
         assert_eq!(input, decoded);
 
         // Ensure that the prefix was not modified.
@@ -110,23 +187,47 @@ qc_test! {
 
     fn qc_encode_writer_matches_normal_encode((input, config): (Vec<u8>, ArbitraryConfig)) {
         use std::io::Write;
-        let config = config.into();
         let mut normal_output = String::new();
         let mut written_output = Vec::new();
-        encode_config_buf(&input, config, &mut normal_output);
+        config.encode_buf(&input, &mut normal_output);
         {
-            let mut writer = write::EncoderWriter::new(&mut written_output, config);
-            writer.write_all(&input).expect("writing to vec shouldn't fail");
+            use ArbitraryConfig::*;
+            use write::EncoderWriter;
+            match config {
+                Standard(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+                StandardNoPad(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+                UrlSafe(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+                UrlSafeNoPad(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+                Crypt(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+                CryptNoPad(config) => {
+                    let mut writer = EncoderWriter::new(&mut written_output, config);
+                    writer.write_all(&input).expect("writing to vec shouldn't fail");
+                }
+            }
         }
         assert_eq!(normal_output.as_bytes(), written_output.as_slice());
     }
 
     fn qc_decode_buf((input, config, prefix): (Vec<u8>, ArbitraryConfig, Vec<u8>)) {
-        let config = config.into();
         let mut encoded = String::new();
-        encode_config_buf(&input, config, &mut encoded);
+        config.encode_buf(&input, &mut encoded);
         let mut decoded = prefix.clone();
-        decode_config_buf(&encoded, config, &mut decoded).unwrap();
+        config.decode_buf(&encoded, &mut decoded).unwrap();
 
         // Ensure that the prefix was not modified.
         assert_eq!(&decoded[..prefix.len()], prefix.as_slice());
@@ -135,11 +236,10 @@ qc_test! {
     }
 
     fn qc_decode_into_precisely_sized_slice((input, config): (Vec<u8>, ArbitraryConfig)) {
-        let config = config.into();
         let mut encoded = String::new();
-        encode_config_buf(&input, config, &mut encoded);
+        config.encode_buf(&input, &mut encoded);
         let mut decoded = vec![0; input.len()];
-        let bytes_written = decode_config_slice(&encoded, config, &mut decoded).unwrap();
+        let bytes_written = config.decode_slice(&encoded, &mut decoded).unwrap();
         assert_eq!(bytes_written, input.len());
         assert_eq!(input, decoded);
     }

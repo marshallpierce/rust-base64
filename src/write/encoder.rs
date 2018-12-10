@@ -1,7 +1,7 @@
 use encode::encode_to_slice;
 use std::io::{Result, Write};
 use std::{cmp, fmt};
-use {encode_config_slice, Config};
+use {encode_config_slice, Encoding, Padding};
 
 pub(crate) const BUF_SIZE: usize = 1024;
 /// The most bytes whose encoding will fit in `BUF_SIZE`
@@ -54,8 +54,12 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// It has some minor performance loss compared to encoding slices (a couple percent).
 /// It does not do any heap allocation.
-pub struct EncoderWriter<'a, W: 'a + Write> {
-    config: Config,
+pub struct EncoderWriter<'a, W, C>
+where
+    W: 'a + Write,
+    C: Encoding + Padding,
+{
+    config: C,
     /// Where encoded data is written to
     w: &'a mut W,
     /// Holds a partial chunk, if any, after the last `write()`, so that we may then fill the chunk
@@ -71,7 +75,11 @@ pub struct EncoderWriter<'a, W: 'a + Write> {
     panicked: bool,
 }
 
-impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
+impl<'a, W, C> fmt::Debug for EncoderWriter<'a, W, C>
+where
+    W: Write,
+    C: Encoding + Padding,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -83,9 +91,13 @@ impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
     }
 }
 
-impl<'a, W: Write> EncoderWriter<'a, W> {
+impl<'a, W, C> EncoderWriter<'a, W, C>
+where
+    W: Write,
+    C: Encoding + Padding,
+{
     /// Create a new encoder around an existing writer.
-    pub fn new(w: &'a mut W, config: Config) -> EncoderWriter<'a, W> {
+    pub fn new(w: &'a mut W, config: C) -> EncoderWriter<'a, W, C> {
         EncoderWriter {
             config,
             w,
@@ -130,7 +142,11 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
     }
 }
 
-impl<'a, W: Write> Write for EncoderWriter<'a, W> {
+impl<'a, W, C> Write for EncoderWriter<'a, W, C>
+where
+    W: Write,
+    C: Encoding + Padding,
+{
     fn write(&mut self, input: &[u8]) -> Result<usize> {
         if self.finished {
             panic!("Cannot write more after calling finish()");
@@ -175,7 +191,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
                 let len = encode_to_slice(
                     &self.extra[0..MIN_ENCODE_CHUNK_SIZE],
                     &mut self.output[..],
-                    self.config.char_set.encode_table(),
+                    self.config,
                 );
                 debug_assert_eq!(4, len);
 
@@ -222,7 +238,7 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
         encoded_size += encode_to_slice(
             &input[..(input_chunks_to_encode_len)],
             &mut self.output[encoded_size..],
-            self.config.char_set.encode_table(),
+            self.config,
         );
         self.panicked = true;
         let r = self.w.write(&self.output[..encoded_size]);
@@ -247,7 +263,11 @@ impl<'a, W: Write> Write for EncoderWriter<'a, W> {
     }
 }
 
-impl<'a, W: Write> Drop for EncoderWriter<'a, W> {
+impl<'a, W, C> Drop for EncoderWriter<'a, W, C>
+where
+    W: Write,
+    C: Encoding + Padding,
+{
     fn drop(&mut self) {
         if !self.panicked {
             // like `BufWriter`, ignore errors during drop

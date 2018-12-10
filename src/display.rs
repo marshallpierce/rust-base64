@@ -10,19 +10,22 @@
 //! ```
 
 use super::chunked_encoder::ChunkedEncoder;
-use super::Config;
 use std::fmt::{Display, Formatter};
 use std::{fmt, str};
+use {Encoding, Padding};
 
 /// A convenience wrapper for base64'ing bytes into a format string without heap allocation.
-pub struct Base64Display<'a> {
+pub struct Base64Display<'a, C> {
     bytes: &'a [u8],
-    chunked_encoder: ChunkedEncoder,
+    chunked_encoder: ChunkedEncoder<C>,
 }
 
-impl<'a> Base64Display<'a> {
+impl<'a, C> Base64Display<'a, C>
+where
+    C: Encoding + Padding,
+{
     /// Create a `Base64Display` with the provided config.
-    pub fn with_config(bytes: &[u8], config: Config) -> Base64Display {
+    pub fn with_config(bytes: &[u8], config: C) -> Base64Display<C> {
         Base64Display {
             bytes,
             chunked_encoder: ChunkedEncoder::new(config),
@@ -30,7 +33,10 @@ impl<'a> Base64Display<'a> {
     }
 }
 
-impl<'a> Display for Base64Display<'a> {
+impl<'a, C> Display for Base64Display<'a, C>
+where
+    C: Encoding + Padding,
+{
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), fmt::Error> {
         let mut sink = FormatterSink { f: formatter };
         self.chunked_encoder.encode(self.bytes, &mut sink)

@@ -2,13 +2,14 @@ extern crate quickcheck;
 extern crate rand;
 
 use super::EncoderWriter;
-use {encode_config, encode_config_buf, Config, STANDARD_NO_PAD, URL_SAFE};
+use {encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
 
 use std::io::{Cursor, Write};
 use std::{cmp, io};
 
 use self::quickcheck::{QuickCheck, StdThreadGen};
 use self::rand::Rng;
+use tests::Configs;
 
 #[test]
 fn encode_three_bytes() {
@@ -282,7 +283,7 @@ fn drop_calls_finish_for_you() {
 
 #[test]
 fn every_possible_split_of_input() {
-    fn property((input, config): (Vec<u8>, Config)) {
+    fn property((input, config): (Vec<u8>, Configs)) {
         let mut normal_output = String::new();
         encode_config_buf(&input, config, &mut normal_output);
         let mut stream_output = Vec::new();
@@ -297,7 +298,7 @@ fn every_possible_split_of_input() {
             assert_eq!(normal_output.as_bytes(), stream_output.as_slice());
         }
     }
-    let property: fn((Vec<u8>, Config)) = property;
+    let property: fn((Vec<u8>, Configs)) = property;
     QuickCheck::with_gen(StdThreadGen::new(5000))
         .tests(2)
         .quickcheck(property);
@@ -306,7 +307,7 @@ fn every_possible_split_of_input() {
 #[test]
 fn qc_encode_matches_normal_encode_reasonable_input_len() {
     // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
-    let property: fn((Vec<u8>, Config)) = encode_matches_normal_encode;
+    let property: fn((Vec<u8>, Configs)) = encode_matches_normal_encode;
     QuickCheck::with_gen(StdThreadGen::new(super::encoder::BUF_SIZE * 2))
         .tests(1000)
         .quickcheck(property);
@@ -315,13 +316,13 @@ fn qc_encode_matches_normal_encode_reasonable_input_len() {
 #[test]
 fn qc_encode_matches_normal_encode_tiny_input_len() {
     // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
-    let property: fn((Vec<u8>, Config)) = encode_matches_normal_encode;
+    let property: fn((Vec<u8>, Configs)) = encode_matches_normal_encode;
     QuickCheck::with_gen(StdThreadGen::new(10))
         .tests(1000)
         .quickcheck(property);
 }
 
-fn encode_matches_normal_encode((input, config): (Vec<u8>, Config)) {
+fn encode_matches_normal_encode((input, config): (Vec<u8>, Configs)) {
     let mut stream_output = Vec::new();
     let mut normal_output = String::new();
     encode_config_buf(&input, config, &mut normal_output);
@@ -347,7 +348,7 @@ fn encode_matches_normal_encode((input, config): (Vec<u8>, Config)) {
 
 #[test]
 fn retrying_writes_that_error_with_interrupted_works() {
-    fn property((input, config): (Vec<u8>, Config)) {
+    fn property((input, config): (Vec<u8>, Configs)) {
         let mut stream_output = Vec::new();
         let mut normal_output = String::new();
         encode_config_buf(&input, config, &mut normal_output);
@@ -387,7 +388,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
         }
         assert_eq!(normal_output.as_bytes(), stream_output.as_slice())
     }
-    let property: fn((Vec<u8>, Config)) = property;
+    let property: fn((Vec<u8>, Configs)) = property;
     QuickCheck::with_gen(StdThreadGen::new(10))
         .tests(1000)
         .quickcheck(property);

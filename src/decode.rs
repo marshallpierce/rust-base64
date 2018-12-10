@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use {tables, CharacterSet, Config, STANDARD};
+use {CryptAlphabet, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
 
 use std::{error, fmt, str};
 
@@ -94,10 +94,11 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
-    config: Config,
-) -> Result<Vec<u8>, DecodeError> {
+pub fn decode_config<T, C>(input: &T, config: C) -> Result<Vec<u8>, DecodeError>
+where
+    T: ?Sized + AsRef<[u8]>,
+    C: Decoding + Padding,
+{
     let mut buffer = Vec::<u8>::new();
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
@@ -124,11 +125,15 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///    println!("{:?}", buffer);
 ///}
 ///```
-pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
+pub fn decode_config_buf<T, C>(
     input: &T,
-    config: Config,
+    config: C,
     buffer: &mut Vec<u8>,
-) -> Result<(), DecodeError> {
+) -> Result<(), DecodeError>
+where
+    T: ?Sized + AsRef<[u8]>,
+    C: Decoding + Padding,
+{
     let input_bytes = input.as_ref();
 
     let starting_output_len = buffer.len();
@@ -143,7 +148,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     let bytes_written;
     {
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = decode_helper(input_bytes, num_chunks, config.char_set, buffer_slice)?;
+        bytes_written = decode_helper(input_bytes, num_chunks, config, buffer_slice)?;
     }
 
     buffer.truncate(starting_output_len + bytes_written);
@@ -160,19 +165,18 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 /// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
 ///
 /// If the slice is not large enough, this will panic.
-pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
+pub fn decode_config_slice<T, C>(
     input: &T,
-    config: Config,
+    config: C,
     output: &mut [u8],
-) -> Result<usize, DecodeError> {
+) -> Result<usize, DecodeError>
+where
+    T: ?Sized + AsRef<[u8]>,
+    C: Decoding + Padding,
+{
     let input_bytes = input.as_ref();
 
-    decode_helper(
-        input_bytes,
-        num_chunks(input_bytes),
-        config.char_set,
-        output,
-    )
+    decode_helper(input_bytes, num_chunks(input_bytes), config, output)
 }
 
 /// Return the number of input chunks (including a possibly partial final chunk) in the input
@@ -190,14 +194,15 @@ fn num_chunks(input: &[u8]) -> usize {
 // inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
 // but this is fragile and the best setting changes with only minor code modifications.
 #[inline]
-fn decode_helper(
+fn decode_helper<C>(
     input: &[u8],
     num_chunks: usize,
-    char_set: CharacterSet,
+    config: C,
     output: &mut [u8],
-) -> Result<usize, DecodeError> {
-    let decode_table = char_set.decode_table();
-
+) -> Result<usize, DecodeError>
+where
+    C: Decoding + Padding,
+{
     let remainder_len = input.len() % INPUT_CHUNK_LEN;
 
     // Because the fast decode loop writes in groups of 8 bytes (unrolled to
@@ -246,25 +251,25 @@ fn decode_helper(
                 decode_chunk(
                     &input_slice[0..],
                     input_index,
-                    decode_table,
+                    config,
                     &mut output_slice[0..],
                 )?;
                 decode_chunk(
                     &input_slice[8..],
                     input_index + 8,
-                    decode_table,
+                    config,
                     &mut output_slice[6..],
                 )?;
                 decode_chunk(
                     &input_slice[16..],
                     input_index + 16,
-                    decode_table,
+                    config,
                     &mut output_slice[12..],
                 )?;
                 decode_chunk(
                     &input_slice[24..],
                     input_index + 24,
-                    decode_table,
+                    config,
                     &mut output_slice[18..],
                 )?;
 
@@ -281,7 +286,7 @@ fn decode_helper(
                 decode_chunk(
                     &input[input_index..(input_index + INPUT_CHUNK_LEN)],
                     input_index,
-                    decode_table,
+                    config,
                     &mut output
                         [output_index..(output_index + DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX)],
                 )?;
@@ -304,7 +309,7 @@ fn decode_helper(
         decode_chunk_precise(
             &input[input_index..],
             input_index,
-            decode_table,
+            config,
             &mut output[output_index..(output_index + DECODED_CHUNK_LEN)],
         )?;
 
@@ -327,7 +332,7 @@ fn decode_helper(
     let start_of_leftovers = input_index;
     for (i, b) in input[start_of_leftovers..].iter().enumerate() {
         // '=' padding
-        if *b == 0x3D {
+        if Some(*b) == config.padding_byte() {
             // There can be bad padding in a few ways:
             // 1 - Padding with non-padding characters after it
             // 2 - Padding after zero or one non-padding characters before it
@@ -368,7 +373,7 @@ fn decode_helper(
         if padding_bytes > 0 {
             return Err(DecodeError::InvalidByte(
                 start_of_leftovers + first_padding_index,
-                0x3D,
+                config.padding_byte().unwrap(),
             ));
         }
         last_symbol = *b;
@@ -377,8 +382,8 @@ fn decode_helper(
         // To minimize shifts, pack the leftovers from left to right.
         let shift = 64 - (morsels_in_leftover + 1) * 6;
         // tables are all 256 elements, lookup with a u8 index always succeeds
-        let morsel = decode_table[*b as usize];
-        if morsel == tables::INVALID_VALUE {
+        let morsel = config.decode_u8(*b);
+        if morsel == ::tables::INVALID_VALUE {
             return Err(DecodeError::InvalidByte(start_of_leftovers + i, *b));
         }
 
@@ -434,22 +439,22 @@ fn decode_helper(
 /// data.
 // yes, really inline (worth 30-50% speedup)
 #[inline(always)]
-fn decode_chunk(
+fn decode_chunk<D: Decoding>(
     input: &[u8],
     index_at_start_of_input: usize,
-    decode_table: &[u8; 256],
+    decoding: D,
     output: &mut [u8],
 ) -> Result<(), DecodeError> {
     let mut accum: u64;
 
-    let morsel = decode_table[input[0] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[0]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(index_at_start_of_input, input[0]));
     }
     accum = (morsel as u64) << 58;
 
-    let morsel = decode_table[input[1] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[1]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 1,
             input[1],
@@ -457,8 +462,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 52;
 
-    let morsel = decode_table[input[2] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[2]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 2,
             input[2],
@@ -466,8 +471,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 46;
 
-    let morsel = decode_table[input[3] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[3]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 3,
             input[3],
@@ -475,8 +480,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 40;
 
-    let morsel = decode_table[input[4] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[4]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 4,
             input[4],
@@ -484,8 +489,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 34;
 
-    let morsel = decode_table[input[5] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[5]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 5,
             input[5],
@@ -493,8 +498,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 28;
 
-    let morsel = decode_table[input[6] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[6]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 6,
             input[6],
@@ -502,8 +507,8 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 22;
 
-    let morsel = decode_table[input[7] as usize];
-    if morsel == tables::INVALID_VALUE {
+    let morsel = decoding.decode_u8(input[7]);
+    if morsel == ::tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 7,
             input[7],
@@ -519,24 +524,84 @@ fn decode_chunk(
 /// Decode an 8-byte chunk, but only write the 6 bytes actually decoded instead of including 2
 /// trailing garbage bytes.
 #[inline]
-fn decode_chunk_precise(
+fn decode_chunk_precise<D: Decoding>(
     input: &[u8],
     index_at_start_of_input: usize,
-    decode_table: &[u8; 256],
+    decoding: D,
     output: &mut [u8],
 ) -> Result<(), DecodeError> {
     let mut tmp_buf = [0_u8; 8];
 
-    decode_chunk(
-        input,
-        index_at_start_of_input,
-        decode_table,
-        &mut tmp_buf[..],
-    )?;
+    decode_chunk(input, index_at_start_of_input, decoding, &mut tmp_buf[..])?;
 
     output[0..6].copy_from_slice(&tmp_buf[0..6]);
 
     Ok(())
+}
+
+#[inline]
+fn decode_by_table(input: u8, decode_table: &[u8; 256]) -> u8 {
+    decode_table[input as usize]
+}
+
+/// Trait to decode base64 data.
+pub trait Decoding: ::private::Sealed + Copy {
+    /// Decode the input byte. If the input byte is not a valid character for the
+    /// provided configuration, ::tables::INVALID_VALUE must be returned. Note:
+    /// If this trait is ever made publicly implementable, then INVALID_VALUE
+    /// will need to be exposed as well.
+    fn decode_u8(self, input: u8) -> u8;
+
+    /// Decode input into bytes. Equivalent to decode_config.
+    #[inline]
+    fn decode<T>(self, input: &T) -> Result<Vec<u8>, DecodeError>
+    where
+        Self: Padding,
+        T: ?Sized + AsRef<[u8]>,
+    {
+        decode_config(input, self)
+    }
+
+    /// Decode input into bytes. Equivalent to decode_config_buf.
+    #[inline]
+    fn decode_buf<T>(self, input: &T, buffer: &mut Vec<u8>) -> Result<(), DecodeError>
+    where
+        Self: Padding,
+        T: ?Sized + AsRef<[u8]>,
+    {
+        decode_config_buf(input, self, buffer)
+    }
+
+    /// Decode input into bytes. Equivalent to decode_config_buf.
+    #[inline]
+    fn decode_slice<T>(self, input: &T, output: &mut [u8]) -> Result<usize, DecodeError>
+    where
+        Self: Padding,
+        T: ?Sized + AsRef<[u8]>,
+    {
+        decode_config_slice(input, self, output)
+    }
+}
+
+impl Decoding for StdAlphabet {
+    #[inline]
+    fn decode_u8(self, input: u8) -> u8 {
+        decode_by_table(input, ::tables::STANDARD_DECODE)
+    }
+}
+
+impl Decoding for UrlSafeAlphabet {
+    #[inline]
+    fn decode_u8(self, input: u8) -> u8 {
+        decode_by_table(input, ::tables::URL_SAFE_DECODE)
+    }
+}
+
+impl Decoding for CryptAlphabet {
+    #[inline]
+    fn decode_u8(self, input: u8) -> u8 {
+        decode_by_table(input, ::tables::CRYPT_DECODE)
+    }
 }
 
 #[cfg(test)]
@@ -547,7 +612,7 @@ mod tests {
     fn decode_chunk_precise_writes_only_6_bytes() {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
-        decode_chunk_precise(&input[..], 0, tables::STANDARD_DECODE, &mut output).unwrap();
+        decode_chunk_precise(&input[..], 0, StdAlphabet, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 6, 7], &output);
     }
 
@@ -555,7 +620,7 @@ mod tests {
     fn decode_chunk_writes_8_bytes() {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
-        decode_chunk(&input[..], 0, tables::STANDARD_DECODE, &mut output).unwrap();
+        decode_chunk(&input[..], 0, StdAlphabet, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 0, 0], &output);
     }
 
@@ -618,11 +683,11 @@ mod tests {
         // every possible combination of symbols must either decode to 2 bytes or get InvalidLastSymbol
 
         let mut symbols = [0_u8; 4];
-        for &s1 in STANDARD.char_set.encode_table().iter() {
+        for &s1 in ::tables::STANDARD_ENCODE.iter() {
             symbols[0] = s1;
-            for &s2 in STANDARD.char_set.encode_table().iter() {
+            for &s2 in ::tables::STANDARD_ENCODE.iter() {
                 symbols[1] = s2;
-                for &s3 in STANDARD.char_set.encode_table().iter() {
+                for &s3 in ::tables::STANDARD_ENCODE.iter() {
                     symbols[2] = s3;
                     symbols[3] = b'=';
 
@@ -656,9 +721,9 @@ mod tests {
         // every possible combination of symbols must either decode to 1 byte or get InvalidLastSymbol
 
         let mut symbols = [0_u8; 4];
-        for &s1 in STANDARD.char_set.encode_table().iter() {
+        for &s1 in ::tables::STANDARD_ENCODE.iter() {
             symbols[0] = s1;
-            for &s2 in STANDARD.char_set.encode_table().iter() {
+            for &s2 in ::tables::STANDARD_ENCODE.iter() {
                 symbols[1] = s2;
                 symbols[2] = b'=';
                 symbols[3] = b'=';
