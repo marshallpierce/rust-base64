@@ -1,6 +1,6 @@
 use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
 
-pub mod block;
+mod block;
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.

@@ -3,20 +3,12 @@ use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDAR
 
 use std::{error, fmt, str};
 
+mod block;
+
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
 const DECODED_CHUNK_LEN: usize = 6;
-// we read a u64 and write a u64, but a u64 of input only yields 6 bytes of output, so the last
-// 2 bytes of any output u64 should not be counted as written to (but must be available in a
-// slice).
-const DECODED_CHUNK_SUFFIX: usize = 2;
-
-// how many u64's of input to handle at a time
-const CHUNKS_PER_FAST_LOOP_BLOCK: usize = 4;
-const INPUT_BLOCK_LEN: usize = CHUNKS_PER_FAST_LOOP_BLOCK * INPUT_CHUNK_LEN;
-// includes the trailing 2 bytes for the final u64 write
-const DECODED_BLOCK_LEN: usize =
-    CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
+const DECODED_CHUNK_BYTES_WRITTEN: usize = 8;
 
 /// Errors that can occur while decoding.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -148,7 +140,7 @@ where
     let bytes_written;
     {
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = decode_helper(input_bytes, num_chunks, config, buffer_slice)?;
+        bytes_written = decode_helper(input_bytes, config, buffer_slice)?;
     }
 
     buffer.truncate(starting_output_len + bytes_written);
@@ -176,7 +168,7 @@ where
 {
     let input_bytes = input.as_ref();
 
-    decode_helper(input_bytes, num_chunks(input_bytes), config, output)
+    decode_helper(input_bytes, config, output)
 }
 
 /// Return the number of input chunks (including a possibly partial final chunk) in the input
@@ -194,129 +186,11 @@ fn num_chunks(input: &[u8]) -> usize {
 // inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
 // but this is fragile and the best setting changes with only minor code modifications.
 #[inline]
-fn decode_helper<C>(
-    input: &[u8],
-    num_chunks: usize,
-    config: C,
-    output: &mut [u8],
-) -> Result<usize, DecodeError>
+fn decode_helper<C>(input: &[u8], config: C, output: &mut [u8]) -> Result<usize, DecodeError>
 where
     C: Decoding + Padding,
 {
-    let remainder_len = input.len() % INPUT_CHUNK_LEN;
-
-    // Because the fast decode loop writes in groups of 8 bytes (unrolled to
-    // CHUNKS_PER_FAST_LOOP_BLOCK times 8 bytes, where possible) and outputs 8 bytes at a time (of
-    // which only 6 are valid data), we need to be sure that we stop using the fast decode loop
-    // soon enough that there will always be 2 more bytes of valid data written after that loop.
-    let trailing_bytes_to_skip = match remainder_len {
-        // if input is a multiple of the chunk size, ignore the last chunk as it may have padding,
-        // and the fast decode logic cannot handle padding
-        0 => INPUT_CHUNK_LEN,
-        // 1 and 5 trailing bytes are illegal: can't decode 6 bits of input into a byte
-        1 | 5 => return Err(DecodeError::InvalidLength),
-        // This will decode to one output byte, which isn't enough to overwrite the 2 extra bytes
-        // written by the fast decode loop. So, we have to ignore both these 2 bytes and the
-        // previous chunk.
-        2 => INPUT_CHUNK_LEN + 2,
-        // If this is 3 unpadded chars, then it would actually decode to 2 bytes. However, if this
-        // is an erroneous 2 chars + 1 pad char that would decode to 1 byte, then it should fail
-        // with an error, not panic from going past the bounds of the output slice, so we let it
-        // use stage 3 + 4.
-        3 => INPUT_CHUNK_LEN + 3,
-        // This can also decode to one output byte because it may be 2 input chars + 2 padding
-        // chars, which would decode to 1 byte.
-        4 => INPUT_CHUNK_LEN + 4,
-        // Everything else is a legal decode len (given that we don't require padding), and will
-        // decode to at least 2 bytes of output.
-        _ => remainder_len,
-    };
-
-    // rounded up to include partial chunks
-    let mut remaining_chunks = num_chunks;
-
-    let mut input_index = 0;
-    let mut output_index = 0;
-
-    {
-        let length_of_fast_decode_chunks = input.len().saturating_sub(trailing_bytes_to_skip);
-
-        // Fast loop, stage 1
-        // manual unroll to CHUNKS_PER_FAST_LOOP_BLOCK of u64s to amortize slice bounds checks
-        if let Some(max_start_index) = length_of_fast_decode_chunks.checked_sub(INPUT_BLOCK_LEN) {
-            while input_index <= max_start_index {
-                let input_slice = &input[input_index..(input_index + INPUT_BLOCK_LEN)];
-                let output_slice = &mut output[output_index..(output_index + DECODED_BLOCK_LEN)];
-
-                decode_chunk(
-                    &input_slice[0..],
-                    input_index,
-                    config,
-                    &mut output_slice[0..],
-                )?;
-                decode_chunk(
-                    &input_slice[8..],
-                    input_index + 8,
-                    config,
-                    &mut output_slice[6..],
-                )?;
-                decode_chunk(
-                    &input_slice[16..],
-                    input_index + 16,
-                    config,
-                    &mut output_slice[12..],
-                )?;
-                decode_chunk(
-                    &input_slice[24..],
-                    input_index + 24,
-                    config,
-                    &mut output_slice[18..],
-                )?;
-
-                input_index += INPUT_BLOCK_LEN;
-                output_index += DECODED_BLOCK_LEN - DECODED_CHUNK_SUFFIX;
-                remaining_chunks -= CHUNKS_PER_FAST_LOOP_BLOCK;
-            }
-        }
-
-        // Fast loop, stage 2 (aka still pretty fast loop)
-        // 8 bytes at a time for whatever we didn't do in stage 1.
-        if let Some(max_start_index) = length_of_fast_decode_chunks.checked_sub(INPUT_CHUNK_LEN) {
-            while input_index < max_start_index {
-                decode_chunk(
-                    &input[input_index..(input_index + INPUT_CHUNK_LEN)],
-                    input_index,
-                    config,
-                    &mut output
-                        [output_index..(output_index + DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX)],
-                )?;
-
-                output_index += DECODED_CHUNK_LEN;
-                input_index += INPUT_CHUNK_LEN;
-                remaining_chunks -= 1;
-            }
-        }
-    }
-
-    // Stage 3
-    // If input length was such that a chunk had to be deferred until after the fast loop
-    // because decoding it would have produced 2 trailing bytes that wouldn't then be
-    // overwritten, we decode that chunk here. This way is slower but doesn't write the 2
-    // trailing bytes.
-    // However, we still need to avoid the last chunk (partial or complete) because it could
-    // have padding, so we always do 1 fewer to avoid the last chunk.
-    for _ in 1..remaining_chunks {
-        decode_chunk_precise(
-            &input[input_index..],
-            input_index,
-            config,
-            &mut output[output_index..(output_index + DECODED_CHUNK_LEN)],
-        )?;
-
-        input_index += INPUT_CHUNK_LEN;
-        output_index += DECODED_CHUNK_LEN;
-    }
-
+    let (input_index, mut output_index) = decode_before_padding(input, config, output)?;
     // always have one more (possibly partial) block of 8 input
     debug_assert!(input.len() - input_index > 1 || input.is_empty());
     debug_assert!(input.len() - input_index <= 8);
@@ -426,6 +300,62 @@ where
     }
 
     Ok(output_index)
+}
+
+#[inline]
+fn decode_before_padding<D>(
+    input: &[u8],
+    config: D,
+    output: &mut [u8],
+) -> Result<(usize, usize), DecodeError>
+where
+    D: Decoding,
+{
+    use self::block::input_limit;
+    let remainder_len = input.len() % INPUT_CHUNK_LEN;
+    let trailing_bytes_to_skip = match remainder_len {
+        0 => INPUT_CHUNK_LEN,
+        1 | 5 => return Err(DecodeError::InvalidLength),
+        2 | 3 | 4 | 6 | 7 => remainder_len,
+        _ => unreachable!(),
+    };
+    let input = &input[..input.len().saturating_sub(trailing_bytes_to_skip)];
+    let (mut input_index, mut output_index) =
+        block::ScalarBlockDecoding::new(config).decode_blocks(input, output)?;
+
+    // Fast loop, stage 2 (aka still pretty fast loop)
+    // 8 bytes at a time for whatever we didn't do in stage 1.
+    let input_limit = input_limit(
+        &input[input_index..],
+        &mut output[output_index..],
+        INPUT_CHUNK_LEN,
+        DECODED_CHUNK_BYTES_WRITTEN,
+        DECODED_CHUNK_LEN,
+    ) + input_index;
+    while input_index < input_limit {
+        decode_chunk(
+            &input[input_index..input_limit],
+            input_index,
+            config,
+            &mut output[output_index..(output_index + DECODED_CHUNK_BYTES_WRITTEN)],
+        )?;
+
+        input_index += INPUT_CHUNK_LEN;
+        output_index += DECODED_CHUNK_LEN;
+    }
+
+    while input_index < input.len() {
+        decode_chunk_precise(
+            &input[input_index..],
+            input_index,
+            config,
+            &mut output[output_index..(output_index + DECODED_CHUNK_LEN)],
+        )?;
+
+        input_index += INPUT_CHUNK_LEN;
+        output_index += DECODED_CHUNK_LEN;
+    }
+    Ok((input_index, output_index))
 }
 
 /// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
