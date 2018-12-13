@@ -54,14 +54,14 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// It has some minor performance loss compared to encoding slices (a couple percent).
 /// It does not do any heap allocation.
-pub struct EncoderWriter<'a, W, C>
+pub struct EncoderWriter<W, C>
 where
-    W: 'a + Write,
+    W: Write,
     C: Encoding + Padding,
 {
     config: C,
     /// Where encoded data is written to
-    w: &'a mut W,
+    w: W,
     /// Holds a partial chunk, if any, after the last `write()`, so that we may then fill the chunk
     /// with the next `write()`, encode it, then proceed with the rest of the input normally.
     extra: [u8; MIN_ENCODE_CHUNK_SIZE],
@@ -75,7 +75,7 @@ where
     panicked: bool,
 }
 
-impl<'a, W, C> fmt::Debug for EncoderWriter<'a, W, C>
+impl<W, C> fmt::Debug for EncoderWriter<W, C>
 where
     W: Write,
     C: Encoding + Padding,
@@ -91,13 +91,13 @@ where
     }
 }
 
-impl<'a, W, C> EncoderWriter<'a, W, C>
+impl<W, C> EncoderWriter<W, C>
 where
     W: Write,
     C: Encoding + Padding,
 {
     /// Create a new encoder around an existing writer.
-    pub fn new(w: &'a mut W, config: C) -> EncoderWriter<'a, W, C> {
+    pub fn new(w: W, config: C) -> EncoderWriter<W, C> {
         EncoderWriter {
             config,
             w,
@@ -142,7 +142,7 @@ where
     }
 }
 
-impl<'a, W, C> Write for EncoderWriter<'a, W, C>
+impl<W, C> Write for EncoderWriter<W, C>
 where
     W: Write,
     C: Encoding + Padding,
@@ -263,7 +263,7 @@ where
     }
 }
 
-impl<'a, W, C> Drop for EncoderWriter<'a, W, C>
+impl<W, C> Drop for EncoderWriter<W, C>
 where
     W: Write,
     C: Encoding + Padding,

@@ -395,15 +395,15 @@ fn retrying_writes_that_error_with_interrupted_works() {
 }
 
 /// A `Write` implementation that returns Interrupted some fraction of the time, randomly.
-struct InterruptingWriter<'a, W: 'a + Write, R: 'a + Rng> {
-    w: &'a mut W,
-    rng: &'a mut R,
+struct InterruptingWriter<W: Write, R: Rng> {
+    w: W,
+    rng: R,
     /// In [0, 1]. If a random number in [0, 1] is  `<= threshold`, `Write` methods will return
     /// an `Interrupted` error
     fraction: f64,
 }
 
-impl<'a, W: Write, R: Rng> Write for InterruptingWriter<'a, W, R> {
+impl<W: Write, R: Rng> Write for InterruptingWriter<W, R> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.rng.gen_range(0.0, 1.0) <= self.fraction {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
