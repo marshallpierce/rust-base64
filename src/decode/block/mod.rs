@@ -1,5 +1,24 @@
 use super::{decode_chunk, DecodeError, Decoding};
 
+mod arch;
+
+/// Create and return a type that impelements BlockDecoding.
+pub trait IntoBlockDecoding: ::private::Sealed + Copy {
+    /// The BlockDecoding type returned.
+    type BlockDecoding: BlockDecoding;
+
+    /// Create and return the BlockDecoding type to use.
+    fn into_block_decoding(self) -> Self::BlockDecoding;
+}
+
+/// Decode input bytes in blocks for performance. Different configurations and
+/// machines will use different types that all implement BlockDecoding. See
+/// IntoBlockDecoding implementations to see which type is used.
+pub trait BlockDecoding: ::private::Sealed {
+    /// Decode input.
+    fn decode_blocks(self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), DecodeError>;
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 pub struct ScalarBlockDecoding<D>(D);
 impl<D> ScalarBlockDecoding<D>
@@ -13,13 +32,14 @@ where
     pub(crate) fn new(decoding: D) -> Self {
         ScalarBlockDecoding(decoding)
     }
+}
 
+impl<D> BlockDecoding for ScalarBlockDecoding<D>
+where
+    D: Decoding,
+{
     #[inline]
-    pub(crate) fn decode_blocks(
-        self,
-        input: &[u8],
-        output: &mut [u8],
-    ) -> Result<(usize, usize), DecodeError> {
+    fn decode_blocks(self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), DecodeError> {
         let input_limit = input_limit(
             input,
             output,
@@ -64,10 +84,21 @@ where
     }
 }
 
-/// Given and input and output slice, along with the size of the input chunks
-/// read and output chunks written, determine the input offset limit such that
-/// it's safe to process a chunk so long as the beginning of the chunk is less
-/// than the returned offset.
+impl<D> ::private::Sealed for ScalarBlockDecoding<D> {}
+
+impl IntoBlockDecoding for &::CustomConfig {
+    type BlockDecoding = ScalarBlockDecoding<Self>;
+
+    #[inline]
+    fn into_block_decoding(self) -> ScalarBlockDecoding<Self> {
+        ScalarBlockDecoding::new(self)
+    }
+}
+
+/// Given and input and output slice, along with the size of input chunks read
+/// and output chunks written, determine the input offset limit such that it's
+/// safe to process a chunk so long as the beginning of the chunk is less than
+/// the returned offset.
 #[inline]
 pub(super) fn input_limit(
     input: &[u8],
@@ -84,5 +115,5 @@ pub(super) fn input_limit(
         1 + size_before_final_chunk / output_chunk_bytes_decoded
     };
     let max_chunks_allowed = std::cmp::min(max_input_chunks, max_output_chunks);
-    max_chunks_allowed * input_chunk_bytes
+    (max_chunks_allowed * input_chunk_bytes).saturating_sub(input_chunk_bytes.saturating_sub(1))
 }

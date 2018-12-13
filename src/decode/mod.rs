@@ -3,7 +3,7 @@ use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDAR
 
 use std::{error, fmt, str};
 
-mod block;
+pub mod block;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -311,7 +311,7 @@ fn decode_before_padding<D>(
 where
     D: Decoding,
 {
-    use self::block::input_limit;
+    use self::block::{input_limit, BlockDecoding};
     let remainder_len = input.len() % INPUT_CHUNK_LEN;
     let trailing_bytes_to_skip = match remainder_len {
         0 => INPUT_CHUNK_LEN,
@@ -320,8 +320,8 @@ where
         _ => unreachable!(),
     };
     let input = &input[..input.len().saturating_sub(trailing_bytes_to_skip)];
-    let (mut input_index, mut output_index) =
-        block::ScalarBlockDecoding::new(config).decode_blocks(input, output)?;
+    let block_decoding = config.into_block_decoding();
+    let (mut input_index, mut output_index) = block_decoding.decode_blocks(input, output)?;
 
     // Fast loop, stage 2 (aka still pretty fast loop)
     // 8 bytes at a time for whatever we didn't do in stage 1.
@@ -334,12 +334,11 @@ where
     ) + input_index;
     while input_index < input_limit {
         decode_chunk(
-            &input[input_index..input_limit],
+            &input[input_index..],
             input_index,
             config,
             &mut output[output_index..(output_index + DECODED_CHUNK_BYTES_WRITTEN)],
         )?;
-
         input_index += INPUT_CHUNK_LEN;
         output_index += DECODED_CHUNK_LEN;
     }
@@ -475,7 +474,7 @@ fn decode_by_table(input: u8, decode_table: &[u8; 256]) -> u8 {
 }
 
 /// Trait to decode base64 data.
-pub trait Decoding: ::private::Sealed + Copy {
+pub trait Decoding: ::private::Sealed + block::IntoBlockDecoding + Copy {
     /// Decode the input byte. If the input byte is not a valid character for the
     /// provided configuration, ::tables::INVALID_VALUE must be returned. Note:
     /// If this trait is ever made publicly implementable, then INVALID_VALUE

@@ -1,6 +1,6 @@
 use {CryptAlphabet, CustomConfig, Padding, StdAlphabet, UrlSafeAlphabet, STANDARD};
 
-mod block;
+pub mod block;
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -170,7 +170,8 @@ where
 /// Returns the number of bytes written.
 #[inline]
 pub fn encode_to_slice<E: Encoding>(input: &[u8], output: &mut [u8], encoding: E) -> usize {
-    let block_encoding = block::ScalarBlockEncoding::new(encoding);
+    use BlockEncoding;
+    let block_encoding = encoding.into_block_encoding();
     let (mut input_index, mut output_index) = block_encoding.encode_blocks(input, output);
 
     // Encode what's left after the block encoding fast loop.
@@ -250,7 +251,7 @@ pub fn add_padding(input_len: usize, output: &mut [u8], padding_byte: u8) -> usi
 }
 
 /// Trait to base64 encode bytes.
-pub trait Encoding: ::private::Sealed + Copy {
+pub trait Encoding: ::private::Sealed + block::IntoBlockEncoding + Copy {
     /// Encode a value into the base64 representation. The input value is
     /// guaranteed to be between 0 and 63 (inclusive).
     fn encode_u6(self, input: u8) -> u8;

@@ -58,11 +58,12 @@
     unused_import_braces,
     unused_results,
     variant_size_differences,
-    warnings,
-    unsafe_code
+    warnings
 )]
 
 extern crate byteorder;
+#[macro_use]
+extern crate cfg_if;
 use std::fmt;
 
 mod chunked_encoder;
@@ -71,9 +72,11 @@ mod tables;
 pub mod write;
 
 mod encode;
+pub use encode::block::{BlockEncoding, IntoBlockEncoding};
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice, Encoding};
 
 mod decode;
+pub use decode::block::{BlockDecoding, IntoBlockDecoding};
 pub use decode::{
     decode, decode_config, decode_config_buf, decode_config_slice, DecodeError, Decoding,
 };
@@ -199,6 +202,19 @@ where
     }
 }
 
+impl<A, P> IntoBlockEncoding for Config<A, P>
+where
+    A: Encoding,
+    P: Copy,
+{
+    type BlockEncoding = A::BlockEncoding;
+
+    #[inline]
+    fn into_block_encoding(self) -> Self::BlockEncoding {
+        self.0.into_block_encoding()
+    }
+}
+
 impl<A, P> Decoding for Config<A, P>
 where
     A: Decoding,
@@ -207,6 +223,19 @@ where
     #[inline]
     fn decode_u8(self, input: u8) -> u8 {
         self.0.decode_u8(input)
+    }
+}
+
+impl<A, P> IntoBlockDecoding for Config<A, P>
+where
+    A: Decoding,
+    P: Copy,
+{
+    type BlockDecoding = A::BlockDecoding;
+
+    #[inline]
+    fn into_block_decoding(self) -> Self::BlockDecoding {
+        self.0.into_block_decoding()
     }
 }
 

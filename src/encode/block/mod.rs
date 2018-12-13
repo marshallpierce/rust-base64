@@ -1,8 +1,27 @@
 use super::*;
 use byteorder::{BigEndian, ByteOrder};
 
+mod arch;
+
+/// Create and return a type that implements BlockEncoding.
+pub trait IntoBlockEncoding: ::private::Sealed + Copy {
+    /// The BlockEncoding type returned.
+    type BlockEncoding: BlockEncoding;
+
+    /// Create and return the BlockEncoding type to use.
+    fn into_block_encoding(self) -> Self::BlockEncoding;
+}
+
+/// Encode input bytes in blocks for performance. Different configurations and
+/// machines will use different types that all implement BlockEncoding. See
+/// IntoBlockEncoding implementations to see which type is used.
+pub trait BlockEncoding: ::private::Sealed {
+    /// Encode input.
+    fn encode_blocks(self, input: &[u8], output: &mut [u8]) -> (usize, usize);
+}
+
 #[derive(Debug, Default, Copy, Clone)]
-pub(crate) struct ScalarBlockEncoding<E>(E);
+pub struct ScalarBlockEncoding<E>(E);
 impl<E> ScalarBlockEncoding<E>
 where
     E: Encoding,
@@ -11,12 +30,28 @@ where
     const INPUT_CHUNK_BYTES_ENCODED: usize = 24;
     const OUTPUT_CHUNK_BYTES_WRITTEN: usize = 32;
 
+    #[inline]
     pub(crate) fn new(encoding: E) -> Self {
         ScalarBlockEncoding(encoding)
     }
 
     #[inline]
-    pub(crate) fn encode_blocks(self, input: &[u8], output: &mut [u8]) -> (usize, usize) {
+    fn encode_chunk(self, input: u64, output: &mut [u8]) {
+        const LOW_SIX_BITS: u64 = 0x3F;
+        for (idx, out) in output.iter_mut().enumerate() {
+            let shift_amount = 64 - (idx as u64 + 1) * 6;
+            let shifted_input = input >> shift_amount;
+            *out = self.0.encode_u6((shifted_input & LOW_SIX_BITS) as u8);
+        }
+    }
+}
+
+impl<E> BlockEncoding for ScalarBlockEncoding<E>
+where
+    E: Encoding,
+{
+    #[inline]
+    fn encode_blocks(self, input: &[u8], output: &mut [u8]) -> (usize, usize) {
         let mut input_index: usize = 0;
         let last_fast_index: isize = input.len() as isize - Self::INPUT_CHUNK_BYTES_READ as isize;
         let mut output_index = 0;
@@ -43,14 +78,15 @@ where
         }
         (input_index, output_index)
     }
+}
+
+impl<C> ::private::Sealed for ScalarBlockEncoding<C> {}
+
+impl IntoBlockEncoding for &::CustomConfig {
+    type BlockEncoding = ScalarBlockEncoding<Self>;
 
     #[inline]
-    fn encode_chunk(self, input: u64, output: &mut [u8]) {
-        const LOW_SIX_BITS: u64 = 0x3F;
-        for byte_idx in 0..8 {
-            let shift_amount = 64 - (byte_idx as u64 + 1) * 6;
-            let shifted_input = input >> shift_amount;
-            output[byte_idx] = self.0.encode_u6((shifted_input & LOW_SIX_BITS) as u8);
-        }
+    fn into_block_encoding(self) -> ScalarBlockEncoding<Self> {
+        ScalarBlockEncoding::new(self)
     }
 }

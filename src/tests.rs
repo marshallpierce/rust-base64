@@ -140,6 +140,32 @@ impl Encoding for Configs {
     }
 }
 
+pub struct BlockEncoding(Configs);
+
+impl ::BlockEncoding for BlockEncoding {
+    fn encode_blocks(self, input: &[u8], output: &mut [u8]) -> (usize, usize) {
+        use self::Configs::*;
+        match self.0 {
+            Standard(x) => x.into_block_encoding().encode_blocks(input, output),
+            StandardNoPad(x) => x.into_block_encoding().encode_blocks(input, output),
+            UrlSafe(x) => x.into_block_encoding().encode_blocks(input, output),
+            UrlSafeNoPad(x) => x.into_block_encoding().encode_blocks(input, output),
+            Crypt(x) => x.into_block_encoding().encode_blocks(input, output),
+            CryptNoPad(x) => x.into_block_encoding().encode_blocks(input, output),
+        }
+    }
+}
+
+impl ::private::Sealed for BlockEncoding {}
+
+impl IntoBlockEncoding for Configs {
+    type BlockEncoding = BlockEncoding;
+
+    fn into_block_encoding(self) -> Self::BlockEncoding {
+        BlockEncoding(self)
+    }
+}
+
 impl Decoding for Configs {
     fn decode_u8(self, input: u8) -> u8 {
         use self::Configs::*;
@@ -151,6 +177,32 @@ impl Decoding for Configs {
             Crypt(x) => x.decode_u8(input),
             CryptNoPad(x) => x.decode_u8(input),
         }
+    }
+}
+
+pub struct BlockDecoding(Configs);
+
+impl ::BlockDecoding for BlockDecoding {
+    fn decode_blocks(self, input: &[u8], output: &mut [u8]) -> Result<(usize, usize), DecodeError> {
+        use self::Configs::*;
+        match self.0 {
+            Standard(x) => x.into_block_decoding().decode_blocks(input, output),
+            StandardNoPad(x) => x.into_block_decoding().decode_blocks(input, output),
+            UrlSafe(x) => x.into_block_decoding().decode_blocks(input, output),
+            UrlSafeNoPad(x) => x.into_block_decoding().decode_blocks(input, output),
+            Crypt(x) => x.into_block_decoding().decode_blocks(input, output),
+            CryptNoPad(x) => x.into_block_decoding().decode_blocks(input, output),
+        }
+    }
+}
+
+impl ::private::Sealed for BlockDecoding {}
+
+impl IntoBlockDecoding for Configs {
+    type BlockDecoding = BlockDecoding;
+
+    fn into_block_decoding(self) -> Self::BlockDecoding {
+        BlockDecoding(self)
     }
 }
 

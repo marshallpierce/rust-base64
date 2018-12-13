@@ -10,12 +10,17 @@ keywords = ["base64", "utf8", "encode", "decode"]
 categories = ["encoding"]
 license = "MIT/Apache-2.0"
 
+[features]
+default = ["simd"]
+simd = []
+
 [[bench]]
 name = "benchmarks"
 harness = false
 
 [dependencies]
 byteorder = "1.2.6"
+cfg-if = "0.1"
 
 [dev-dependencies]
 criterion = "0.2"
