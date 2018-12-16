@@ -1,10 +1,11 @@
 extern crate base64;
 extern crate rand;
+extern crate rand_pcg;
 extern crate ring;
 
 use self::base64::*;
 use self::rand::{Rng, SeedableRng};
-use self::rand::prng::XorShiftRng;
+use self::rand_pcg::Pcg32;
 use self::ring::digest;
 
 pub fn random_config(data: &[u8]) -> Config {
@@ -14,9 +15,7 @@ pub fn random_config(data: &[u8]) -> Config {
     let mut seed: [u8; 16] = [0; 16];
     seed.copy_from_slice(&sha.as_ref()[0..16]);
 
-    let mut rng = XorShiftRng::from_seed(seed);
-
-    let strip_whitespace = rng.gen();
+    let mut rng = Pcg32::from_seed(seed);
 
     let charset = if rng.gen() {
         CharacterSet::UrlSafe
@@ -24,5 +23,5 @@ pub fn random_config(data: &[u8]) -> Config {
         CharacterSet::Standard
     };
 
-    Config::new(charset, rng.gen(), strip_whitespace)
+    Config::new(charset, rng.gen())
 }

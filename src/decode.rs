@@ -546,7 +546,7 @@ mod tests {
     use encode::encode_config_buf;
     use tests::{assert_encode_sanity, random_config};
 
-    use self::rand::distributions::{Distribution, Range};
+    use self::rand::distributions::{Distribution, Uniform};
     use self::rand::{FromEntropy, Rng};
 
     #[test]
@@ -573,8 +573,8 @@ mod tests {
         let mut decoded_without_prefix = Vec::new();
         let mut prefix = Vec::new();
 
-        let prefix_len_range = Range::new(0, 1000);
-        let input_len_range = Range::new(0, 1000);
+        let prefix_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -630,7 +630,7 @@ mod tests {
         let mut decode_buf = Vec::new();
         let mut decode_buf_copy: Vec<u8> = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -683,7 +683,7 @@ mod tests {
         let mut encoded_data = String::new();
         let mut decode_buf = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 

@@ -106,7 +106,7 @@ pub mod tests {
     use tests::random_config;
     use *;
 
-    use self::rand::distributions::{Distribution, Range};
+    use self::rand::distributions::{Distribution, Uniform};
     use self::rand::{FromEntropy, Rng};
 
     #[test]
@@ -178,7 +178,7 @@ pub mod tests {
         let mut input_buf: Vec<u8> = Vec::new();
         let mut output_buf = String::new();
         let mut rng = rand::rngs::SmallRng::from_entropy();
-        let input_len_range = Range::new(1, 10_000);
+        let input_len_range = Uniform::new(1, 10_000);
 
         for _ in 0..5_000 {
             input_buf.clear();

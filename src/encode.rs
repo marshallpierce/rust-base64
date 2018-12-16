@@ -321,7 +321,7 @@ mod tests {
     use tests::{assert_encode_sanity, random_config};
     use {Config, STANDARD, URL_SAFE_NO_PAD};
 
-    use self::rand::distributions::{Distribution, Range};
+    use self::rand::distributions::{Distribution, Uniform};
     use self::rand::{FromEntropy, Rng};
     use std;
     use std::str;
@@ -389,8 +389,8 @@ mod tests {
         let mut encoded_data_with_prefix = String::new();
         let mut decoded = Vec::new();
 
-        let prefix_len_range = Range::new(0, 1000);
-        let input_len_range = Range::new(0, 1000);
+        let prefix_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -443,7 +443,7 @@ mod tests {
         let mut encoded_data_original_state = Vec::new();
         let mut decoded = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -497,7 +497,7 @@ mod tests {
         let mut encoded_data = Vec::new();
         let mut decoded = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -539,7 +539,7 @@ mod tests {
         let mut input = Vec::new();
         let mut output = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -579,7 +579,7 @@ mod tests {
         let mut input = Vec::new();
         let mut output = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
