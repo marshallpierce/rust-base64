@@ -15,7 +15,7 @@ pub fn random_config(data: &[u8]) -> Config {
     let mut seed: [u8; 16] = [0; 16];
     seed.copy_from_slice(&sha[..16]);
 
-    let mut rng = Pcg32::from_seed(&sha);
+    let mut rng = Pcg32::from_seed(seed);
 
     let charset = if rng.gen() {
         CharacterSet::UrlSafe
