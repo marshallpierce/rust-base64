@@ -127,6 +127,11 @@ impl Config {
     pub fn new(char_set: CharacterSet, pad: bool) -> Config {
         Config { char_set, pad }
     }
+
+    /// Sets whether to pad output with `=` characters.
+    pub fn pad(self, pad: bool) -> Config {
+        Config { pad, ..self }
+    }
 }
 
 /// Standard character set with padding.
