@@ -1,5 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
-use {tables, CharacterSet, Config, STANDARD};
+use {tables, Config, STANDARD};
 
 use std::{error, fmt, str};
 
@@ -143,7 +143,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     let bytes_written;
     {
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = decode_helper(input_bytes, num_chunks, config.char_set, buffer_slice)?;
+        bytes_written = decode_helper(input_bytes, num_chunks, config, buffer_slice)?;
     }
 
     buffer.truncate(starting_output_len + bytes_written);
@@ -170,7 +170,7 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
     decode_helper(
         input_bytes,
         num_chunks(input_bytes),
-        config.char_set,
+        config,
         output,
     )
 }
@@ -193,9 +193,10 @@ fn num_chunks(input: &[u8]) -> usize {
 fn decode_helper(
     input: &[u8],
     num_chunks: usize,
-    char_set: CharacterSet,
+    config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
+    let char_set = config.char_set;
     let decode_table = char_set.decode_table();
 
     let remainder_len = input.len() % INPUT_CHUNK_LEN;
@@ -401,7 +402,7 @@ fn decode_helper(
     // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
     // will not be included in the output
     let mask = !0 >> leftover_bits_ready_to_append;
-    if (leftover_bits & mask) != 0 {
+    if !config.forgiving && (leftover_bits & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
         return Err(DecodeError::InvalidLastSymbol(
             start_of_leftovers + morsels_in_leftover - 1,
@@ -715,20 +716,25 @@ mod tests {
 
     #[test]
     fn detect_invalid_last_symbol_two_bytes() {
+        let decode = |input, forgiving| {
+            decode_config(input, STANDARD.forgiving(forgiving))
+        };
+
         // example from https://github.com/alicemaz/rust-base64/issues/75
-        assert!(decode("iYU=").is_ok());
+        assert!(decode("iYU=", false).is_ok());
         // trailing 01
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'V')), decode("iYV="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'V')), decode("iYV=", false));
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
         // trailing 10
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'W')), decode("iYW="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'W')), decode("iYW=", false));
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
         // trailing 11
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'X')), decode("iYX="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'X')), decode("iYX=", false));
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
 
         // also works when there are 2 quads in the last block
-        assert_eq!(
-            Err(DecodeError::InvalidLastSymbol(6, b'X')),
-            decode("AAAAiYX=")
-        );
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(6, b'X')), decode("AAAAiYX=", false));
+        assert_eq!(Ok(vec![0, 0, 0, 137, 133]), decode("AAAAiYX=", true));
     }
 
     #[test]

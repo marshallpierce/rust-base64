@@ -120,17 +120,29 @@ pub struct Config {
     char_set: CharacterSet,
     /// True to pad output with `=` characters
     pad: bool,
+    /// True to decode in a forgiving way.
+    ///
+    /// https://infra.spec.whatwg.org/#forgiving-base64-decode
+    forgiving: bool,
 }
 
 impl Config {
     /// Create a new `Config`.
     pub fn new(char_set: CharacterSet, pad: bool) -> Config {
-        Config { char_set, pad }
+        Config { char_set, pad, forgiving: false }
     }
 
     /// Sets whether to pad output with `=` characters.
     pub fn pad(self, pad: bool) -> Config {
         Config { pad, ..self }
+    }
+
+    /// Sets whether to emit errors for nonzero trailing bits.
+    ///
+    /// Setting this to `false` makes the decoder support the
+    /// [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode) algorithm.
+    pub fn forgiving(self, forgiving: bool) -> Config {
+        Config { forgiving, ..self }
     }
 }
 
@@ -138,28 +150,33 @@ impl Config {
 pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
+    forgiving: false,
 };
 
 /// Standard character set without padding.
 pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
+    forgiving: false,
 };
 
 /// URL-safe character set with padding
 pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
+    forgiving: false,
 };
 
 /// URL-safe character set without padding
 pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
+    forgiving: false,
 };
 
 /// As per `crypt(3)` requirements
 pub const CRYPT: Config = Config {
     char_set: CharacterSet::Crypt,
     pad: false,
+    forgiving: false,
 };
