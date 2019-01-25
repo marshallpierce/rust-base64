@@ -402,7 +402,7 @@ fn decode_helper(
     // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
     // will not be included in the output
     let mask = !0 >> leftover_bits_ready_to_append;
-    if !config.forgiving && (leftover_bits & mask) != 0 {
+    if !config.decode_allow_trailing_bits && (leftover_bits & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
         return Err(DecodeError::InvalidLastSymbol(
             start_of_leftovers + morsels_in_leftover - 1,
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn detect_invalid_last_symbol_two_bytes() {
         let decode = |input, forgiving| {
-            decode_config(input, STANDARD.forgiving(forgiving))
+            decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving))
         };
 
         // example from https://github.com/alicemaz/rust-base64/issues/75
