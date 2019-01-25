@@ -1,10 +1,12 @@
 # Next
 
-- Minimum rust version 1.27.2
+- TBD
 
 # 0.10.1
 
+- Minimum rust version 1.27.2
 - Fix bug in streaming encoding ([#90](https://github.com/alicemaz/rust-base64/pull/90)): if the underlying writer didn't write all the bytes given to it, the remaining bytes would not be retried later. See the docs on `EncoderWriter::write`.
+- Make it configurable whether or not to return an error when decoding detects excess trailing bits.
 
 # 0.10.0
 
