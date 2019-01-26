@@ -656,4 +656,8 @@ mod tests {
         assert_eq!(encoded_len, encoded.len());
     }
 
+    #[test]
+    fn encode_imap() {
+        assert_eq!(::encode_config(b"\xFB\xFF", ::IMAP_MUTF7), ::encode_config(b"\xFB\xFF", ::STANDARD_NO_PAD).replace("/", ","));
+    }
 }

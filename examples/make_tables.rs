@@ -41,6 +41,20 @@ fn main() {
         .collect();
     print_encode_table(&crypt_alphabet, "CRYPT_ENCODE", 0);
     print_decode_table(&crypt_alphabet, "CRYPT_DECODE", 0);
+
+    // A-Z
+    let imap_alphabet: Vec<u8> = (0x41..0x5B)
+        // a-z
+        .chain(0x61..0x7B)
+        // 0-9
+        .chain(0x30..0x3A)
+        // +
+        .chain(0x2B..0x2C)
+        // ,
+        .chain(0x2C..0x2D)
+        .collect();
+    print_encode_table(&imap_alphabet, "IMAP_MUTF7_ENCODE", 0);
+    print_decode_table(&imap_alphabet, "IMAP_MUTF7_DECODE", 0);
 }
 
 fn print_encode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {

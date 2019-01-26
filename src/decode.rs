@@ -835,4 +835,9 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn decode_imap() {
+        assert_eq!(::decode_config(b"+,,+", ::IMAP_MUTF7), ::decode_config(b"+//+", ::STANDARD_NO_PAD));
+    }
 }
