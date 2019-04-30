@@ -63,6 +63,12 @@
 )]
 
 extern crate byteorder;
+#[cfg(test)]
+#[macro_use]
+extern crate doc_comment;
+
+#[cfg(test)]
+doctest!("../README.md");
 
 mod chunked_encoder;
 pub mod display;
