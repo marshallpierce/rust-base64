@@ -20,6 +20,7 @@ byteorder = "1.2.6"
 [dev-dependencies]
 criterion = "0.2"
 rand = "0.6.1"
+doc-comment = "0.3"
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`
