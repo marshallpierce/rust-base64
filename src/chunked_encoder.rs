@@ -1,4 +1,4 @@
-use crate::{String, Config};
+use {String, Config};
 use encode::{add_padding, encode_to_slice};
 use core::cmp;
 

@@ -1,4 +1,4 @@
-use crate::{Vec, tables, Config, STANDARD};
+use {Vec, tables, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
 
 use core::fmt;
@@ -546,7 +546,7 @@ fn decode_chunk_precise(
 mod tests {
     extern crate rand;
 
-    use crate::String;
+    use String;
     use super::*;
     use encode::encode_config_buf;
     use tests::{assert_encode_sanity, random_config};

@@ -1,6 +1,6 @@
 extern crate rand;
 
-use crate::*;
+use *;
 use encode::encoded_size;
 use core::str;
 

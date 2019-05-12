@@ -29,6 +29,8 @@ script:
   - cargo build --verbose
   - cargo test --verbose
   - cargo doc --verbose
+  - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo build --no-default-features --verbose; fi'
+  - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo test --no-default-features --verbose; fi'
   - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo bench --no-run; fi'
   # run for just a second to confirm that it can build and run ok
   - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo fuzz list | xargs -L 1 -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1; fi'

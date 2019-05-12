@@ -1,4 +1,4 @@
-use crate::{String, Config, STANDARD};
+use {String, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
 
 ///Encode arbitrary octets as base64.
@@ -316,7 +316,7 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
 mod tests {
     extern crate rand;
 
-    use crate::{Vec, URL_SAFE_NO_PAD};
+    use {Vec, URL_SAFE_NO_PAD};
     use super::*;
     use decode::decode_config_buf;
     use tests::{assert_encode_sanity, random_config};
