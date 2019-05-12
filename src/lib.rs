@@ -62,7 +62,6 @@
     unsafe_code
 )]
 
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 #![no_std]
 
 #[cfg(feature = "std")]

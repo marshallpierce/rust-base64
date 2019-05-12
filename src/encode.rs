@@ -323,7 +323,7 @@ mod tests {
 
     use self::rand::distributions::{Distribution, Uniform};
     use self::rand::{FromEntropy, Rng};
-    use core::str;
+    use core::{usize, str};
 
     #[test]
     fn encoded_size_correct_standard() {
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn encoded_size_overflow() {
-        assert_eq!(None, encoded_size(core::usize::MAX, STANDARD));
+        assert_eq!(None, encoded_size(usize::MAX, STANDARD));
     }
 
     #[test]
