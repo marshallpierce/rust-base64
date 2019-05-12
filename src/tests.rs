@@ -1,9 +1,8 @@
 extern crate rand;
 
+use crate::*;
 use encode::encoded_size;
-use *;
-
-use std::str;
+use core::str;
 
 use self::rand::distributions::{Distribution, Uniform};
 use self::rand::{FromEntropy, Rng};

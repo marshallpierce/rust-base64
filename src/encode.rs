@@ -1,5 +1,5 @@
+use crate::{String, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
-use {Config, STANDARD};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -316,15 +316,14 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
 mod tests {
     extern crate rand;
 
+    use crate::{Vec, URL_SAFE_NO_PAD};
     use super::*;
     use decode::decode_config_buf;
     use tests::{assert_encode_sanity, random_config};
-    use {Config, STANDARD, URL_SAFE_NO_PAD};
 
     use self::rand::distributions::{Distribution, Uniform};
     use self::rand::{FromEntropy, Rng};
-    use std;
-    use std::str;
+    use core::str;
 
     #[test]
     fn encoded_size_correct_standard() {
@@ -378,7 +377,7 @@ mod tests {
 
     #[test]
     fn encoded_size_overflow() {
-        assert_eq!(None, encoded_size(std::usize::MAX, STANDARD));
+        assert_eq!(None, encoded_size(core::usize::MAX, STANDARD));
     }
 
     #[test]
@@ -476,7 +475,7 @@ mod tests {
             );
 
             assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
                 config,
                 input_len,
             );
@@ -524,7 +523,7 @@ mod tests {
             );
 
             assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
                 config,
                 input_len,
             );

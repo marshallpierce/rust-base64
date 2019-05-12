@@ -1,7 +1,9 @@
+use crate::{Vec, tables, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
-use {tables, Config, STANDARD};
 
-use std::{error, fmt, str};
+use core::fmt;
+#[cfg(feature = "std")]
+use std::error;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -46,6 +48,7 @@ impl fmt::Display for DecodeError {
     }
 }
 
+#[cfg(feature = "std")]
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
@@ -543,6 +546,7 @@ fn decode_chunk_precise(
 mod tests {
     extern crate rand;
 
+    use crate::String;
     use super::*;
     use encode::encode_config_buf;
     use tests::{assert_encode_sanity, random_config};
@@ -758,6 +762,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn detect_invalid_last_symbol_every_possible_three_symbols() {
         let mut base64_to_bytes = ::std::collections::HashMap::new();
 
@@ -768,7 +773,7 @@ mod tests {
                 bytes[1] = b2 as u8;
                 let mut b64 = vec![0_u8; 4];
                 assert_eq!(4, ::encode_config_slice(&bytes, STANDARD, &mut b64[..]));
-                let mut v = ::std::vec::Vec::with_capacity(2);
+                let mut v = Vec::with_capacity(2);
                 v.extend_from_slice(&bytes[..]);
 
                 assert!(base64_to_bytes.insert(b64, v).is_none());
@@ -801,13 +806,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn detect_invalid_last_symbol_every_possible_two_symbols() {
         let mut base64_to_bytes = ::std::collections::HashMap::new();
 
         for b in 0_u16..256 {
             let mut b64 = vec![0_u8; 4];
             assert_eq!(4, ::encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
-            let mut v = ::std::vec::Vec::with_capacity(1);
+            let mut v = Vec::with_capacity(1);
             v.push(b as u8);
 
             assert!(base64_to_bytes.insert(b64, v).is_none());

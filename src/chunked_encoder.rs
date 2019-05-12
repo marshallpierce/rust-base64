@@ -1,6 +1,6 @@
+use crate::{String, Config};
 use encode::{add_padding, encode_to_slice};
-use std::{cmp, str};
-use Config;
+use core::cmp;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -92,7 +92,7 @@ impl<'a> Sink for StringSink<'a> {
     type Error = ();
 
     fn write_encoded_bytes(&mut self, s: &[u8]) -> Result<(), Self::Error> {
-        self.string.push_str(str::from_utf8(s).unwrap());
+        self.string.push_str(core::str::from_utf8(s).unwrap());
 
         Ok(())
     }

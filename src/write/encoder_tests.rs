@@ -1,5 +1,6 @@
 extern crate rand;
 
+use crate::{String, Vec};
 use super::EncoderWriter;
 use tests::random_config;
 use {encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
