@@ -74,6 +74,7 @@ mod chunked_encoder;
 pub mod display;
 mod tables;
 pub mod write;
+pub mod read;
 
 mod encode;
 pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
