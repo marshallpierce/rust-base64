@@ -153,7 +153,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
         let res = self.w.write(&self.output[..current_output_len]);
         self.panicked = false;
 
-        return res.map(|consumed| {
+        res.map(|consumed| {
             debug_assert!(consumed <= current_output_len);
 
             if consumed < current_output_len {
@@ -165,9 +165,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
             } else {
                 self.output_occupied_len = 0;
             }
-
-            ()
-        });
+        })
     }
 
     /// Write all buffered encoded output. If this returns `Ok`, `self.output_occupied_len` is `0`.

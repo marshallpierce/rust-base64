@@ -49,7 +49,7 @@
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
-#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
 #![deny(
     missing_docs,
     trivial_casts,
