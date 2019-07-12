@@ -6,8 +6,8 @@ use *;
 use std::str;
 
 use self::rand::distributions::{Distribution, Uniform};
-use self::rand::{FromEntropy, Rng};
 use self::rand::seq::SliceRandom;
+use self::rand::{FromEntropy, Rng};
 
 #[test]
 fn roundtrip_random_config_short() {
