@@ -1,5 +1,5 @@
+use crate::{tables, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
-use {tables, Config, STANDARD};
 
 use std::{error, fmt, str};
 
@@ -537,14 +537,17 @@ fn decode_chunk_precise(
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
     use super::*;
-    use encode::encode_config_buf;
-    use tests::{assert_encode_sanity, random_config};
+    use crate::{
+        encode::encode_config_buf,
+        encode::encode_config_slice,
+        tests::{assert_encode_sanity, random_config},
+    };
 
-    use self::rand::distributions::{Distribution, Uniform};
-    use self::rand::{FromEntropy, Rng};
+    use rand::{
+        distributions::{Distribution, Uniform},
+        FromEntropy, Rng,
+    };
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
@@ -774,7 +777,7 @@ mod tests {
             for b2 in 0_u16..256 {
                 bytes[1] = b2 as u8;
                 let mut b64 = vec![0_u8; 4];
-                assert_eq!(4, ::encode_config_slice(&bytes, STANDARD, &mut b64[..]));
+                assert_eq!(4, encode_config_slice(&bytes, STANDARD, &mut b64[..]));
                 let mut v = ::std::vec::Vec::with_capacity(2);
                 v.extend_from_slice(&bytes[..]);
 
@@ -813,7 +816,7 @@ mod tests {
 
         for b in 0_u16..256 {
             let mut b64 = vec![0_u8; 4];
-            assert_eq!(4, ::encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
+            assert_eq!(4, encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
             let mut v = ::std::vec::Vec::with_capacity(1);
             v.push(b as u8);
 

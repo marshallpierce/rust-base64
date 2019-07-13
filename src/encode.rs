@@ -1,5 +1,5 @@
+use crate::{chunked_encoder, Config, STANDARD};
 use byteorder::{BigEndian, ByteOrder};
-use {Config, STANDARD};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -69,8 +69,8 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
     let input_bytes = input.as_ref();
 
     {
-        let mut sink = ::chunked_encoder::StringSink::new(buf);
-        let encoder = ::chunked_encoder::ChunkedEncoder::new(config);
+        let mut sink = chunked_encoder::StringSink::new(buf);
+        let encoder = chunked_encoder::ChunkedEncoder::new(config);
 
         encoder
             .encode(input_bytes, &mut sink)
@@ -314,15 +314,17 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
     use super::*;
-    use decode::decode_config_buf;
-    use tests::{assert_encode_sanity, random_config};
-    use {Config, STANDARD, URL_SAFE_NO_PAD};
+    use crate::{
+        decode::decode_config_buf,
+        tests::{assert_encode_sanity, random_config},
+        Config, STANDARD, URL_SAFE_NO_PAD,
+    };
 
-    use self::rand::distributions::{Distribution, Uniform};
-    use self::rand::{FromEntropy, Rng};
+    use rand::{
+        distributions::{Distribution, Uniform},
+        FromEntropy, Rng,
+    };
     use std;
     use std::str;
 

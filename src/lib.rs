@@ -62,7 +62,6 @@
     unsafe_code
 )]
 
-extern crate byteorder;
 #[cfg(test)]
 #[macro_use]
 extern crate doc_comment;
@@ -76,10 +75,12 @@ mod tables;
 pub mod write;
 
 mod encode;
-pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use crate::encode::{encode, encode_config, encode_config_buf, encode_config_slice};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
+pub use crate::decode::{
+    decode, decode_config, decode_config_buf, decode_config_slice, DecodeError,
+};
 
 #[cfg(test)]
 mod tests;

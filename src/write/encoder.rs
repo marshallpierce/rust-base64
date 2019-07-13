@@ -1,7 +1,9 @@
-use encode::encode_to_slice;
-use std::io::{ErrorKind, Result, Write};
-use std::{cmp, fmt};
-use {encode_config_slice, Config};
+use crate::encode::encode_to_slice;
+use crate::{encode_config_slice, Config};
+use std::{
+    cmp, fmt,
+    io::{ErrorKind, Result, Write},
+};
 
 pub(crate) const BUF_SIZE: usize = 1024;
 /// The most bytes whose encoding will fit in `BUF_SIZE`
