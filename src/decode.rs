@@ -1,7 +1,6 @@
-use byteorder::{BigEndian, ByteOrder};
 use {tables, Config, STANDARD};
 
-use std::{error, fmt, str};
+use std::{error, fmt, str, ptr, mem};
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -511,9 +510,25 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 16;
 
-    BigEndian::write_u64(output, accum);
+    write_u64_be(output, accum);
 
     Ok(())
+}
+
+#[allow(trivial_casts, unsafe_code)]
+#[inline]
+fn write_u64_be(output: &mut [u8], num: u64) {
+    const LEN: usize = mem::size_of::<u64>();
+
+    // Check that an output buffer has enough space.
+    assert!(output.len() >= LEN);
+
+    // This code is fairly safe since we simply casting u64 to [u8; 8].
+    // Also, this is the same code that the byteorder crate is using.
+    unsafe {
+        let bytes = *(&num.to_be() as *const _ as *const [u8; LEN]);
+        ptr::copy_nonoverlapping((&bytes).as_ptr(), output.as_mut_ptr(), LEN);
+    }
 }
 
 /// Decode an 8-byte chunk, but only write the 6 bytes actually decoded instead of including 2

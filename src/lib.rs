@@ -62,7 +62,6 @@
     unsafe_code
 )]
 
-extern crate byteorder;
 #[cfg(test)]
 #[macro_use]
 extern crate doc_comment;

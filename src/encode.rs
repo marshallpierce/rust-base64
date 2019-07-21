@@ -1,5 +1,6 @@
-use byteorder::{BigEndian, ByteOrder};
 use {Config, STANDARD};
+
+use std::{ptr, mem};
 
 ///Encode arbitrary octets as base64.
 ///Returns a String.
@@ -183,7 +184,7 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
             // Plus, single-digit percentage performance differences might well be quite different
             // on different hardware.
 
-            let input_u64 = BigEndian::read_u64(&input_chunk[0..]);
+            let input_u64 = read_u64_be(&input_chunk[0..]);
 
             output_chunk[0] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
             output_chunk[1] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
@@ -194,7 +195,7 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
             output_chunk[6] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
             output_chunk[7] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
-            let input_u64 = BigEndian::read_u64(&input_chunk[6..]);
+            let input_u64 = read_u64_be(&input_chunk[6..]);
 
             output_chunk[8] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
             output_chunk[9] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
@@ -205,7 +206,7 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
             output_chunk[14] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
             output_chunk[15] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
-            let input_u64 = BigEndian::read_u64(&input_chunk[12..]);
+            let input_u64 = read_u64_be(&input_chunk[12..]);
 
             output_chunk[16] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
             output_chunk[17] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
@@ -216,7 +217,7 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
             output_chunk[22] = encode_table[((input_u64 >> 22) & LOW_SIX_BITS) as usize];
             output_chunk[23] = encode_table[((input_u64 >> 16) & LOW_SIX_BITS) as usize];
 
-            let input_u64 = BigEndian::read_u64(&input_chunk[18..]);
+            let input_u64 = read_u64_be(&input_chunk[18..]);
 
             output_chunk[24] = encode_table[((input_u64 >> 58) & LOW_SIX_BITS) as usize];
             output_chunk[25] = encode_table[((input_u64 >> 52) & LOW_SIX_BITS) as usize];
@@ -310,6 +311,26 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
     }
 
     bytes_written
+}
+
+#[allow(trivial_casts, unsafe_code)]
+#[inline]
+fn read_u64_be(data: &[u8]) -> u64 {
+    const LEN: usize = mem::size_of::<u64>();
+
+    // This code is fairly safe since we simply casting [u8; 8] to u64.
+    // Slicing will be bound-checked, so we will not read a random memory.
+    // Also, this is the same code that the byteorder crate is using.
+    let mut num: u64 = 0;
+    unsafe {
+        ptr::copy_nonoverlapping(
+            data[0..LEN].as_ptr(),
+            &mut num as *mut u64 as *mut u8,
+            LEN,
+        );
+    }
+
+    num.to_be()
 }
 
 #[cfg(test)]
