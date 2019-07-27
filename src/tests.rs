@@ -1,13 +1,12 @@
-extern crate rand;
-
-use encode::encoded_size;
-use *;
+use crate::{decode_config, encode::encoded_size, encode_config_buf, CharacterSet, Config};
 
 use std::str;
 
-use self::rand::distributions::{Distribution, Uniform};
-use self::rand::{FromEntropy, Rng};
-use self::rand::seq::SliceRandom;
+use rand::{
+    distributions::{Distribution, Uniform},
+    seq::SliceRandom,
+    FromEntropy, Rng,
+};
 
 #[test]
 fn roundtrip_random_config_short() {

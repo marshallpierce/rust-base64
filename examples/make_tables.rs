@@ -44,9 +44,9 @@ fn main() {
 }
 
 fn print_encode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
-    println!("#[cfg_attr(rustfmt, rustfmt_skip)]");
+    println!("#[rustfmt::skip]");
     println!(
-        "{:width$}pub const {}: &'static [u8; 64] = &[",
+        "{:width$}pub const {}: &[u8; 64] = &[",
         "",
         const_name,
         width = indent_depth
@@ -78,9 +78,9 @@ fn print_decode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
         let _ = input_to_morsel.insert(*ascii_byte, morsel as u8);
     }
 
-    println!("#[cfg_attr(rustfmt, rustfmt_skip)]");
+    println!("#[rustfmt::skip]");
     println!(
-        "{:width$}pub const {}: &'static [u8; 256] = &[",
+        "{:width$}pub const {}: &[u8; 256] = &[",
         "",
         const_name,
         width = indent_depth
