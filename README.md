@@ -9,6 +9,8 @@ Made with CLion. Thanks to JetBrains for supporting open source!
 
 It's base64. What more could anyone want?
 
+This library's goals are to be *correct* and *fast*. It's thoroughly tested and widely used. It exposes functionality at multiple levels of abstraction so you can choose the level of convenience vs performance that you want, e.g. `decode_config_slice` decodes into an existing `&mut [u8]` and is pretty fast (2.6GiB/s for a 3 KiB input), whereas `decode_config` allocates a new `Vec<u8>` and returns it, which might be more convenient in some cases, but is slower (although still fast enough for most purposes) at 2.1 GiB/s.
+
 Example
 ---
 
