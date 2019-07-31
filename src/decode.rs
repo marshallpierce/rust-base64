@@ -1,7 +1,6 @@
 use crate::{tables, Config, STANDARD};
-use byteorder::{BigEndian, ByteOrder};
 
-use std::{error, fmt, str};
+use std::{error, fmt, io::Write, str};
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -507,8 +506,7 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 16;
 
-    BigEndian::write_u64(output, accum);
-
+    (&mut *output).write_all(&accum.to_be_bytes()).unwrap();
     Ok(())
 }
 
