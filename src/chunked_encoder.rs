@@ -2,7 +2,11 @@ use crate::{
     encode::{add_padding, encode_to_slice},
     Config,
 };
-use std::{cmp, str};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use alloc::string::String;
+use core::cmp;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use core::str;
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -80,16 +84,19 @@ fn max_input_length(encoded_buf_len: usize, config: Config) -> usize {
 }
 
 // A really simple sink that just appends to a string
+#[cfg(any(feature = "alloc", feature = "std", test))]
 pub(crate) struct StringSink<'a> {
     string: &'a mut String,
 }
 
+#[cfg(any(feature = "alloc", feature = "std", test))]
 impl<'a> StringSink<'a> {
     pub(crate) fn new(s: &mut String) -> StringSink {
         StringSink { string: s }
     }
 }
 
+#[cfg(any(feature = "alloc", feature = "std", test))]
 impl<'a> Sink for StringSink<'a> {
     type Error = ();
 
