@@ -65,6 +65,7 @@
 #[cfg(test)]
 #[macro_use]
 extern crate doc_comment;
+extern crate byteorder;
 
 #[cfg(test)]
 doctest!("../README.md");
@@ -75,10 +76,10 @@ mod tables;
 pub mod write;
 
 mod encode;
-pub use crate::encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
 
 mod decode;
-pub use crate::decode::{
+pub use decode::{
     decode, decode_config, decode_config_buf, decode_config_slice, DecodeError,
 };
 

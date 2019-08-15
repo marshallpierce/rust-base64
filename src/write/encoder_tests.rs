@@ -1,11 +1,12 @@
-use super::EncoderWriter;
-use crate::tests::random_config;
-use crate::{encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
-
-use std::io::{Cursor, Write};
 use std::{cmp, io, str};
+use std::io::{Cursor, Write};
 
 use rand::Rng;
+
+use ::{encode_config, encode_config_buf, STANDARD_NO_PAD, URL_SAFE};
+use tests::random_config;
+
+use super::EncoderWriter;
 
 #[test]
 fn encode_three_bytes() {

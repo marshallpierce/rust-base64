@@ -1,7 +1,9 @@
-use crate::{tables, Config, STANDARD};
+use std::{error, fmt, str};
+
 use byteorder::{BigEndian, ByteOrder};
 
-use std::{error, fmt, str};
+use ::{Config, STANDARD};
+use tables;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -538,16 +540,13 @@ fn decode_chunk_precise(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        encode::encode_config_buf,
-        encode::encode_config_slice,
-        tests::{assert_encode_sanity, random_config},
-    };
 
-    use rand::{
-        distributions::{Distribution, Uniform},
-        FromEntropy, Rng,
-    };
+    use rand::{FromEntropy, Rng};
+    use rand::distributions::{Distribution, Uniform};
+
+    use encode::encode_config_buf;
+    use encode::encode_config_slice;
+    use tests::{assert_encode_sanity, random_config};
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {

@@ -1,8 +1,7 @@
-use crate::{
-    encode::{add_padding, encode_to_slice},
-    Config,
-};
 use std::{cmp, str};
+
+use ::Config;
+use encode::{add_padding, encode_to_slice};
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -103,12 +102,12 @@ impl<'a> Sink for StringSink<'a> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{encode_config_buf, tests::random_config, CharacterSet, STANDARD};
 
-    use rand::{
-        distributions::{Distribution, Uniform},
-        FromEntropy, Rng,
-    };
+    use rand::{FromEntropy, Rng};
+    use rand::distributions::{Distribution, Uniform};
+
+    use ::{encode_config_buf, CharacterSet, STANDARD};
+    use tests::random_config;
 
     #[test]
     fn chunked_encode_empty() {
@@ -171,7 +170,7 @@ pub mod tests {
 
     #[test]
     fn max_input_length_cant_use_extra_single_encoded_byte() {
-        let config = Config::new(crate::CharacterSet::Standard, false);
+        let config = Config::new(::CharacterSet::Standard, false);
         assert_eq!(300, max_input_length(401, config));
     }
 
