@@ -63,10 +63,12 @@
 )]
 #![allow(unknown_lints, bare_trait_objects)]
 
-#[cfg(test)]
-#[macro_use]
-extern crate doc_comment;
 extern crate byteorder;
+
+#[cfg(test)] extern crate rand;
+#[cfg(test)] #[macro_use] extern crate doc_comment;
+
+#[cfg(bench)] extern crate criterion;
 
 #[cfg(test)]
 doctest!("../README.md");
