@@ -61,6 +61,7 @@
     warnings,
     unsafe_code
 )]
+#![allow(unknown_lints, bare_trait_objects)]
 
 #[cfg(test)]
 #[macro_use]
