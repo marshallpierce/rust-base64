@@ -88,6 +88,49 @@ impl<'a, W: Write> fmt::Debug for EncoderWriter<'a, W> {
     }
 }
 
+/// Rotate the items in the slice to the left by [n_first].
+fn rotate_left(slice: &mut [u8], n_first: usize) {
+    // Based on C++ implementation taken from
+    // https://en.cppreference.com/w/cpp/algorithm/rotate
+    //
+    // template<class ForwardIt>
+    // ForwardIt rotate(ForwardIt first, ForwardIt n_first, ForwardIt last)
+    // {
+    //    if(first == n_first) return last;
+    //    if(n_first == last) return first;
+    //
+    //    ForwardIt read      = n_first;
+    //    ForwardIt write     = first;
+    //    ForwardIt next_read = first; // read position for when "read" hits "last"
+    //
+    //    while(read != last) {
+    //       if(write == next_read) next_read = read; // track where "first" went
+    //       std::iter_swap(write++, read++);
+    //    }
+    //
+    //    // rotate the remaining sequence into place
+    //    (rotate)(write, next_read, last);
+    //    return write;
+    // }
+
+    let last = slice.len();
+    if n_first == 0 || n_first == last {
+        return;
+    }
+    let mut read = n_first;
+    let mut write = 0;
+    let mut next_read = 0;
+    while read != last {
+        if write == next_read {
+            next_read = read;
+        }
+        slice.swap(write, read);
+        write += 1;
+        read += 1;
+    }
+    rotate_left(&mut slice[write..], next_read - write);
+}
+
 impl<'a, W: Write> EncoderWriter<'a, W> {
     /// Create a new encoder that will write to the provided delegate writer `w`.
     pub fn new(w: &'a mut W, config: Config) -> EncoderWriter<'a, W> {
@@ -162,7 +205,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
                 // If we're blocking on I/O, the minor inefficiency of copying bytes to the
                 // start of the buffer is the least of our concerns...
                 // Rotate moves more than we need to, but copy_within isn't stabilized yet.
-                self.output.rotate_left(consumed);
+                rotate_left(&mut self.output[..], consumed);
             } else {
                 self.output_occupied_len = 0;
             }
