@@ -9,7 +9,6 @@ readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode"]
 categories = ["encoding"]
 license = "MIT/Apache-2.0"
-edition = "2018"
 
 [[bench]]
 name = "benchmarks"
