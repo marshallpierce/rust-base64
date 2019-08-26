@@ -58,9 +58,9 @@
     unused_import_braces,
     unused_results,
     variant_size_differences,
-    warnings,
-    unsafe_code
+    warnings
 )]
+#![forbid(unsafe_code)]
 
 #[cfg(test)]
 #[macro_use]
