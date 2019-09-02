@@ -1,7 +1,7 @@
 [base64](https://crates.io/crates/base64)
 ===
 
-[![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64) [![Build](https://travis-ci.org/alicemaz/rust-base64.svg?branch=master)](https://travis-ci.org/alicemaz/rust-base64) [![codecov](https://codecov.io/gh/alicemaz/rust-base64/branch/master/graph/badge.svg)](https://codecov.io/gh/alicemaz/rust-base64)
+[![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64) [![Build](https://travis-ci.org/marshallpierce/rust-base64.svg?branch=master)](https://travis-ci.org/marshallpierce/rust-base64) [![codecov](https://codecov.io/gh/marshallpierce/rust-base64/branch/master/graph/badge.svg)](https://codecov.io/gh/marshallpierce/rust-base64)
 
 <a href="https://www.jetbrains.com/?from=rust-base64"><img src="/icon_CLion.svg" height="40px"/></a>
 

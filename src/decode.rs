@@ -718,7 +718,7 @@ mod tests {
         let decode =
             |input, forgiving| decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving));
 
-        // example from https://github.com/alicemaz/rust-base64/issues/75
+        // example from https://github.com/marshallpierce/rust-base64/issues/75
         assert!(decode("iYU=", false).is_ok());
         // trailing 01
         assert_eq!(
