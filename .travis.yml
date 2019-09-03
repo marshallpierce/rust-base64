@@ -19,6 +19,12 @@ matrix:
         - cargo tarpaulin --version || RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install --force cargo-tarpaulin
         - cargo fuzz --version || cargo install --force cargo-fuzz
 
+    # no_std
+    - rust: stable
+      env: TARGET="--target thumbv6m-none-eabi" FEATURES="--no-default-features --features alloc"
+      install:
+        - rustup target add thumbv6m-none-eabi
+
 cache: cargo
 
 env:
@@ -26,9 +32,10 @@ env:
   - TERM=dumb
 
 script:
-  - cargo build --verbose
-  - cargo test --verbose
-  - cargo doc --verbose
+  - cargo build --verbose $TARGET --no-default-features 
+  - cargo build --verbose $TARGET $FEATURES
+  - 'if [[ -z "$TARGET" ]]; then cargo test --verbose; fi'
+  - 'if [[ -z "$TARGET" ]]; then cargo doc --verbose; fi'
   - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo bench --no-run; fi'
   # run for just a second to confirm that it can build and run ok
   - 'if [[ "$TRAVIS_RUST_VERSION" = nightly ]]; then cargo fuzz list | xargs -L 1 -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1; fi'
