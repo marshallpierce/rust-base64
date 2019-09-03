@@ -1,7 +1,12 @@
-use crate::{tables, Config, STANDARD};
-use byteorder::{BigEndian, ByteOrder};
+use crate::{tables, Config};
 
-use std::{error, fmt, str};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use crate::STANDARD;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use alloc::vec::Vec;
+#[cfg(any(feature = "std", test))]
+use std::error;
+use core::fmt;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -46,6 +51,7 @@ impl fmt::Display for DecodeError {
     }
 }
 
+#[cfg(any(feature = "std", test))]
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
@@ -74,6 +80,7 @@ impl error::Error for DecodeError {
 ///    println!("{:?}", bytes);
 ///}
 ///```
+#[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
     decode_config(input, STANDARD)
 }
@@ -94,6 +101,7 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
+#[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
     input: &T,
     config: Config,
@@ -124,6 +132,7 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///    println!("{:?}", buffer);
 ///}
 ///```
+#[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     input: &T,
     config: Config,
@@ -419,6 +428,11 @@ fn decode_helper(
     Ok(output_index)
 }
 
+#[inline]
+fn write_u64(output: &mut [u8], value: u64) {
+    output[..8].copy_from_slice(&value.to_be_bytes());
+}
+
 /// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
 /// first 6 of those contain meaningful data.
 ///
@@ -507,7 +521,7 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 16;
 
-    BigEndian::write_u64(output, accum);
+    write_u64(output, accum);
 
     Ok(())
 }
