@@ -17,7 +17,7 @@ matrix:
       install:
         # For test coverage. In install step so that it can use cache.
         - cargo tarpaulin --version || RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install --force cargo-tarpaulin
-        - cargo fuzz --version || cargo install --force cargo-fuzz
+        - cargo +nightly install cargo-fuzz -Z install-upgrade
 
     # no_std
     - rust: stable
