@@ -77,6 +77,7 @@ doctest!("../README.md");
 
 mod chunked_encoder;
 pub mod display;
+#[cfg(any(feature = "std", test))]
 pub mod read;
 mod tables;
 #[cfg(any(feature = "std", test))]

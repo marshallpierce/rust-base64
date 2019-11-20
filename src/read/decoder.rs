@@ -1,7 +1,7 @@
 use std::cmp;
 use std::fmt;
 use std::io::{Error, ErrorKind, Read, Result};
-use {decode_config_slice, Config};
+use crate::{decode_config_slice, Config};
 
 // This should be large, but it has to fit on the stack.
 pub(crate) const BUF_SIZE: usize = 1024;

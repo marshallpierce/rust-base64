@@ -1,13 +1,12 @@
-extern crate rand;
-
 use std::io::Read;
 
-use self::rand::Rng;
+use rand::Rng;
 use std::io::Cursor;
 
-use encode::encode_config_buf;
-use read::decoder::BUF_SIZE;
-use tests::random_config;
+use crate::STANDARD;
+use crate::encode::encode_config_buf;
+use crate::tests::random_config;
+use super::decoder::{BUF_SIZE, DecoderReader};
 
 #[test]
 fn simple() {
@@ -28,7 +27,7 @@ fn simple() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
             let mut wrapped_reader = Cursor::new(base64data);
-            let mut decoder = ::read::DecoderReader::new(&mut wrapped_reader, ::STANDARD);
+            let mut decoder = DecoderReader::new(&mut wrapped_reader, STANDARD);
 
             // handle errors as you normally would
             let mut text_got = Vec::new();
@@ -79,7 +78,7 @@ fn big() {
             BUF_SIZE + 1,
         ] {
             let mut wrapped_reader = Cursor::new(encoded.clone());
-            let mut decoder = ::read::DecoderReader::new(&mut wrapped_reader, config);
+            let mut decoder = DecoderReader::new(&mut wrapped_reader, config);
 
             let mut data_got = Vec::new();
             let mut buffer = vec![0u8; n];
@@ -110,7 +109,7 @@ fn trailing_junk() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
             let mut wrapped_reader = Cursor::new(base64data);
-            let mut decoder = ::read::DecoderReader::new(&mut wrapped_reader, ::STANDARD);
+            let mut decoder = DecoderReader::new(&mut wrapped_reader, STANDARD);
 
             // handle errors as you normally would
             let mut buffer = vec![0u8; n];
