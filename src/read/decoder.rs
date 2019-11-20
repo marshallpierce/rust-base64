@@ -1,14 +1,14 @@
+use crate::{decode_config_slice, Config};
 use std::cmp;
 use std::fmt;
 use std::io::{Error, ErrorKind, Read, Result};
-use crate::{decode_config_slice, Config};
 
 // This should be large, but it has to fit on the stack.
 pub(crate) const BUF_SIZE: usize = 1024;
 
 // 4 bytes of base64 data encode 3 bytes of raw data (modulo padding).
 const BASE64_CHUNK_SIZE: usize = 4;
-const RAW_CHUNK_SIZE: usize = 3;
+const DECODED_CHUNK_SIZE: usize = 3;
 
 /// A `Read` implementation that decodes base64 data read from an underlying reader.
 ///
@@ -95,19 +95,24 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
             self.buffer_amount -= amount;
 
             Ok(amount)
-        } else if buf.len() >= 2 * RAW_CHUNK_SIZE {
+        } else if buf.len() >= 2 * DECODED_CHUNK_SIZE {
             // The caller wants at least two chunks.  Round down to a
             // multiple of the chunk size and decode directly into the
             // caller-provided buffer.
-
-            let mut base64_data = [0u8; BUF_SIZE];
-            let base64_bytes = cmp::min(BUF_SIZE, (buf.len() / RAW_CHUNK_SIZE) * BASE64_CHUNK_SIZE);
+            let base64_bytes = cmp::min(
+                BUF_SIZE,
+                (buf.len() / DECODED_CHUNK_SIZE) * BASE64_CHUNK_SIZE,
+            );
             assert!(base64_bytes > 0);
 
-            let read = self.r.read(&mut base64_data[..base64_bytes])?;
+            // TODO what if read provides less data than we asked for?
+            // borrow our buffer since it has nothing of value in it
+            let read = self.r.read(&mut self.buffer[..base64_bytes])?;
 
-            let decoded = decode_config_slice(&base64_data[..read], self.config, buf)
+            // TODO only decode complete chunks
+            let decoded = decode_config_slice(&self.buffer[..read], self.config, buf)
                 .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+            // TODO keep track of any data we didn't decode (i.e. incomplete chunks)
 
             Ok(decoded)
         } else {
@@ -115,6 +120,9 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
             // (i.e., one or two bytes).  We have to buffer something.
             // Double buffer a large amount in case short reads turn
             // out to be common.
+
+            // TODO maybe store base64 in the buffer, and keep a separate decode buffer that holds
+            // only a decoded chunk (3 bytes) to handle very short read calls?
 
             let mut base64_data = [0u8; BUF_SIZE];
             let read = self.r.read(&mut base64_data)?;

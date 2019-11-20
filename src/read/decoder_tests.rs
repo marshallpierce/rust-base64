@@ -1,12 +1,12 @@
-use std::io::Read;
+use std::io::{self, Read};
 
-use rand::Rng;
-use std::io::Cursor;
+use rand::{Rng, RngCore};
+use std::iter;
 
-use crate::STANDARD;
+use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::encode::encode_config_buf;
 use crate::tests::random_config;
-use super::decoder::{BUF_SIZE, DecoderReader};
+use crate::STANDARD;
 
 #[test]
 fn simple() {
@@ -26,7 +26,7 @@ fn simple() {
     for (text_expected, base64data) in tests.iter() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
-            let mut wrapped_reader = Cursor::new(base64data);
+            let mut wrapped_reader = io::Cursor::new(base64data);
             let mut decoder = DecoderReader::new(&mut wrapped_reader, STANDARD);
 
             // handle errors as you normally would
@@ -77,7 +77,7 @@ fn big() {
             rng.gen_range(1, BUF_SIZE),
             BUF_SIZE + 1,
         ] {
-            let mut wrapped_reader = Cursor::new(encoded.clone());
+            let mut wrapped_reader = io::Cursor::new(encoded.clone());
             let mut decoder = DecoderReader::new(&mut wrapped_reader, config);
 
             let mut data_got = Vec::new();
@@ -108,7 +108,7 @@ fn trailing_junk() {
     for base64data in tests.iter() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
-            let mut wrapped_reader = Cursor::new(base64data);
+            let mut wrapped_reader = io::Cursor::new(base64data);
             let mut decoder = DecoderReader::new(&mut wrapped_reader, STANDARD);
 
             // handle errors as you normally would
@@ -124,5 +124,56 @@ fn trailing_junk() {
 
             assert!(saw_error);
         }
+    }
+}
+
+#[test]
+fn handles_short_read() {
+    let mut rng = rand::thread_rng();
+    let mut bytes = Vec::new();
+    let mut b64 = String::new();
+    let mut decoded = Vec::new();
+
+    for _ in 0..10_000 {
+        bytes.clear();
+        b64.clear();
+        decoded.clear();
+
+        let size = rng.gen_range(0, 10 * BUF_SIZE);
+        bytes.extend(iter::repeat(0).take(size));
+        bytes.truncate(size);
+        rng.fill_bytes(&mut bytes[..size]);
+        assert_eq!(size, bytes.len());
+
+        let config = random_config(&mut rng);
+        encode_config_buf(&bytes[..], config, &mut b64);
+
+        let mut wrapped_reader = io::Cursor::new(b64.as_bytes());
+        let mut short_reader = RandomShortRead {
+            delegate: &mut wrapped_reader,
+            rng: &mut rng,
+        };
+
+        let mut decoder = DecoderReader::new(&mut short_reader, config);
+
+        let decoded_len = decoder.read_to_end(&mut decoded).unwrap();
+        assert_eq!(size, decoded_len);
+        assert_eq!(&bytes[..], &decoded[..]);
+
+    }
+}
+
+// exercise code that depends on
+struct RandomShortRead<'a, 'b, R: io::Read, N: rand::Rng> {
+    delegate: &'b mut R,
+    rng: &'a mut N,
+}
+
+impl<'a, 'b, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, 'b, R, N> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        let effective_len = self.rng.gen_range(0, 20);
+        println!("buf {} effective {}", buf.len(), effective_len);
+
+        self.delegate.read(&mut buf[..effective_len])
     }
 }
