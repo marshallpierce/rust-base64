@@ -80,6 +80,7 @@ pub mod display;
 mod tables;
 #[cfg(any(feature = "std", test))]
 pub mod write;
+pub mod read;
 
 mod encode;
 pub use crate::encode::encode_config_slice;
