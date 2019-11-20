@@ -244,5 +244,4 @@ pub mod tests {
             s
         }
     }
-
 }

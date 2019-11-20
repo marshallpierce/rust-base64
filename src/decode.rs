@@ -4,9 +4,9 @@ use crate::{tables, Config};
 use crate::STANDARD;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
+use core::fmt;
 #[cfg(any(feature = "std", test))]
 use std::error;
-use core::fmt;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;

@@ -669,5 +669,4 @@ mod tests {
 
         assert_eq!(encoded_len, encoded.len());
     }
-
 }
