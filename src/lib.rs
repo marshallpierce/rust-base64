@@ -77,10 +77,10 @@ doctest!("../README.md");
 
 mod chunked_encoder;
 pub mod display;
+pub mod read;
 mod tables;
 #[cfg(any(feature = "std", test))]
 pub mod write;
-pub mod read;
 
 mod encode;
 pub use crate::encode::encode_config_slice;

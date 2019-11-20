@@ -1,14 +1,14 @@
-use std::io::{Error, ErrorKind, Result, Read};
-use std::fmt;
 use std::cmp;
+use std::fmt;
+use std::io::{Error, ErrorKind, Read, Result};
 use {decode_config_slice, Config};
 
 // This should be large, but it has to fit on the stack.
 pub(crate) const BUF_SIZE: usize = 1024;
 
 // 4 bytes of base64 data encode 3 bytes of raw data (modulo padding).
-const BASE64_CHUNK_SIZE : usize = 4;
-const RAW_CHUNK_SIZE : usize = 3;
+const BASE64_CHUNK_SIZE: usize = 4;
+const RAW_CHUNK_SIZE: usize = 3;
 
 /// A `Read` implementation that decodes base64 data read from an underlying reader.
 ///
@@ -59,7 +59,7 @@ impl<'a, R: Read> DecoderReader<'a, R> {
         DecoderReader {
             config,
             r,
-            buffer: [ 0; BUF_SIZE ],
+            buffer: [0; BUF_SIZE],
             buffer_offset: 0,
             buffer_amount: 0,
         }
@@ -89,7 +89,8 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
             // We have something buffered, use that.
 
             let amount = cmp::min(buf.len(), self.buffer_amount);
-            buf[..amount].copy_from_slice(&self.buffer[self.buffer_offset..self.buffer_offset+amount]);
+            buf[..amount]
+                .copy_from_slice(&self.buffer[self.buffer_offset..self.buffer_offset + amount]);
             self.buffer_offset += amount;
             self.buffer_amount -= amount;
 
