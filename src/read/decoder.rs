@@ -204,9 +204,14 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
         } else {
             let mut at_eof = false;
             while self.b64_len < BASE64_CHUNK_SIZE {
-                // scoot the few bytes we have to the beginning
-                self.b64_buffer
-                    .copy_within(self.b64_offset..self.b64_offset + self.b64_len, 0);
+                // Work around lack of copy_within, which is only present in 1.37
+                // Copy any bytes we have to the start of the buffer.
+                // We know we have < 1 chunk, so we can use a tiny tmp buffer.
+                let mut memmove_buf = [0_u8; BASE64_CHUNK_SIZE];
+                memmove_buf[..self.b64_len].copy_from_slice(
+                    &self.b64_buffer[self.b64_offset..self.b64_offset + self.b64_len],
+                );
+                self.b64_buffer[0..self.b64_len].copy_from_slice(&memmove_buf[..self.b64_len]);
                 self.b64_offset = 0;
 
                 // then fill in more data
