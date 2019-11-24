@@ -43,6 +43,14 @@
 //! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
 //! valid, but excess padding is not.) Whitespace in the input is invalid.
 //!
+//! # `Read` and `Write`
+//!
+//! To map a `Read` of b64 bytes to the decoded bytes, wrap a reader (file, network socket, etc)
+//! with `base64::read::DecoderReader`. To write raw bytes and have them b64 encoded on the fly,
+//! wrap a writer with `base64::write::EncoderWriter`. There is some performance overhead (15% or
+//! so) because of the necessary buffer shuffling -- still fast enough that almost nobody cares.
+//! Also, these implementations do not heap allocate.
+//!
 //! # Panics
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
