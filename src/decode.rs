@@ -81,7 +81,7 @@ impl error::Error for DecodeError {
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
+pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
     decode_config(input, STANDARD)
 }
 
@@ -102,10 +102,7 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
-    config: Config,
-) -> Result<Vec<u8>, DecodeError> {
+pub fn decode_config<T: AsRef<[u8]>>(input: T, config: Config) -> Result<Vec<u8>, DecodeError> {
     let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
@@ -133,8 +130,8 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+pub fn decode_config_buf<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     buffer: &mut Vec<u8>,
 ) -> Result<(), DecodeError> {
@@ -169,8 +166,8 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 /// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
 ///
 /// If the slice is not large enough, this will panic.
-pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+pub fn decode_config_slice<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
