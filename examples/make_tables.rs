@@ -26,7 +26,7 @@ fn main() {
         .chain(0x30..0x3A)
         // -
         .chain(0x2D..0x2E)
-        // _s
+        // _
         .chain(0x5F..0x60)
         .collect();
     print_encode_table(&url_alphabet, "URL_SAFE_ENCODE", 0);
