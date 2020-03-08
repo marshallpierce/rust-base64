@@ -43,13 +43,21 @@
 //! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
 //! valid, but excess padding is not.) Whitespace in the input is invalid.
 //!
+//! # `Read` and `Write`
+//!
+//! To map a `Read` of b64 bytes to the decoded bytes, wrap a reader (file, network socket, etc)
+//! with `base64::read::DecoderReader`. To write raw bytes and have them b64 encoded on the fly,
+//! wrap a writer with `base64::write::EncoderWriter`. There is some performance overhead (15% or
+//! so) because of the necessary buffer shuffling -- still fast enough that almost nobody cares.
+//! Also, these implementations do not heap allocate.
+//!
 //! # Panics
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
-#![cfg_attr(feature = "cargo-clippy", allow(cast_lossless))]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
 #![deny(
     missing_docs,
     trivial_casts,
@@ -58,22 +66,40 @@
     unused_import_braces,
     unused_results,
     variant_size_differences,
-    warnings,
-    unsafe_code
+    warnings
 )]
+#![forbid(unsafe_code)]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
-extern crate byteorder;
+#[cfg(all(feature = "alloc", not(any(feature = "std", test))))]
+extern crate alloc;
+#[cfg(any(feature = "std", test))]
+extern crate std as alloc;
+
+#[cfg(test)]
+#[macro_use]
+extern crate doc_comment;
+
+#[cfg(test)]
+doctest!("../README.md");
 
 mod chunked_encoder;
 pub mod display;
+#[cfg(any(feature = "std", test))]
+pub mod read;
 mod tables;
+#[cfg(any(feature = "std", test))]
 pub mod write;
 
 mod encode;
-pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use crate::encode::encode_config_slice;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub use crate::encode::{encode, encode_config, encode_config_buf};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub use crate::decode::{decode, decode_config, decode_config_buf};
+pub use crate::decode::{decode_config_slice, DecodeError};
 
 #[cfg(test)]
 mod tests;

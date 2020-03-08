@@ -1,7 +1,12 @@
-use byteorder::{BigEndian, ByteOrder};
-use {tables, Config, STANDARD};
+use crate::{tables, Config};
 
-use std::{error, fmt, str};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use crate::STANDARD;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use alloc::vec::Vec;
+use core::fmt;
+#[cfg(any(feature = "std", test))]
+use std::error;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -46,6 +51,7 @@ impl fmt::Display for DecodeError {
     }
 }
 
+#[cfg(any(feature = "std", test))]
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
@@ -55,7 +61,7 @@ impl error::Error for DecodeError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         None
     }
 }
@@ -74,7 +80,8 @@ impl error::Error for DecodeError {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
     decode_config(input, STANDARD)
 }
 
@@ -94,10 +101,8 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
-    config: Config,
-) -> Result<Vec<u8>, DecodeError> {
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode_config<T: AsRef<[u8]>>(input: T, config: Config) -> Result<Vec<u8>, DecodeError> {
     let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
@@ -124,8 +129,9 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///    println!("{:?}", buffer);
 ///}
 ///```
-pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode_config_buf<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     buffer: &mut Vec<u8>,
 ) -> Result<(), DecodeError> {
@@ -160,8 +166,8 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 /// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
 ///
 /// If the slice is not large enough, this will panic.
-pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+pub fn decode_config_slice<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
@@ -419,6 +425,11 @@ fn decode_helper(
     Ok(output_index)
 }
 
+#[inline]
+fn write_u64(output: &mut [u8], value: u64) {
+    output[..8].copy_from_slice(&value.to_be_bytes());
+}
+
 /// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
 /// first 6 of those contain meaningful data.
 ///
@@ -507,7 +518,7 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 16;
 
-    BigEndian::write_u64(output, accum);
+    write_u64(output, accum);
 
     Ok(())
 }
@@ -537,14 +548,17 @@ fn decode_chunk_precise(
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
     use super::*;
-    use encode::encode_config_buf;
-    use tests::{assert_encode_sanity, random_config};
+    use crate::{
+        encode::encode_config_buf,
+        encode::encode_config_slice,
+        tests::{assert_encode_sanity, random_config},
+    };
 
-    use self::rand::distributions::{Distribution, Uniform};
-    use self::rand::{FromEntropy, Rng};
+    use rand::{
+        distributions::{Distribution, Uniform},
+        FromEntropy, Rng,
+    };
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
@@ -715,7 +729,7 @@ mod tests {
         let decode =
             |input, forgiving| decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving));
 
-        // example from https://github.com/alicemaz/rust-base64/issues/75
+        // example from https://github.com/marshallpierce/rust-base64/issues/75
         assert!(decode("iYU=", false).is_ok());
         // trailing 01
         assert_eq!(
@@ -774,7 +788,7 @@ mod tests {
             for b2 in 0_u16..256 {
                 bytes[1] = b2 as u8;
                 let mut b64 = vec![0_u8; 4];
-                assert_eq!(4, ::encode_config_slice(&bytes, STANDARD, &mut b64[..]));
+                assert_eq!(4, encode_config_slice(&bytes, STANDARD, &mut b64[..]));
                 let mut v = ::std::vec::Vec::with_capacity(2);
                 v.extend_from_slice(&bytes[..]);
 
@@ -813,7 +827,7 @@ mod tests {
 
         for b in 0_u16..256 {
             let mut b64 = vec![0_u8; 4];
-            assert_eq!(4, ::encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
+            assert_eq!(4, encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
             let mut v = ::std::vec::Vec::with_capacity(1);
             v.push(b as u8);
 
@@ -846,8 +860,8 @@ mod tests {
     #[test]
     fn decode_imap() {
         assert_eq!(
-            ::decode_config(b"+,,+", ::IMAP_MUTF7),
-            ::decode_config(b"+//+", ::STANDARD_NO_PAD)
+            decode_config(b"+,,+", crate::IMAP_MUTF7),
+            decode_config(b"+//+", crate::STANDARD_NO_PAD)
         );
     }
 }

@@ -1,7 +1,9 @@
-use encode::encode_to_slice;
-use std::io::{ErrorKind, Result, Write};
-use std::{cmp, fmt};
-use {encode_config_slice, Config};
+use crate::encode::encode_to_slice;
+use crate::{encode_config_slice, Config};
+use std::{
+    cmp, fmt,
+    io::{ErrorKind, Result, Write},
+};
 
 pub(crate) const BUF_SIZE: usize = 1024;
 /// The most bytes whose encoding will fit in `BUF_SIZE`
@@ -153,7 +155,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
         let res = self.w.write(&self.output[..current_output_len]);
         self.panicked = false;
 
-        return res.map(|consumed| {
+        res.map(|consumed| {
             debug_assert!(consumed <= current_output_len);
 
             if consumed < current_output_len {
@@ -165,9 +167,7 @@ impl<'a, W: Write> EncoderWriter<'a, W> {
             } else {
                 self.output_occupied_len = 0;
             }
-
-            ()
-        });
+        })
     }
 
     /// Write all buffered encoded output. If this returns `Ok`, `self.output_occupied_len` is `0`.

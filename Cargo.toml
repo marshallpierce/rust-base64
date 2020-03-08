@@ -1,25 +1,29 @@
 [package]
 name = "base64"
-version = "0.10.1"
+version = "0.11.0"
 authors = ["Alice Maz <alice@alicemaz.com>", "Marshall Pierce <marshall@mpierce.org>"]
 description = "encodes and decodes base64 as bytes or utf8"
-repository = "https://github.com/alicemaz/rust-base64"
-documentation = "https://github.com/alicemaz/rust-base64/blob/master/README.md"
+repository = "https://github.com/marshallpierce/rust-base64"
+documentation = "https://docs.rs/base64"
 readme = "README.md"
-keywords = ["base64", "utf8", "encode", "decode"]
+keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT/Apache-2.0"
+edition = "2018"
 
 [[bench]]
 name = "benchmarks"
 harness = false
 
-[dependencies]
-byteorder = "1.2.6"
-
 [dev-dependencies]
-criterion = "0.2"
+criterion = "0.3"
 rand = "0.6.1"
+doc-comment = "0.3"
+
+[features]
+default = ["std"]
+alloc = []
+std = []
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`
