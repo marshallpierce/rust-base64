@@ -1,6 +1,8 @@
 # Next
 
-- 0.11.0
+- A `Read` implementation (`DecoderReader`) to let users transparently decoded data from a b64 input source
+
+# 0.11.0
 - Minimum rust version 1.34.0
 - `no_std` is now supported via the two new features `alloc` and `std`.
 
