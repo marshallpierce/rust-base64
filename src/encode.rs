@@ -47,8 +47,7 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
         None => panic!("integer overflow when calculating buffer size"),
     };
 
-    let encoded_len = encode_config_slice(input.as_ref(), config, &mut buf[..]);
-    debug_assert_eq!(encoded_len, buf.len());
+    encode_with_padding(input.as_ref(), config, buf.len(), &mut buf[..]);
 
     String::from_utf8(buf).expect("Invalid UTF8")
 }
