@@ -20,7 +20,7 @@ use core::convert::TryInto;
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
+pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
     encode_config(input, STANDARD)
 }
 
@@ -41,14 +41,13 @@ pub fn encode<T: ?Sized + AsRef<[u8]>>(input: &T) -> String {
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> String {
+pub fn encode_config<T: AsRef<[u8]>>(input: T, config: Config) -> String {
     let mut buf = match encoded_size(input.as_ref().len(), config) {
         Some(n) => vec![0; n],
         None => panic!("integer overflow when calculating buffer size"),
     };
 
-    let encoded_len = encode_config_slice(input.as_ref(), config, &mut buf[..]);
-    debug_assert_eq!(encoded_len, buf.len());
+    encode_with_padding(input.as_ref(), config, buf.len(), &mut buf[..]);
 
     String::from_utf8(buf).expect("Invalid UTF8")
 }
@@ -72,7 +71,7 @@ pub fn encode_config<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config) -> Stri
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf: &mut String) {
+pub fn encode_config_buf<T: AsRef<[u8]>>(input: T, config: Config, buf: &mut String) {
     let input_bytes = input.as_ref();
 
     {
@@ -115,11 +114,7 @@ pub fn encode_config_buf<T: ?Sized + AsRef<[u8]>>(input: &T, config: Config, buf
 ///     assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
 /// }
 /// ```
-pub fn encode_config_slice<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
-    config: Config,
-    output: &mut [u8],
-) -> usize {
+pub fn encode_config_slice<T: AsRef<[u8]>>(input: T, config: Config, output: &mut [u8]) -> usize {
     let input_bytes = input.as_ref();
 
     let encoded_size = encoded_size(input_bytes.len(), config)
