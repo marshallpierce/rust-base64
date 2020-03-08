@@ -1,6 +1,6 @@
 [package]
 name = "base64"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Alice Maz <alice@alicemaz.com>", "Marshall Pierce <marshall@mpierce.org>"]
 description = "encodes and decodes base64 as bytes or utf8"
 repository = "https://github.com/marshallpierce/rust-base64"
