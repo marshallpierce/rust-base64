@@ -1,6 +1,9 @@
-# Next
+# 0.12.0
 
 - A `Read` implementation (`DecoderReader`) to let users transparently decoded data from a b64 input source
+- IMAP's modified b64 alphabet
+- Relaxed type restrictions to just `AsRef<[ut8]>` for main `encode*`/`decode*` functions
+- A minor performance improvement in encoding
 
 # 0.11.0
 - Minimum rust version 1.34.0
