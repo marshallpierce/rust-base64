@@ -119,6 +119,10 @@ pub enum CharacterSet {
     ///
     /// Not standardized, but folk wisdom on the net asserts that this alphabet is what crypt uses.
     Crypt,
+    /// The character set used in IMAP-modified UTF-7 (uses `+` and `,`).
+    ///
+    /// See [RFC 3501](https://tools.ietf.org/html/rfc3501#section-5.1.3)
+    ImapMutf7,
 }
 
 impl CharacterSet {
@@ -127,6 +131,7 @@ impl CharacterSet {
             CharacterSet::Standard => tables::STANDARD_ENCODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
             CharacterSet::Crypt => tables::CRYPT_ENCODE,
+            CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_ENCODE,
         }
     }
 
@@ -135,6 +140,7 @@ impl CharacterSet {
             CharacterSet::Standard => tables::STANDARD_DECODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
             CharacterSet::Crypt => tables::CRYPT_DECODE,
+            CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_DECODE,
         }
     }
 }
@@ -208,6 +214,13 @@ pub const URL_SAFE_NO_PAD: Config = Config {
 /// As per `crypt(3)` requirements
 pub const CRYPT: Config = Config {
     char_set: CharacterSet::Crypt,
+    pad: false,
+    decode_allow_trailing_bits: false,
+};
+
+/// IMAP modified UTF-7 requirements
+pub const IMAP_MUTF7: Config = Config {
+    char_set: CharacterSet::ImapMutf7,
     pad: false,
     decode_allow_trailing_bits: false,
 };

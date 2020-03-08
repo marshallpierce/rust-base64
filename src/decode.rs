@@ -856,4 +856,12 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn decode_imap() {
+        assert_eq!(
+            decode_config(b"+,,+", crate::IMAP_MUTF7),
+            decode_config(b"+//+", crate::STANDARD_NO_PAD)
+        );
+    }
 }
