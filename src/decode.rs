@@ -167,12 +167,7 @@ pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
 ) -> Result<usize, DecodeError> {
     let input_bytes = input.as_ref();
 
-    decode_helper(
-        input_bytes,
-        num_chunks(input_bytes),
-        config,
-        output,
-    )
+    decode_helper(input_bytes, num_chunks(input_bytes), config, output)
 }
 
 /// Return the number of input chunks (including a possibly partial final chunk) in the input
@@ -340,16 +335,17 @@ fn decode_helper(
 
             if i % 4 < 2 {
                 // Check for case #2.
-                let bad_padding_index = start_of_leftovers + if padding_bytes > 0 {
-                    // If we've already seen padding, report the first padding index.
-                    // This is to be consistent with the faster logic above: it will report an
-                    // error on the first padding character (since it doesn't expect to see
-                    // anything but actual encoded data).
-                    first_padding_index
-                } else {
-                    // haven't seen padding before, just use where we are now
-                    i
-                };
+                let bad_padding_index = start_of_leftovers
+                    + if padding_bytes > 0 {
+                        // If we've already seen padding, report the first padding index.
+                        // This is to be consistent with the faster logic above: it will report an
+                        // error on the first padding character (since it doesn't expect to see
+                        // anything but actual encoded data).
+                        first_padding_index
+                    } else {
+                        // haven't seen padding before, just use where we are now
+                        i
+                    };
                 return Err(DecodeError::InvalidByte(bad_padding_index, *b));
             }
 
@@ -716,24 +712,35 @@ mod tests {
 
     #[test]
     fn detect_invalid_last_symbol_two_bytes() {
-        let decode = |input, forgiving| {
-            decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving))
-        };
+        let decode =
+            |input, forgiving| decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving));
 
         // example from https://github.com/alicemaz/rust-base64/issues/75
         assert!(decode("iYU=", false).is_ok());
         // trailing 01
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'V')), decode("iYV=", false));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'V')),
+            decode("iYV=", false)
+        );
         assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
         // trailing 10
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'W')), decode("iYW=", false));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'W')),
+            decode("iYW=", false)
+        );
         assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
         // trailing 11
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(2, b'X')), decode("iYX=", false));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'X')),
+            decode("iYX=", false)
+        );
         assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
 
         // also works when there are 2 quads in the last block
-        assert_eq!(Err(DecodeError::InvalidLastSymbol(6, b'X')), decode("AAAAiYX=", false));
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(6, b'X')),
+            decode("AAAAiYX=", false)
+        );
         assert_eq!(Ok(vec![0, 0, 0, 137, 133]), decode("AAAAiYX=", true));
     }
 
@@ -838,6 +845,9 @@ mod tests {
 
     #[test]
     fn decode_imap() {
-        assert_eq!(::decode_config(b"+,,+", ::IMAP_MUTF7), ::decode_config(b"+//+", ::STANDARD_NO_PAD));
+        assert_eq!(
+            ::decode_config(b"+,,+", ::IMAP_MUTF7),
+            ::decode_config(b"+//+", ::STANDARD_NO_PAD)
+        );
     }
 }

@@ -133,7 +133,11 @@ pub struct Config {
 impl Config {
     /// Create a new `Config`.
     pub fn new(char_set: CharacterSet, pad: bool) -> Config {
-        Config { char_set, pad, decode_allow_trailing_bits: false }
+        Config {
+            char_set,
+            pad,
+            decode_allow_trailing_bits: false,
+        }
     }
 
     /// Sets whether to pad output with `=` characters.
@@ -146,7 +150,10 @@ impl Config {
     /// This is useful when implementing
     /// [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
     pub fn decode_allow_trailing_bits(self, allow: bool) -> Config {
-        Config { decode_allow_trailing_bits: allow, ..self }
+        Config {
+            decode_allow_trailing_bits: allow,
+            ..self
+        }
     }
 }
 

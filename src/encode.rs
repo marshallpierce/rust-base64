@@ -258,9 +258,9 @@ pub fn encode_to_slice(input: &[u8], output: &mut [u8], encode_table: &[u8; 64])
 
     if rem == 2 {
         output[output_index] = encode_table[(input[start_of_rem] >> 2) as usize];
-        output[output_index + 1] =
-            encode_table[((input[start_of_rem] << 4 | input[start_of_rem + 1] >> 4)
-                             & LOW_SIX_BITS_U8) as usize];
+        output[output_index + 1] = encode_table[((input[start_of_rem] << 4
+            | input[start_of_rem + 1] >> 4)
+            & LOW_SIX_BITS_U8) as usize];
         output[output_index + 2] =
             encode_table[((input[start_of_rem + 1] << 2) & LOW_SIX_BITS_U8) as usize];
         output_index += 3;
@@ -658,6 +658,9 @@ mod tests {
 
     #[test]
     fn encode_imap() {
-        assert_eq!(::encode_config(b"\xFB\xFF", ::IMAP_MUTF7), ::encode_config(b"\xFB\xFF", ::STANDARD_NO_PAD).replace("/", ","));
+        assert_eq!(
+            ::encode_config(b"\xFB\xFF", ::IMAP_MUTF7),
+            ::encode_config(b"\xFB\xFF", ::STANDARD_NO_PAD).replace("/", ",")
+        );
     }
 }

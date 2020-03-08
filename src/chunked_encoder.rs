@@ -236,5 +236,4 @@ pub mod tests {
             s
         }
     }
-
 }
