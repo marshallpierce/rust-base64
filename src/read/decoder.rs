@@ -126,7 +126,7 @@ impl<'a, R: io::Read> DecoderReader<'a, R> {
     /// Decode the requested number of bytes from the b64 buffer into the provided buffer. It's the
     /// caller's responsibility to choose the number of b64 bytes to decode correctly.
     ///
-    /// Returns a Result with the number of decoded bytes written.
+    /// Returns a Result with the number of decoded bytes written to `buf`.
     fn decode_to_buf(&mut self, num_bytes: usize, buf: &mut [u8]) -> io::Result<usize> {
         debug_assert!(self.b64_len >= num_bytes);
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
@@ -149,8 +149,8 @@ impl<'a, R: io::Read> DecoderReader<'a, R> {
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         self.total_b64_decoded += num_bytes;
-        self.b64_len -= num_bytes;
         self.b64_offset += num_bytes;
+        self.b64_len -= num_bytes;
 
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
 
@@ -224,6 +224,7 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
             }
 
             if self.b64_len == 0 {
+                debug_assert!(at_eof);
                 // we must be at EOF, and we have no data left to decode
                 return Ok(0);
             };
@@ -236,13 +237,15 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
                 self.b64_len >= BASE64_CHUNK_SIZE
             });
 
+            debug_assert_eq!(0, self.decoded_len);
+
             if buf.len() < DECODED_CHUNK_SIZE {
                 // caller requested an annoyingly short read
-                debug_assert_eq!(0, self.decoded_len);
-
                 // have to write to a tmp buf first to avoid double mutable borrow
                 let mut decoded_chunk = [0_u8; DECODED_CHUNK_SIZE];
-                // if we are at eof, could have less than BASE64_CHUNK_SIZE
+                // if we are at eof, could have less than BASE64_CHUNK_SIZE, in which case we have
+                // to assume that these last few tokens are, in fact, valid (i.e. must be 2-4 b64
+                // tokens, not 1, since 1 token can't decode to 1 byte).
                 let to_decode = cmp::min(self.b64_len, BASE64_CHUNK_SIZE);
 
                 let decoded = self.decode_to_buf(to_decode, &mut decoded_chunk[..])?;
@@ -256,20 +259,22 @@ impl<'a, R: Read> Read for DecoderReader<'a, R> {
 
                 self.flush_decoded_buf(buf)
             } else {
-                let bytes_that_can_decode_into_buf = (buf.len() / DECODED_CHUNK_SIZE)
+                let b64_bytes_that_can_decode_into_buf = (buf.len() / DECODED_CHUNK_SIZE)
                     .checked_mul(BASE64_CHUNK_SIZE)
                     .expect("too many chunks");
-                debug_assert!(bytes_that_can_decode_into_buf >= BASE64_CHUNK_SIZE);
+                debug_assert!(b64_bytes_that_can_decode_into_buf >= BASE64_CHUNK_SIZE);
 
-                let bytes_available_to_decode = if at_eof {
+                let b64_bytes_available_to_decode = if at_eof {
                     self.b64_len
                 } else {
                     // only use complete chunks
                     self.b64_len - self.b64_len % 4
                 };
 
-                let actual_decode_len =
-                    cmp::min(bytes_that_can_decode_into_buf, bytes_available_to_decode);
+                let actual_decode_len = cmp::min(
+                    b64_bytes_that_can_decode_into_buf,
+                    b64_bytes_available_to_decode,
+                );
                 self.decode_to_buf(actual_decode_len, buf)
             }
         }

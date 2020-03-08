@@ -142,25 +142,42 @@ fn read_in_short_increments() {
         let mut wrapped_reader = io::Cursor::new(&b64[..]);
         let mut decoder = DecoderReader::new(&mut wrapped_reader, config);
 
-        let mut total_read = 0_usize;
-        loop {
-            assert!(total_read <= size, "tr {} size {}", total_read, size);
-            if total_read == size {
-                assert_eq!(bytes, &decoded[..total_read]);
-                // should be done
-                assert_eq!(0, decoder.read(&mut decoded[..]).unwrap());
-                // didn't write anything
-                assert_eq!(bytes, &decoded[..total_read]);
+        consume_with_short_reads_and_validate(&mut rng, &bytes[..], &mut decoded, &mut decoder);
+    }
+}
 
-                break;
-            }
-            let decode_len = rng.gen_range(1, cmp::max(2, size * 2));
+#[test]
+fn read_in_short_increments_with_short_delegate_reads() {
+    let mut rng = rand::thread_rng();
+    let mut bytes = Vec::new();
+    let mut b64 = String::new();
+    let mut decoded = Vec::new();
 
-            let read = decoder
-                .read(&mut decoded[total_read..total_read + decode_len])
-                .unwrap();
-            total_read += read;
-        }
+    for _ in 0..10_000 {
+        bytes.clear();
+        b64.clear();
+        decoded.clear();
+
+        let size = rng.gen_range(0, 10 * BUF_SIZE);
+        bytes.extend(iter::repeat(0).take(size));
+        // leave room to play around with larger buffers
+        decoded.extend(iter::repeat(0).take(size * 3));
+
+        rng.fill_bytes(&mut bytes[..]);
+        assert_eq!(size, bytes.len());
+
+        let config = random_config(&mut rng);
+
+        encode_config_buf(&bytes[..], config, &mut b64);
+
+        let mut base_reader = io::Cursor::new(&b64[..]);
+        let mut decoder = DecoderReader::new(&mut base_reader, config);
+        let mut short_reader = RandomShortRead {
+            delegate: &mut decoder,
+            rng: &mut rand::thread_rng(),
+        };
+
+        consume_with_short_reads_and_validate(&mut rng, &bytes[..], &mut decoded, &mut short_reader)
     }
 }
 
@@ -268,6 +285,38 @@ fn reports_invalid_byte_correctly() {
     }
 }
 
+fn consume_with_short_reads_and_validate<R: Read>(
+    rng: &mut rand::rngs::ThreadRng,
+    expected_bytes: &[u8],
+    decoded: &mut Vec<u8>,
+    short_reader: &mut R,
+) -> () {
+    let mut total_read = 0_usize;
+    loop {
+        assert!(
+            total_read <= expected_bytes.len(),
+            "tr {} size {}",
+            total_read,
+            expected_bytes.len()
+        );
+        if total_read == expected_bytes.len() {
+            assert_eq!(expected_bytes, &decoded[..total_read]);
+            // should be done
+            assert_eq!(0, short_reader.read(&mut decoded[..]).unwrap());
+            // didn't write anything
+            assert_eq!(expected_bytes, &decoded[..total_read]);
+
+            break;
+        }
+        let decode_len = rng.gen_range(1, cmp::max(2, expected_bytes.len() * 2));
+
+        let read = short_reader
+            .read(&mut decoded[total_read..total_read + decode_len])
+            .unwrap();
+        total_read += read;
+    }
+}
+
 /// Limits how many bytes a reader will provide in each read call.
 /// Useful for shaking out code that may work fine only with typical input sources that always fill
 /// the buffer.
@@ -279,7 +328,7 @@ struct RandomShortRead<'a, 'b, R: io::Read, N: rand::Rng> {
 impl<'a, 'b, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, 'b, R, N> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         // avoid 0 since it means EOF for non-empty buffers
-        let effective_len = self.rng.gen_range(1, 20);
+        let effective_len = cmp::min(self.rng.gen_range(1, 20), buf.len());
 
         self.delegate.read(&mut buf[..effective_len])
     }
