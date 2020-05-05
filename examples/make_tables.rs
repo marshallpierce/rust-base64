@@ -42,6 +42,18 @@ fn main() {
     print_encode_table(&crypt_alphabet, "CRYPT_ENCODE", 0);
     print_decode_table(&crypt_alphabet, "CRYPT_DECODE", 0);
 
+    // ./
+    let bcrypt_alphabet: Vec<u8> = (b'.'..(b'/' + 1))
+        // A-Z
+        .chain(b'A'..(b'Z' + 1))
+        // a-z
+        .chain(b'a'..(b'z' + 1))
+        // 0-9
+        .chain(b'0'..(b'9' + 1))
+        .collect();
+    print_encode_table(&bcrypt_alphabet, "BCRYPT_ENCODE", 0);
+    print_decode_table(&bcrypt_alphabet, "BCRYPT_DECODE", 0);
+
     // A-Z
     let imap_alphabet: Vec<u8> = (0x41..0x5B)
         // a-z
