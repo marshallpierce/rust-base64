@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter::Iterator;
 
 fn main() {
@@ -70,6 +70,7 @@ fn main() {
 }
 
 fn print_encode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
+    check_alphabet(alphabet);
     println!("#[rustfmt::skip]");
     println!(
         "{:width$}pub const {}: &[u8; 64] = &[",
@@ -95,6 +96,7 @@ fn print_encode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
 }
 
 fn print_decode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
+    check_alphabet(alphabet);
     // map of alphabet bytes to 6-bit morsels
     let mut input_to_morsel = HashMap::<u8, u8>::new();
 
@@ -139,4 +141,11 @@ fn print_decode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
         );
     }
     println!("{:width$}];", "", width = indent_depth);
+}
+
+fn check_alphabet(alphabet: &[u8]) {
+    assert_eq!(64, alphabet.len());
+    let mut set: HashSet<u8> = HashSet::new();
+    set.extend(alphabet);
+    assert_eq!(64, set.len());
 }
