@@ -76,11 +76,11 @@ extern crate alloc;
 #[cfg(any(feature = "std", test))]
 extern crate std as alloc;
 
-#[cfg(test)]
+#[cfg(doctest)]
 #[macro_use]
 extern crate doc_comment;
 
-#[cfg(test)]
+#[cfg(doctest)]
 doctest!("../README.md");
 
 mod chunked_encoder;
