@@ -67,6 +67,26 @@ fn main() {
         .collect();
     print_encode_table(&imap_alphabet, "IMAP_MUTF7_ENCODE", 0);
     print_decode_table(&imap_alphabet, "IMAP_MUTF7_DECODE", 0);
+
+    // '!' - '-'
+    let binhex_alphabet: Vec<u8> = (0x21..0x2E)
+        // 0-9
+        .chain(0x30..0x3A)
+        // @-N
+        .chain(0x40..0x4F)
+        // P-V
+        .chain(0x50..0x57)
+        // X-[
+        .chain(0x58..0x5C)
+        // `-f
+        .chain(0x60..0x66)
+        // h-m
+        .chain(0x68..0x6E)
+        // p-r
+        .chain(0x70..0x73)
+        .collect();
+    print_encode_table(&binhex_alphabet, "BINHEX_ENCODE", 0);
+    print_decode_table(&binhex_alphabet, "BINHEX_DECODE", 0);
 }
 
 fn print_encode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
