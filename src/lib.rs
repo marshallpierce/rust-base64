@@ -125,6 +125,10 @@ pub enum CharacterSet {
     ///
     /// See [RFC 3501](https://tools.ietf.org/html/rfc3501#section-5.1.3)
     ImapMutf7,
+    /// The character set used in BinHex 4.0 files.
+    ///
+    /// See [BinHex 4.0 Definition](http://files.stairways.com/other/binhex-40-specs-info.txt)
+    BinHex,
 }
 
 impl CharacterSet {
@@ -135,6 +139,7 @@ impl CharacterSet {
             CharacterSet::Crypt => tables::CRYPT_ENCODE,
             CharacterSet::Bcrypt => tables::BCRYPT_ENCODE,
             CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_ENCODE,
+            CharacterSet::BinHex => tables::BINHEX_ENCODE,
         }
     }
 
@@ -145,6 +150,7 @@ impl CharacterSet {
             CharacterSet::Crypt => tables::CRYPT_DECODE,
             CharacterSet::Bcrypt => tables::BCRYPT_DECODE,
             CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_DECODE,
+            CharacterSet::BinHex => tables::BINHEX_DECODE,
         }
     }
 }
@@ -232,6 +238,13 @@ pub const BCRYPT: Config = Config {
 /// IMAP modified UTF-7 requirements
 pub const IMAP_MUTF7: Config = Config {
     char_set: CharacterSet::ImapMutf7,
+    pad: false,
+    decode_allow_trailing_bits: false,
+};
+
+/// BinHex character set
+pub const BINHEX : Config = Config {
+    char_set: CharacterSet::BinHex,
     pad: false,
     decode_allow_trailing_bits: false,
 };
