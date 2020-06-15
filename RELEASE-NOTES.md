@@ -1,3 +1,7 @@
+# 0.12.2
+
+Add `BinHex` alphabet
+
 # 0.12.1
 
 - Add `Bcrypt` alphabet
