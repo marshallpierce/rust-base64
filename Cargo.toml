@@ -18,7 +18,6 @@ harness = false
 [dev-dependencies]
 criterion = "0.3"
 rand = "0.6.1"
-doc-comment = "0.3"
 
 [features]
 default = ["std"]
