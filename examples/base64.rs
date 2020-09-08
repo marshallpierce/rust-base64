@@ -79,7 +79,7 @@ fn main() {
         io::copy(&mut input, &mut encoder)
     };
     if let Err(e) = r {
-        println!(
+        eprintln!(
             "Base64 {} failed with {}",
             if opt.decode { "decode" } else { "encode" },
             e
