@@ -29,6 +29,7 @@ pub enum DecodeError {
     /// An invalid byte was found in the input. The offset and offending byte are provided.
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
+    /// A typical cause of this is stray trailing whitespace or other separator bytes.
     InvalidLength,
     /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
     /// This is indicative of corrupted or truncated Base64.
@@ -43,7 +44,7 @@ impl fmt::Display for DecodeError {
             DecodeError::InvalidByte(index, byte) => {
                 write!(f, "Invalid byte {}, offset {}.", byte, index)
             }
-            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder. Trailing whitespace or other bytes?"),
             DecodeError::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
