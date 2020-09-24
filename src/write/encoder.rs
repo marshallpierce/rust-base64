@@ -359,6 +359,9 @@ impl<W: Write> Write for EncoderWriter<W> {
 
     /// Because this is usually treated as OK to call multiple times, it will *not* flush any
     /// incomplete chunks of input or write padding.
+    /// # Errors
+    ///
+    /// The first error that is not of [`ErrorKind::Interrupted`] will be returned.
     fn flush(&mut self) -> Result<()> {
         self.write_all_encoded_output()?;
         self.delegate

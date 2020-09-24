@@ -4,7 +4,7 @@ use std::io::Write;
 use super::encoder::EncoderWriter;
 
 /// A `Write` implementation that base64-encodes data using the provided config and accumulates the
-/// resulting base64 in memory, which is then exposed as a String via `finish()`.
+/// resulting base64 in memory, which is then exposed as a String via `into_inner()`.
 ///
 /// # Examples
 ///
@@ -16,7 +16,7 @@ use super::encoder::EncoderWriter;
 /// enc.write_all(b"asdf").unwrap();
 ///
 /// // get the resulting String
-/// let b64_string = enc.finish().unwrap();
+/// let b64_string = enc.into_inner();
 ///
 /// assert_eq!("YXNkZg==", &b64_string);
 /// ```
@@ -36,7 +36,12 @@ pub struct EncoderStringWriter {
 impl EncoderStringWriter {
     /// Create a new EncoderStringWriter that will encode with the provided config.
     pub fn new(config: Config) -> EncoderStringWriter {
-        EncoderStringWriter { encoder: EncoderWriter::new(Vec::new(), config) }
+        EncoderStringWriter::from(String::new(), config)
+    }
+
+    /// Create a new EncoderStringWriter that will append to the provided string.
+    pub fn from(s: String, config: Config) -> EncoderStringWriter {
+        EncoderStringWriter { encoder: EncoderWriter::new(s.into_bytes(), config) }
     }
 
     /// Encode all remaining buffered data, including any trailing incomplete input triples and
@@ -45,15 +50,11 @@ impl EncoderStringWriter {
     /// Once this succeeds, no further writes or calls to this method are allowed.
     ///
     /// Returns the base64-encoded form of the accumulated written data.
-    ///
-    /// # Errors
-    ///
-    /// The first error that is not of `ErrorKind::Interrupted` will be returned.
-    pub fn finish(&mut self) -> io::Result<String> {
-        let buf = self.encoder.finish()?;
+    pub fn into_inner(mut self) -> String {
+        let buf = self.encoder.finish()
+            .expect("Writing to a Vec<u8> should never fail");
 
-        let str = String::from_utf8(buf).expect("Base64 should always be valid UTF-8");
-        Ok(str)
+        String::from_utf8(buf).expect("Base64 should always be valid UTF-8")
     }
 }
 
@@ -99,7 +100,7 @@ mod tests {
             stream_encoder.write_all(&orig_data[0..i]).unwrap();
             stream_encoder.write_all(&orig_data[i..]).unwrap();
 
-            let stream_encoded = stream_encoder.finish().unwrap();
+            let stream_encoded = stream_encoder.into_inner();
 
             assert_eq!(normal_encoded, stream_encoded);
         }

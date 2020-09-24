@@ -131,7 +131,7 @@ fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
         let mut stream_enc = write::EncoderStringWriter::new(TEST_CONFIG);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
-        let _ = stream_enc.finish().unwrap();
+        let _ = stream_enc.into_inner();
     });
 }
 
