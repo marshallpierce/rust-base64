@@ -212,7 +212,17 @@ fn decode_helper(
         // and the fast decode logic cannot handle padding
         0 => INPUT_CHUNK_LEN,
         // 1 and 5 trailing bytes are illegal: can't decode 6 bits of input into a byte
-        1 | 5 => return Err(DecodeError::InvalidLength),
+        1 | 5 => {
+            // trailing whitespace is so common that it's worth it to check the last byte to
+            // possibly return a better error message
+            if let Some(b) = input.last() {
+                if decode_table[*b as usize] == tables::INVALID_VALUE {
+                    return Err(DecodeError::InvalidByte(input.len() - 1, *b));
+                }
+            }
+
+            return Err(DecodeError::InvalidLength);
+        }
         // This will decode to one output byte, which isn't enough to overwrite the 2 extra bytes
         // written by the fast decode loop. So, we have to ignore both these 2 bytes and the
         // previous chunk.
@@ -863,6 +873,16 @@ mod tests {
         assert_eq!(
             decode_config(b"+,,+", crate::IMAP_MUTF7),
             decode_config(b"+//+", crate::STANDARD_NO_PAD)
+        );
+    }
+
+    #[test]
+    fn decode_invalid_trailing_bytes() {
+        // The case of trailing newlines is common enough to warrant a test for a good error
+        // message.
+        assert_eq!(
+            decode(b"Zm9vCg==\n"),
+            Err(DecodeError::InvalidByte(8, b'\n'))
         );
     }
 }
