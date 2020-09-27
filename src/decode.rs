@@ -216,7 +216,7 @@ fn decode_helper(
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
             if let Some(b) = input.last() {
-                if decode_table[*b as usize] == tables::INVALID_VALUE {
+                if *b != b'=' && decode_table[*b as usize] == tables::INVALID_VALUE {
                     return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
             }

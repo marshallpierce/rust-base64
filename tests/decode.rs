@@ -292,7 +292,7 @@ fn decode_reject_invalid_bytes_with_correct_error() {
                     index
                 );
 
-                if length % 4 == 1 {
+                if length % 4 == 1 && !suffix.is_empty() {
                     assert_eq!(DecodeError::InvalidLength, decode(&input).unwrap_err());
                 } else {
                     assert_eq!(
