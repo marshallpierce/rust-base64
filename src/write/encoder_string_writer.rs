@@ -49,14 +49,14 @@ use super::encoder::EncoderWriter;
 ///
 /// Because it has to validate that the base64 is UTF-8, it is about 80% as fast as writing plain
 /// bytes to a `io::Write`.
-pub struct EncoderStringWriter<S: StrWrite> {
+pub struct EncoderStringWriter<S: StrConsumer> {
     encoder: EncoderWriter<Utf8SingleCodeUnitWriter<S>>,
 }
 
-impl<S: StrWrite> EncoderStringWriter<S> {
-    /// Create a EncoderStringWriter that will append to the provided `StrWrite`.
-    pub fn from(str_writer: S, config: Config) -> Self {
-        EncoderStringWriter { encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_writer }, config) }
+impl<S: StrConsumer> EncoderStringWriter<S> {
+    /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
+    pub fn from(str_consumer: S, config: Config) -> Self {
+        EncoderStringWriter { encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, config) }
     }
 
     /// Encode all remaining buffered data, including any trailing incomplete input triples and
@@ -68,7 +68,7 @@ impl<S: StrWrite> EncoderStringWriter<S> {
     pub fn into_inner(mut self) -> S {
         self.encoder.finish()
             .expect("Writing to a Vec<u8> should never fail")
-            .str_writer
+            .str_consumer
     }
 }
 
@@ -79,7 +79,7 @@ impl EncoderStringWriter<String> {
     }
 }
 
-impl <S: StrWrite> Write for EncoderStringWriter<S> {
+impl <S: StrConsumer> Write for EncoderStringWriter<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
@@ -89,23 +89,22 @@ impl <S: StrWrite> Write for EncoderStringWriter<S> {
     }
 }
 
-/// An abstraction around infallible writes of `str`s.
-///
-/// Typically, this will just be String.
-pub trait StrWrite {
-    /// The write must succeed, and must write the entire `buf`.
-    fn write(&mut self, buf: &str);
+/// An abstraction around consuming `str`s produced by base64 encoding.
+pub trait StrConsumer {
+    /// Consume the base64 encoded data in `buf`
+    fn consume(&mut self, buf: &str);
 }
 
-/// As for io::Write, StrWrite is implemented automatically for `&mut S`.
-impl<S: StrWrite + ?Sized> StrWrite for &mut S {
-    fn write(&mut self, buf: &str) {
-        (**self).write(buf)
+/// As for io::Write, `StrConsumer` is implemented automatically for `&mut S`.
+impl<S: StrConsumer + ?Sized> StrConsumer for &mut S {
+    fn consume(&mut self, buf: &str) {
+        (**self).consume(buf)
     }
 }
 
-impl StrWrite for String {
-    fn write(&mut self, buf: &str) {
+/// Pushes the str onto the end of the String
+impl StrConsumer for String {
+    fn consume(&mut self, buf: &str) {
         self.push_str(buf)
     }
 }
@@ -113,16 +112,18 @@ impl StrWrite for String {
 /// A `Write` that only can handle bytes that are valid single-byte UTF-8 code units.
 ///
 /// This is safe because we only use it when writing base64, which is always valid UTF-8.
-struct Utf8SingleCodeUnitWriter<S: StrWrite> {
-    str_writer: S
+struct Utf8SingleCodeUnitWriter<S: StrConsumer> {
+    str_consumer: S
 }
 
-impl<S: StrWrite> io::Write for Utf8SingleCodeUnitWriter<S> {
+impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        // Because we expect all input to be valid utf-8 individual bytes, we can encode any buffer
+        // length
         let s = std::str::from_utf8(buf)
             .expect("Input must be valid UTF-8");
 
-        self.str_writer.write(s);
+        self.str_consumer.consume(s);
 
         Ok(buf.len())
     }
