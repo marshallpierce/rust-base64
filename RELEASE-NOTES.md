@@ -1,6 +1,13 @@
+# Next
+
+- Config methods are const
+- Added `EncoderStringWriter` to allow encoding directly to a String
+- `EncoderWriter` now owns its delegate writer rather than keeping a reference to it (though refs still work)
+    - As a consequence, it is now possible to extract the delegate writer from an `EncoderWriter` via `finish()`, which returns `Result<W>` instead of `Result<()>`.
+
 # 0.12.2
 
-Add `BinHex` alphabet
+- Add `BinHex` alphabet
 
 # 0.12.1
 

@@ -164,8 +164,14 @@ fn print_decode_table(alphabet: &[u8], const_name: &str, indent_depth: usize) {
 }
 
 fn check_alphabet(alphabet: &[u8]) {
+    // ensure all characters are distinct
     assert_eq!(64, alphabet.len());
     let mut set: HashSet<u8> = HashSet::new();
     set.extend(alphabet);
     assert_eq!(64, set.len());
+
+    // must be ASCII to be valid as single UTF-8 bytes
+    for &b in alphabet {
+        assert!(b <= 0x7F_u8);
+    }
 }
