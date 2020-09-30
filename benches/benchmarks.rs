@@ -130,7 +130,7 @@ fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
     b.iter(|| {
         let mut stream_enc = write::EncoderStringWriter::new(TEST_CONFIG);
         stream_enc.write_all(&v).unwrap();
-            stream_enc.flush().unwrap();
+        stream_enc.flush().unwrap();
         let _ = stream_enc.into_inner();
     });
 }
@@ -174,7 +174,10 @@ fn encode_benchmarks(byte_sizes: &[usize]) -> ParameterizedBenchmark<usize> {
         .with_function("encode_slice", do_encode_bench_slice)
         .with_function("encode_reuse_buf_stream", do_encode_bench_stream)
         .with_function("encode_string_stream", do_encode_bench_string_stream)
-        .with_function("encode_string_reuse_buf_stream", do_encode_bench_string_reuse_buf_stream)
+        .with_function(
+            "encode_string_reuse_buf_stream",
+            do_encode_bench_string_reuse_buf_stream,
+        )
 }
 
 fn decode_benchmarks(byte_sizes: &[usize]) -> ParameterizedBenchmark<usize> {

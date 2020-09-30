@@ -241,3 +241,5 @@ pub const BINHEX: Config = Config {
     pad: false,
     decode_allow_trailing_bits: false,
 };
+
+const PAD_BYTE: u8 = b'=';

@@ -1,7 +1,7 @@
+use super::encoder::EncoderWriter;
 use crate::Config;
 use std::io;
 use std::io::Write;
-use super::encoder::EncoderWriter;
 
 /// A `Write` implementation that base64-encodes data using the provided config and accumulates the
 /// resulting base64 in memory, which is then exposed as a String via `into_inner()`.
@@ -56,7 +56,9 @@ pub struct EncoderStringWriter<S: StrConsumer> {
 impl<S: StrConsumer> EncoderStringWriter<S> {
     /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
     pub fn from(str_consumer: S, config: Config) -> Self {
-        EncoderStringWriter { encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, config) }
+        EncoderStringWriter {
+            encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, config),
+        }
     }
 
     /// Encode all remaining buffered data, including any trailing incomplete input triples and
@@ -66,7 +68,8 @@ impl<S: StrConsumer> EncoderStringWriter<S> {
     ///
     /// Returns the base64-encoded form of the accumulated written data.
     pub fn into_inner(mut self) -> S {
-        self.encoder.finish()
+        self.encoder
+            .finish()
             .expect("Writing to a Vec<u8> should never fail")
             .str_consumer
     }
@@ -79,7 +82,7 @@ impl EncoderStringWriter<String> {
     }
 }
 
-impl <S: StrConsumer> Write for EncoderStringWriter<S> {
+impl<S: StrConsumer> Write for EncoderStringWriter<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
@@ -113,15 +116,14 @@ impl StrConsumer for String {
 ///
 /// This is safe because we only use it when writing base64, which is always valid UTF-8.
 struct Utf8SingleCodeUnitWriter<S: StrConsumer> {
-    str_consumer: S
+    str_consumer: S,
 }
 
 impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // Because we expect all input to be valid utf-8 individual bytes, we can encode any buffer
         // length
-        let s = std::str::from_utf8(buf)
-            .expect("Input must be valid UTF-8");
+        let s = std::str::from_utf8(buf).expect("Input must be valid UTF-8");
 
         self.str_consumer.consume(s);
 
@@ -138,9 +140,9 @@ impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
 mod tests {
     use crate::encode_config_buf;
     use crate::tests::random_config;
+    use crate::write::encoder_string_writer::EncoderStringWriter;
     use rand::Rng;
     use std::io::Write;
-    use crate::write::encoder_string_writer::EncoderStringWriter;
 
     #[test]
     fn every_possible_split_of_input() {
