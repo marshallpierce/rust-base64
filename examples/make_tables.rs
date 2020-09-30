@@ -173,5 +173,7 @@ fn check_alphabet(alphabet: &[u8]) {
     // must be ASCII to be valid as single UTF-8 bytes
     for &b in alphabet {
         assert!(b <= 0x7F_u8);
+        // = is assumed to be padding, so cannot be used as a symbol
+        assert_ne!(b'=', b);
     }
 }

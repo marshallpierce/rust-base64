@@ -1,4 +1,4 @@
-use crate::{tables, Config};
+use crate::{tables, Config, PAD_BYTE};
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::STANDARD;
@@ -30,6 +30,9 @@ pub enum DecodeError {
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
     /// A typical cause of this is stray trailing whitespace or other separator bytes.
+    /// In the case where excess trailing bytes have produced an invalid length *and* the last byte
+    /// is also an invalid base64 symbol (as would be the case for whitespace, etc), `InvalidByte`
+    /// will be emitted instead of `InvalidLength` to make the issue easier to debug.
     InvalidLength,
     /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
     /// This is indicative of corrupted or truncated Base64.
@@ -44,7 +47,7 @@ impl fmt::Display for DecodeError {
             DecodeError::InvalidByte(index, byte) => {
                 write!(f, "Invalid byte {}, offset {}.", byte, index)
             }
-            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder. Trailing whitespace or other bytes?"),
+            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
             DecodeError::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
@@ -216,7 +219,7 @@ fn decode_helper(
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
             if let Some(b) = input.last() {
-                if *b != b'=' && decode_table[*b as usize] == tables::INVALID_VALUE {
+                if *b != PAD_BYTE && decode_table[*b as usize] == tables::INVALID_VALUE {
                     return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
             }
@@ -340,7 +343,7 @@ fn decode_helper(
     let start_of_leftovers = input_index;
     for (i, b) in input[start_of_leftovers..].iter().enumerate() {
         // '=' padding
-        if *b == 0x3D {
+        if *b == PAD_BYTE {
             // There can be bad padding in a few ways:
             // 1 - Padding with non-padding characters after it
             // 2 - Padding after zero or one non-padding characters before it
@@ -381,7 +384,7 @@ fn decode_helper(
         if padding_bytes > 0 {
             return Err(DecodeError::InvalidByte(
                 start_of_leftovers + first_padding_index,
-                0x3D,
+                PAD_BYTE,
             ));
         }
         last_symbol = *b;
@@ -816,7 +819,7 @@ mod tests {
                 symbols[1] = s2;
                 for &s3 in STANDARD.char_set.encode_table().iter() {
                     symbols[2] = s3;
-                    symbols[3] = b'=';
+                    symbols[3] = PAD_BYTE;
 
                     match base64_to_bytes.get(&symbols[..]) {
                         Some(bytes) => {
@@ -852,8 +855,8 @@ mod tests {
             symbols[0] = s1;
             for &s2 in STANDARD.char_set.encode_table().iter() {
                 symbols[1] = s2;
-                symbols[2] = b'=';
-                symbols[3] = b'=';
+                symbols[2] = PAD_BYTE;
+                symbols[3] = PAD_BYTE;
 
                 match base64_to_bytes.get(&symbols[..]) {
                     Some(bytes) => {
@@ -866,23 +869,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[test]
-    fn decode_imap() {
-        assert_eq!(
-            decode_config(b"+,,+", crate::IMAP_MUTF7),
-            decode_config(b"+//+", crate::STANDARD_NO_PAD)
-        );
-    }
-
-    #[test]
-    fn decode_invalid_trailing_bytes() {
-        // The case of trailing newlines is common enough to warrant a test for a good error
-        // message.
-        assert_eq!(
-            decode(b"Zm9vCg==\n"),
-            Err(DecodeError::InvalidByte(8, b'\n'))
-        );
     }
 }
