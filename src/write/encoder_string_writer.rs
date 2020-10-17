@@ -49,15 +49,18 @@ use std::io::Write;
 ///
 /// Because it has to validate that the base64 is UTF-8, it is about 80% as fast as writing plain
 /// bytes to a `io::Write`.
-pub struct EncoderStringWriter<S: StrConsumer> {
-    encoder: EncoderWriter<Utf8SingleCodeUnitWriter<S>>,
+pub struct EncoderStringWriter<'a, S: StrConsumer + 'a> {
+    encoder: EncoderWriter<'a, Utf8SingleCodeUnitWriter<'a, S>>,
 }
 
-impl<S: StrConsumer> EncoderStringWriter<S> {
+impl<'a, S: StrConsumer + 'a> EncoderStringWriter<'a, S> {
     /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
     pub fn from(str_consumer: S, config: Config) -> Self {
         EncoderStringWriter {
-            encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, config),
+            encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter::<'a, S> { 
+                str_consumer, 
+                _life: core::default::Default::default() 
+            }, config),
         }
     }
 
@@ -75,14 +78,14 @@ impl<S: StrConsumer> EncoderStringWriter<S> {
     }
 }
 
-impl EncoderStringWriter<String> {
+impl EncoderStringWriter<'static, String> {
     /// Create a EncoderStringWriter that will encode into a new String with the provided config.
     pub fn new(config: Config) -> Self {
         EncoderStringWriter::from(String::new(), config)
     }
 }
 
-impl<S: StrConsumer> Write for EncoderStringWriter<S> {
+impl<'a, S: StrConsumer + 'a> Write for EncoderStringWriter<'a, S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
@@ -99,7 +102,7 @@ pub trait StrConsumer {
 }
 
 /// As for io::Write, `StrConsumer` is implemented automatically for `&mut S`.
-impl<S: StrConsumer + ?Sized> StrConsumer for &mut S {
+impl<S: StrConsumer + ?Sized> StrConsumer for &'_ mut S {
     fn consume(&mut self, buf: &str) {
         (**self).consume(buf)
     }
@@ -115,11 +118,12 @@ impl StrConsumer for String {
 /// A `Write` that only can handle bytes that are valid single-byte UTF-8 code units.
 ///
 /// This is safe because we only use it when writing base64, which is always valid UTF-8.
-struct Utf8SingleCodeUnitWriter<S: StrConsumer> {
+struct Utf8SingleCodeUnitWriter<'a, S: StrConsumer + 'a> {
     str_consumer: S,
+    _life: std::marker::PhantomData <&'a S>
 }
 
-impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
+impl<'a, S: StrConsumer + 'a> io::Write for Utf8SingleCodeUnitWriter<'a, S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // Because we expect all input to be valid utf-8 individual bytes, we can encode any buffer
         // length
@@ -171,6 +175,34 @@ mod tests {
             let stream_encoded = stream_encoder.into_inner();
 
             assert_eq!(normal_encoded, stream_encoded);
+        }
+    }
+
+    /// This test should pass even if it just compiles.
+    #[test]
+    fn can_use_non_static_ref() {
+        #[allow(dead_code)]
+        fn write<'a>(out: &'a mut String, data: &[u8]) {
+            let mut rng = rand::thread_rng();
+            let config = random_config(&mut rng);
+
+            let mut stream_encoder = EncoderStringWriter::from(out, config);
+            stream_encoder.write_all(data).unwrap();
+        }
+    }
+
+
+    /// This test should pass even if it just compiles.
+    #[test]
+    fn can_still_use_without_specifying_lifetime() {
+        #[allow(dead_code)]
+        fn write(out: String, data: &[u8]) -> String{
+            let mut rng = rand::thread_rng();
+            let config = random_config(&mut rng);
+
+            let mut stream_encoder = EncoderStringWriter::from(out, config);
+            stream_encoder.write_all(data).unwrap();
+            stream_encoder.into_inner()
         }
     }
 }

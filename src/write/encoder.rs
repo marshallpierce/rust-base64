@@ -53,7 +53,7 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// It has some minor performance loss compared to encoding slices (a couple percent).
 /// It does not do any heap allocation.
-pub struct EncoderWriter<W: Write> {
+pub struct EncoderWriter<'a, W: Write + 'a> {
     config: Config,
     /// Where encoded data is written to. It's an Option as it's None immediately before Drop is
     /// called so that finish() can return the underlying writer. None implies that finish() has
@@ -71,9 +71,12 @@ pub struct EncoderWriter<W: Write> {
     output_occupied_len: usize,
     /// panic safety: don't write again in destructor if writer panicked while we were writing to it
     panicked: bool,
+    /// We in some sense hold a "reference" to the writer inside.
+    /// tho we actually make it match delegate
+    _ref_lifetime: std::marker::PhantomData <Option <&'a mut W>>
 }
 
-impl<W: Write> fmt::Debug for EncoderWriter<W> {
+impl<'a, W: Write + 'a> fmt::Debug for EncoderWriter<'a, W> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -86,9 +89,9 @@ impl<W: Write> fmt::Debug for EncoderWriter<W> {
     }
 }
 
-impl<W: Write> EncoderWriter<W> {
+impl<'a, W: Write + 'a> EncoderWriter<'a, W> {
     /// Create a new encoder that will write to the provided delegate writer `w`.
-    pub fn new(w: W, config: Config) -> EncoderWriter<W> {
+    pub fn new(w: W, config: Config) -> EncoderWriter<'a, W>{
         EncoderWriter {
             config,
             delegate: Some(w),
@@ -97,6 +100,7 @@ impl<W: Write> EncoderWriter<W> {
             output: [0u8; BUF_SIZE],
             output_occupied_len: 0,
             panicked: false,
+            _ref_lifetime: core::default::Default::default(),
         }
     }
 
@@ -217,7 +221,7 @@ impl<W: Write> EncoderWriter<W> {
     }
 }
 
-impl<W: Write> Write for EncoderWriter<W> {
+impl<'a, W: Write + 'a> Write for EncoderWriter<'a, W> {
     /// Encode input and then write to the delegate writer.
     ///
     /// Under non-error circumstances, this returns `Ok` with the value being the number of bytes
@@ -371,7 +375,7 @@ impl<W: Write> Write for EncoderWriter<W> {
     }
 }
 
-impl<W: Write> Drop for EncoderWriter<W> {
+impl<'a, W: Write + 'a> Drop for EncoderWriter<'a, W> {
     fn drop(&mut self) {
         if !self.panicked {
             // like `BufWriter`, ignore errors during drop
