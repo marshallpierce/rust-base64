@@ -1,3 +1,35 @@
+//#[repr(align(64))]
+//pub struct StructStandardEncode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructStandardDecode { pub data: [u8; 256] }
+//#[repr(align(64))]
+//pub struct StructUrlSafeEncode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructUrlSafeDecode { pub data: [u8; 256] }
+//#[repr(align(64))]
+//pub struct StructCryptEncode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructCryptDecode { pub data: [u8; 256] }
+//#[repr(align(64))]
+//pub struct StructBcryptEncode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructBcryptDecode { pub data: [u8; 256] }
+//#[repr(align(64))]
+//pub struct StructImapMutf7Encode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructImapMutf7Decode { pub data: [u8; 256] }
+//#[repr(align(64))]
+//pub struct StructBinhexEncode { pub data: [u8; 64] }
+#[repr(align(64))]
+pub struct StructBinhexDecode { pub data: [u8; 256] }
+
+pub const STANDARD_DECODE_HOLDER: StructStandardDecode = StructStandardDecode { data: *STANDARD_DECODE };
+pub const URL_SAFE_DECODE_HOLDER: StructUrlSafeDecode = StructUrlSafeDecode { data: *URL_SAFE_DECODE };
+pub const CRYPT_DECODE_HOLDER: StructCryptDecode = StructCryptDecode { data: *CRYPT_DECODE };
+pub const BCRYPT_DECODE_HOLDER: StructBcryptDecode = StructBcryptDecode { data: *BCRYPT_DECODE };
+pub const IMAP_MUTF7_DECODE_HOLDER: StructImapMutf7Decode = StructImapMutf7Decode { data: *IMAP_MUTF7_DECODE };
+pub const BINHEX_DECODE_HOLDER: StructBinhexDecode = StructBinhexDecode { data: *BINHEX_DECODE };
+
 pub const INVALID_VALUE: u8 = 255;
 #[rustfmt::skip]
 pub const STANDARD_ENCODE: &[u8; 64] = &[
@@ -1955,3 +1987,19 @@ pub const BINHEX_DECODE: &[u8; 256] = &[
     INVALID_VALUE, // input 254 (0xFE)
     INVALID_VALUE, // input 255 (0xFF)
 ];
+
+#[test]
+fn alignment_check() {
+    let p: *const u8 = STANDARD_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+    let p: *const u8 = URL_SAFE_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+    let p: *const u8 = CRYPT_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+    let p: *const u8 = BCRYPT_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+    let p: *const u8 = IMAP_MUTF7_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+    let p: *const u8 = BINHEX_DECODE_HOLDER.data.as_ptr();
+    assert_eq!((p as u64) % 64, 0);
+}

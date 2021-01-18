@@ -25,6 +25,7 @@ structopt = "0.3"
 default = ["std"]
 alloc = []
 std = []
+slow_but_safe = []
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`

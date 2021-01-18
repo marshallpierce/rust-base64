@@ -444,6 +444,18 @@ fn write_u64(output: &mut [u8], value: u64) {
     output[..8].copy_from_slice(&value.to_be_bytes());
 }
 
+#[cfg(feature = "slow_but_safe")]
+fn decode_aligned(b64ch: u8, decode_table: &[u8; 256]) -> u8 {
+    let mut result: u8 = 0x00;
+    let mut mask: u8;
+    let idx: [u8;2] = [ b64ch % 64, b64ch % 64 + 64];
+    for i in 0..2  {
+        mask = 0xFF ^ (((idx[i] == b64ch) as i8 - 1) as u8);
+        result = result | (decode_table[idx[i] as usize] & mask);
+    }
+    result
+}
+
 /// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
 /// first 6 of those contain meaningful data.
 ///
@@ -463,13 +475,19 @@ fn decode_chunk(
 ) -> Result<(), DecodeError> {
     let mut accum: u64;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[0] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[0], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(index_at_start_of_input, input[0]));
     }
     accum = (morsel as u64) << 58;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[1] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[1], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 1,
@@ -478,7 +496,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 52;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[2] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[2], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 2,
@@ -487,7 +508,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 46;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[3] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[3], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 3,
@@ -496,7 +520,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 40;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[4] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[4], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 4,
@@ -505,7 +532,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 34;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[5] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[5], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 5,
@@ -514,7 +544,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 28;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[6] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[6], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 6,
@@ -523,7 +556,10 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 22;
 
+    #[cfg(not(feature = "slow_but_safe"))]
     let morsel = decode_table[input[7] as usize];
+    #[cfg(feature = "slow_but_safe")]
+    let morsel = decode_aligned(input[7], decode_table);
     if morsel == tables::INVALID_VALUE {
         return Err(DecodeError::InvalidByte(
             index_at_start_of_input + 7,

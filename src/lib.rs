@@ -138,12 +138,12 @@ impl CharacterSet {
 
     fn decode_table(self) -> &'static [u8; 256] {
         match self {
-            CharacterSet::Standard => tables::STANDARD_DECODE,
-            CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
-            CharacterSet::Crypt => tables::CRYPT_DECODE,
-            CharacterSet::Bcrypt => tables::BCRYPT_DECODE,
-            CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_DECODE,
-            CharacterSet::BinHex => tables::BINHEX_DECODE,
+            CharacterSet::Standard => &tables::STANDARD_DECODE_HOLDER.data,
+            CharacterSet::UrlSafe => &tables::URL_SAFE_DECODE_HOLDER.data,
+            CharacterSet::Crypt => &tables::CRYPT_DECODE_HOLDER.data,
+            CharacterSet::Bcrypt => &tables::BCRYPT_DECODE_HOLDER.data,
+            CharacterSet::ImapMutf7 => &tables::IMAP_MUTF7_DECODE_HOLDER.data,
+            CharacterSet::BinHex => &tables::BINHEX_DECODE_HOLDER.data,
         }
     }
 }
