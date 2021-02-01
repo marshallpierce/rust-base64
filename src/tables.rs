@@ -1,34 +1,26 @@
-//#[repr(align(64))]
-//pub struct StructStandardEncode { pub data: [u8; 64] }
 #[repr(align(64))]
-pub struct StructStandardDecode { pub data: [u8; 256] }
-//#[repr(align(64))]
-//pub struct StructUrlSafeEncode { pub data: [u8; 64] }
-#[repr(align(64))]
-pub struct StructUrlSafeDecode { pub data: [u8; 256] }
-//#[repr(align(64))]
-//pub struct StructCryptEncode { pub data: [u8; 64] }
-#[repr(align(64))]
-pub struct StructCryptDecode { pub data: [u8; 256] }
-//#[repr(align(64))]
-//pub struct StructBcryptEncode { pub data: [u8; 64] }
-#[repr(align(64))]
-pub struct StructBcryptDecode { pub data: [u8; 256] }
-//#[repr(align(64))]
-//pub struct StructImapMutf7Encode { pub data: [u8; 64] }
-#[repr(align(64))]
-pub struct StructImapMutf7Decode { pub data: [u8; 256] }
-//#[repr(align(64))]
-//pub struct StructBinhexEncode { pub data: [u8; 64] }
-#[repr(align(64))]
-pub struct StructBinhexDecode { pub data: [u8; 256] }
+pub struct DecodeTableHolder {
+    pub data: [u8; 256],
+}
 
-pub const STANDARD_DECODE_HOLDER: StructStandardDecode = StructStandardDecode { data: *STANDARD_DECODE };
-pub const URL_SAFE_DECODE_HOLDER: StructUrlSafeDecode = StructUrlSafeDecode { data: *URL_SAFE_DECODE };
-pub const CRYPT_DECODE_HOLDER: StructCryptDecode = StructCryptDecode { data: *CRYPT_DECODE };
-pub const BCRYPT_DECODE_HOLDER: StructBcryptDecode = StructBcryptDecode { data: *BCRYPT_DECODE };
-pub const IMAP_MUTF7_DECODE_HOLDER: StructImapMutf7Decode = StructImapMutf7Decode { data: *IMAP_MUTF7_DECODE };
-pub const BINHEX_DECODE_HOLDER: StructBinhexDecode = StructBinhexDecode { data: *BINHEX_DECODE };
+pub const STANDARD_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *STANDARD_DECODE,
+};
+pub const URL_SAFE_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *URL_SAFE_DECODE,
+};
+pub const CRYPT_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *CRYPT_DECODE,
+};
+pub const BCRYPT_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *BCRYPT_DECODE,
+};
+pub const IMAP_MUTF7_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *IMAP_MUTF7_DECODE,
+};
+pub const BINHEX_DECODE_HOLDER: DecodeTableHolder = DecodeTableHolder {
+    data: *BINHEX_DECODE,
+};
 
 pub const INVALID_VALUE: u8 = 255;
 #[rustfmt::skip]
