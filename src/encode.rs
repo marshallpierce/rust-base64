@@ -1,6 +1,6 @@
-use crate::{Config, PAD_BYTE};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::{chunked_encoder, STANDARD};
+use crate::{Config, PAD_BYTE};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::{string::String, vec};
 use core::convert::TryInto;

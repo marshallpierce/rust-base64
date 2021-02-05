@@ -33,7 +33,7 @@ See the [docs](https://docs.rs/base64) for all the details.
 Rust version compatibility
 ---
 
-The minimum required Rust version is 1.34.0.
+The minimum required Rust version is 1.36.0.
 
 # Contributing
 
