@@ -35,6 +35,12 @@ Rust version compatibility
 
 The minimum required Rust version is 1.34.0.
 
+# Contributing
+
+Contributions are very welcome. However, because this library is used widely, and in security-sensitive contexts, all PRs will be carefully scrutinized. Beyond that, this sort of low level library simply needs to be 100% correct. Nobody wants to chase bugs in encoding of any sort.
+
+All this means that it takes me a fair amount of time to review each PR, so it might take quite a while to carve out the free time to give each PR the attention it deserves. I will get to everyone eventually!
+
 Developing
 ---
 
