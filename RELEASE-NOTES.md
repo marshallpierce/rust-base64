@@ -1,3 +1,7 @@
+# 0.14.0
+
+- MSRV is now 1.36.0
+
 # 0.13.0
 
 - Config methods are const

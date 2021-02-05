@@ -9,7 +9,7 @@ use base64::{
     write, Config,
 };
 
-use criterion::{black_box, Bencher, Criterion, ParameterizedBenchmark, Throughput};
+use criterion::{black_box, Bencher, Criterion, Throughput, BenchmarkId};
 use rand::{FromEntropy, Rng};
 use std::io::{self, Read, Write};
 
@@ -164,46 +164,53 @@ const BYTE_SIZES: [usize; 5] = [3, 50, 100, 500, 3 * 1024];
 // keep the benchmark runtime reasonable.
 const LARGE_BYTE_SIZES: [usize; 3] = [3 * 1024 * 1024, 10 * 1024 * 1024, 30 * 1024 * 1024];
 
-fn encode_benchmarks(byte_sizes: &[usize]) -> ParameterizedBenchmark<usize> {
-    ParameterizedBenchmark::new("encode", do_encode_bench, byte_sizes.iter().cloned())
+fn encode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
+    let mut group = c.benchmark_group(label);
+    group
         .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(3))
-        .throughput(|s| Throughput::Bytes(*s as u64))
-        .with_function("encode_display", do_encode_bench_display)
-        .with_function("encode_reuse_buf", do_encode_bench_reuse_buf)
-        .with_function("encode_slice", do_encode_bench_slice)
-        .with_function("encode_reuse_buf_stream", do_encode_bench_stream)
-        .with_function("encode_string_stream", do_encode_bench_string_stream)
-        .with_function(
-            "encode_string_reuse_buf_stream",
-            do_encode_bench_string_reuse_buf_stream,
-        )
+        .measurement_time(std::time::Duration::from_secs(3));
+
+    for size in byte_sizes {
+        group
+            .throughput(Throughput::Bytes(*size as u64))
+            .bench_with_input(BenchmarkId::new("encode", size), size, do_encode_bench)
+            .bench_with_input(BenchmarkId::new("encode_display", size), size, do_encode_bench_display)
+            .bench_with_input(BenchmarkId::new("encode_reuse_buf", size), size, do_encode_bench_reuse_buf)
+            .bench_with_input(BenchmarkId::new("encode_slice", size), size, do_encode_bench_slice)
+            .bench_with_input(BenchmarkId::new("encode_reuse_buf_stream", size), size, do_encode_bench_stream)
+            .bench_with_input(BenchmarkId::new("encode_string_stream", size), size, do_encode_bench_string_stream)
+            .bench_with_input(
+                BenchmarkId::new("encode_string_reuse_buf_stream", size),
+                size,
+                do_encode_bench_string_reuse_buf_stream,
+            );
+    }
+
+    group.finish();
 }
 
-fn decode_benchmarks(byte_sizes: &[usize]) -> ParameterizedBenchmark<usize> {
-    ParameterizedBenchmark::new("decode", do_decode_bench, byte_sizes.iter().cloned())
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(3))
-        .throughput(|s| Throughput::Bytes(*s as u64))
-        .with_function("decode_reuse_buf", do_decode_bench_reuse_buf)
-        .with_function("decode_slice", do_decode_bench_slice)
-        .with_function("decode_stream", do_decode_bench_stream)
+fn decode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
+    let mut group = c.benchmark_group(label);
+
+    for size in byte_sizes {
+        group
+            .warm_up_time(std::time::Duration::from_millis(500))
+            .measurement_time(std::time::Duration::from_secs(3))
+            .throughput(Throughput::Bytes(*size as u64))
+            .bench_with_input(BenchmarkId::new("decode", size), size, do_decode_bench)
+            .bench_with_input(BenchmarkId::new("decode_reuse_buf", size), size, do_decode_bench_reuse_buf)
+            .bench_with_input(BenchmarkId::new("decode_slice", size), size, do_decode_bench_slice)
+            .bench_with_input(BenchmarkId::new("decode_stream", size), size, do_decode_bench_stream);
+    }
+
+    group.finish();
 }
 
 fn bench(c: &mut Criterion) {
-    c.bench("bench_small_input", encode_benchmarks(&BYTE_SIZES[..]));
-
-    c.bench(
-        "bench_large_input",
-        encode_benchmarks(&LARGE_BYTE_SIZES[..]).sample_size(10),
-    );
-
-    c.bench("bench_small_input", decode_benchmarks(&BYTE_SIZES[..]));
-
-    c.bench(
-        "bench_large_input",
-        decode_benchmarks(&LARGE_BYTE_SIZES[..]).sample_size(10),
-    );
+    encode_benchmarks(c, "encode_small_input", &BYTE_SIZES[..]);
+    encode_benchmarks(c, "encode_large_input", &LARGE_BYTE_SIZES[..]);
+    decode_benchmarks(c, "decode_small_input", &BYTE_SIZES[..]);
+    decode_benchmarks(c, "decode_large_input", &LARGE_BYTE_SIZES[..]);
 }
 
 criterion_group!(benches, bench);
