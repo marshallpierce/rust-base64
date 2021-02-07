@@ -230,7 +230,9 @@ impl<W: Write> EncoderWriter<W> {
     /// trait. Note that the inner writer might be in an error state or have an incomplete
     /// base64 string written to it.
     pub fn into_inner(mut self) -> W {
-        self.delegate.take().unwrap()
+        self.delegate
+            .take()
+            .expect("Encoder has already had finish() called")
     }
 }
 
