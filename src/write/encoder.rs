@@ -215,6 +215,23 @@ impl<W: Write> EncoderWriter<W> {
         debug_assert_eq!(0, self.output_occupied_len);
         Ok(())
     }
+
+    /// Unwraps this `EncoderWriter`, returning the base writer it writes base64 encoded output
+    /// to.
+    ///
+    /// Normally this method should not be needed, since `finish()` returns the inner writer if
+    /// it completes successfully. That will also ensure all data has been flushed, which the
+    /// `into_inner()` function does *not* do.
+    ///
+    /// Calling this method after `finish()` has completed successfully will panic, since the
+    /// writer has already been returned.
+    ///
+    /// This method may be useful if the writer implements additional APIs beyond the `Write`
+    /// trait. Note that the inner writer might be in an error state or have an incomplete
+    /// base64 string written to it.
+    pub fn into_inner(mut self) -> W {
+        self.delegate.take().unwrap()
+    }
 }
 
 impl<W: Write> Write for EncoderWriter<W> {
