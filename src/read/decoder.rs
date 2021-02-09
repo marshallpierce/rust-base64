@@ -29,10 +29,10 @@ const DECODED_CHUNK_SIZE: usize = 3;
 /// assert_eq!(b"asdf", &result[..]);
 ///
 /// ```
-pub struct DecoderReader<'a, R: 'a + io::Read> {
+pub struct DecoderReader<R: io::Read> {
     config: Config,
     /// Where b64 data is read from
-    r: &'a mut R,
+    inner: R,
 
     // Holds b64 data read from the delegate reader.
     b64_buffer: [u8; BUF_SIZE],
@@ -54,7 +54,7 @@ pub struct DecoderReader<'a, R: 'a + io::Read> {
     total_b64_decoded: usize,
 }
 
-impl<'a, R: io::Read> fmt::Debug for DecoderReader<'a, R> {
+impl<R: io::Read> fmt::Debug for DecoderReader<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("DecoderReader")
             .field("config", &self.config)
@@ -68,12 +68,12 @@ impl<'a, R: io::Read> fmt::Debug for DecoderReader<'a, R> {
     }
 }
 
-impl<'a, R: io::Read> DecoderReader<'a, R> {
-    /// Create a new decoder that will read from the provided reader `r`.
-    pub fn new(r: &'a mut R, config: Config) -> Self {
+impl<R: io::Read> DecoderReader<R> {
+    /// Create a new decoder that will read from the provided reader.
+    pub fn new(reader: R, config: Config) -> Self {
         DecoderReader {
             config,
-            r,
+            inner: reader,
             b64_buffer: [0; BUF_SIZE],
             b64_offset: 0,
             b64_len: 0,
@@ -114,7 +114,7 @@ impl<'a, R: io::Read> DecoderReader<'a, R> {
         debug_assert!(self.b64_offset + self.b64_len < BUF_SIZE);
 
         let read = self
-            .r
+            .inner
             .read(&mut self.b64_buffer[self.b64_offset + self.b64_len..])?;
         self.b64_len += read;
 
@@ -156,9 +156,19 @@ impl<'a, R: io::Read> DecoderReader<'a, R> {
 
         Ok(decoded)
     }
+
+    /// Unwraps this `DecoderReader`, returning the base reader which it reads base64 encoded
+    /// input from.
+    ///
+    /// Because `DecoderReader` performs internal buffering, the state of the inner reader is
+    /// unspecified. This function is mainly provided because the inner reader type may provide
+    /// additional functionality beyond the `Read` implementation which may still be useful.
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
 }
 
-impl<'a, R: Read> Read for DecoderReader<'a, R> {
+impl<R: Read> Read for DecoderReader<R> {
     /// Decode input from the wrapped reader.
     ///
     /// Under non-error circumstances, this returns `Ok` with the value being the number of bytes
