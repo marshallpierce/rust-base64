@@ -7,7 +7,7 @@ use rstest_reuse::{apply, template};
 use std::iter;
 
 use crate::{
-    alphabet::STANDARD,
+    alphabet::{Alphabet, STANDARD},
     encode,
     engine::{fast_portable, naive, Engine},
     tests::random_alphabet,
@@ -451,7 +451,8 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
     let len_range = Uniform::new(1, 1_000);
 
     for _ in 0..10_000 {
-        let engine = E::random(&mut rng);
+        let alphabet = random_alphabet(&mut rng);
+        let engine = E::random_alphabet(&mut rng, &alphabet);
 
         orig_data.clear();
         encode_buf.clear();
@@ -470,7 +471,15 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
         decode_buf.resize(orig_len, 0);
 
         // replace one encoded byte with an invalid byte
-        let invalid_byte = 0x07; // BEL, non-printing, so never in an alphabet
+        let invalid_byte: u8 = loop {
+            let byte: u8 = rng.gen();
+
+            if alphabet.symbols.contains(&byte) {
+                continue;
+            } else {
+                break byte;
+            }
+        };
 
         let invalid_range = Uniform::new(0, orig_len);
         let invalid_index = invalid_range.sample(&mut rng);
@@ -799,10 +808,14 @@ trait EngineWrapper {
     /// Return an engine configured for RFC standard base64
     fn standard() -> Self::Engine;
 
-    /// Return an engine configured for RFC standard
+    /// Return an engine configured for RFC standard base64 that allows invalid trailing bits
     fn standard_forgiving() -> Self::Engine;
 
+    /// Return an engine configured with a randomized alphabet and config
     fn random<R: Rng>(rng: &mut R) -> Self::Engine;
+
+    /// Return an engine configured with the specified alphabet and randomized config
+    fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine;
 }
 
 struct FastPortableWrapper {}
@@ -824,6 +837,10 @@ impl EngineWrapper for FastPortableWrapper {
     fn random<R: Rng>(rng: &mut R) -> Self::Engine {
         let alphabet = random_alphabet(rng);
 
+        Self::random_alphabet(rng, &alphabet)
+    }
+
+    fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
         let config = fast_portable::FastPortableConfig::from(rng.gen(), rng.gen());
 
         fast_portable::FastPortable::from(alphabet, config)
@@ -858,6 +875,10 @@ impl EngineWrapper for NaiveWrapper {
     fn random<R: Rng>(rng: &mut R) -> Self::Engine {
         let alphabet = random_alphabet(rng);
 
+        Self::random_alphabet(rng, alphabet)
+    }
+
+    fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
         let config = naive::NaiveConfig {
             padding: rng.gen(),
             decode_allow_trailing_bits: rng.gen(),
