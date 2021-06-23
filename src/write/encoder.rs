@@ -53,6 +53,13 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// It has some minor performance loss compared to encoding slices (a couple percent).
 /// It does not do any heap allocation.
+///
+/// # Limitations
+///
+/// Owing to the specification of the `write` and `flush` methods on the `Write` trait and their
+/// implications for a buffering implementation, these methods may not behave as expected. In
+/// particular, calling `write_all` on this interface may fail with `io::ErrorKind::WriteZero`.
+/// See the documentation of the `Write` trait implementation for further details.
 pub struct EncoderWriter<W: Write> {
     config: Config,
     /// Where encoded data is written to. It's an Option as it's None immediately before Drop is
