@@ -1,6 +1,7 @@
 # 0.14.0
 
 - MSRV is now 1.42.0
+- DecoderReader now owns its inner reader, and can expose it via `into_inner()`. For symmetry, `EncoderWriter` can do the same with its writer.
 
 # 0.13.0
 
