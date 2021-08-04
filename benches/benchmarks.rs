@@ -9,7 +9,7 @@ use base64::{
     write, Config,
 };
 
-use criterion::{black_box, Bencher, Criterion, Throughput, BenchmarkId};
+use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
 use rand::{FromEntropy, Rng};
 use std::io::{self, Read, Write};
 
@@ -174,11 +174,31 @@ fn encode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
         group
             .throughput(Throughput::Bytes(*size as u64))
             .bench_with_input(BenchmarkId::new("encode", size), size, do_encode_bench)
-            .bench_with_input(BenchmarkId::new("encode_display", size), size, do_encode_bench_display)
-            .bench_with_input(BenchmarkId::new("encode_reuse_buf", size), size, do_encode_bench_reuse_buf)
-            .bench_with_input(BenchmarkId::new("encode_slice", size), size, do_encode_bench_slice)
-            .bench_with_input(BenchmarkId::new("encode_reuse_buf_stream", size), size, do_encode_bench_stream)
-            .bench_with_input(BenchmarkId::new("encode_string_stream", size), size, do_encode_bench_string_stream)
+            .bench_with_input(
+                BenchmarkId::new("encode_display", size),
+                size,
+                do_encode_bench_display,
+            )
+            .bench_with_input(
+                BenchmarkId::new("encode_reuse_buf", size),
+                size,
+                do_encode_bench_reuse_buf,
+            )
+            .bench_with_input(
+                BenchmarkId::new("encode_slice", size),
+                size,
+                do_encode_bench_slice,
+            )
+            .bench_with_input(
+                BenchmarkId::new("encode_reuse_buf_stream", size),
+                size,
+                do_encode_bench_stream,
+            )
+            .bench_with_input(
+                BenchmarkId::new("encode_string_stream", size),
+                size,
+                do_encode_bench_string_stream,
+            )
             .bench_with_input(
                 BenchmarkId::new("encode_string_reuse_buf_stream", size),
                 size,
@@ -198,9 +218,21 @@ fn decode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
             .measurement_time(std::time::Duration::from_secs(3))
             .throughput(Throughput::Bytes(*size as u64))
             .bench_with_input(BenchmarkId::new("decode", size), size, do_decode_bench)
-            .bench_with_input(BenchmarkId::new("decode_reuse_buf", size), size, do_decode_bench_reuse_buf)
-            .bench_with_input(BenchmarkId::new("decode_slice", size), size, do_decode_bench_slice)
-            .bench_with_input(BenchmarkId::new("decode_stream", size), size, do_decode_bench_stream);
+            .bench_with_input(
+                BenchmarkId::new("decode_reuse_buf", size),
+                size,
+                do_decode_bench_reuse_buf,
+            )
+            .bench_with_input(
+                BenchmarkId::new("decode_slice", size),
+                size,
+                do_decode_bench_slice,
+            )
+            .bench_with_input(
+                BenchmarkId::new("decode_stream", size),
+                size,
+                do_decode_bench_stream,
+            );
     }
 
     group.finish();
