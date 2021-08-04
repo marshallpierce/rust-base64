@@ -29,11 +29,12 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: project-cache-v2-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
-      # enable once the rest of circle ci is up and running
-#      - run:
-#          name: Check formatting
-#          command: cargo fmt -- --check
+          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+      - run:
+          name: Check formatting
+          command: |
+            rustup component add rustfmt
+            cargo fmt -- --check
       - run:
           name: Add arm toolchain
           command: rustup target add thumbv6m-none-eabi
@@ -71,7 +72,7 @@ jobs:
             fi
 
       - save_cache:
-          key: project-cache-v2-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
           paths:
             # rust docker img doesn't use $HOME/[.cargo,.rustup]
             - /usr/local/cargo
