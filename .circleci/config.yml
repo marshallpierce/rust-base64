@@ -1,0 +1,80 @@
+version: '2.1'
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build:
+          matrix:
+            parameters:
+              rust_img: [
+                  # The default rust images (not -slim or -alpine) are based on buildpack-deps. Hopefully this will
+                  # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
+                  # therefore faster than a minimal, customized alpine.
+                  # MSRV
+                  'rust:1.47.0',
+                  # stable
+                  'rust:latest',
+                  'rustlang/rust:nightly'
+                  # would be nice to have beta as well: https://github.com/rust-lang/docker-rust/issues/14
+              ]
+
+jobs:
+  build:
+    parameters:
+      rust_img:
+        type: string
+    docker:
+      - image: << parameters.rust_img >>
+    steps:
+      - checkout
+      - restore_cache:
+          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+      - run:
+          name: Check formatting
+          command: |
+            rustup component add rustfmt
+            cargo fmt -- --check
+      - run:
+          name: Add arm toolchain
+          command: rustup target add thumbv6m-none-eabi
+      - run:
+          name: Build all targets
+          command: cargo build --all-targets
+      - run:
+          name: Build without default features
+          command: cargo build --no-default-features
+      - run:
+          name: Build with only alloc
+          command: cargo build --no-default-features --features alloc
+      - run:
+          name: Build ARM without default features (no_std)
+          command: cargo build --target thumbv6m-none-eabi --no-default-features
+      - run:
+          name: Build ARM with only alloc feature
+          command: cargo build --target thumbv6m-none-eabi --no-default-features --features alloc
+      - run:
+          name: Run tests
+          command: cargo test --verbose
+      - run:
+          name: Build docs
+          command: cargo doc --verbose
+      - run:
+          name: Confirm a fuzzer can run
+          # TERM=dumb prevents cargo fuzz list from printing with color
+          environment:
+            TERM: dumb
+          command: |
+            if [[ '<< parameters.rust_img >>' = 'rustlang/rust:nightly' ]]
+            then
+              cargo +nightly install cargo-fuzz
+              cargo fuzz list | xargs -L 1 -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1
+            fi
+
+      - save_cache:
+          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+          paths:
+            # rust docker img doesn't use $HOME/[.cargo,.rustup]
+            - /usr/local/cargo
+            - /usr/local/rustup
+            - ./target

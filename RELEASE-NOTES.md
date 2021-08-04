@@ -6,8 +6,8 @@
   - Standard base64 per the RFC is available via `DEFAULT_ENGINE`. To use different alphabets or other settings (padding, etc), create your own engine instance.
 - `CharacterSet` is now `Alphabet` (per the RFC), and allows creating custom alphabets. The corresponding tables that were previously code-generated are now built dynamically.
 - Since there are already multiple breaking changes, various functions are renamed to be more consistent and discoverable
-- DecoderReader now owns its delegate reader
 - MSRV is now 1.47.0
+- DecoderReader now owns its inner reader, and can expose it via `into_inner()`. For symmetry, `EncoderWriter` can do the same with its writer.
 
 # 0.13.0
 
