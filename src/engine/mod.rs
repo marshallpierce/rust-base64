@@ -10,8 +10,6 @@ mod naive;
 #[cfg(test)]
 mod tests;
 
-// TODO shared DecodeError or per-impl as an associated type?
-
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use.
 ///
 /// Different implementations offer different characteristics. The library currently ships with
@@ -25,7 +23,7 @@ mod tests;
 // - add an implementation of [engine::tests::EngineWrapper]
 // - add the implementation to the `all_engines` macro
 // All tests run on all engines listed in the macro.
-pub trait Engine {
+pub trait Engine: Send + Sync {
     /// The config type used by this engine
     type Config: Config;
     /// The decode estimate used by this engine
@@ -70,10 +68,10 @@ pub trait Engine {
     ) -> Result<usize, DecodeError>;
 
     /// Returns the config for this engine.
-    fn config(&self) -> Self::Config;
+    fn config(&self) -> &Self::Config;
 }
 
-/// The minimal level of configuration engines must expose.
+/// The minimal level of configuration that engines must support.
 pub trait Config {
     /// Returns `true` if padding should be added after the encoded output.
     ///
@@ -83,10 +81,11 @@ pub trait Config {
     // It could be provided as a separate parameter when encoding, but that feels like
     // leaking an implementation detail to the user, and it's hopefully more convenient
     // to have to only pass one thing (the engine) to any part of the API.
-    fn padding(&self) -> bool;
+    fn encode_padding(&self) -> bool;
 }
 
-/// The decode estimate used by an engine implementation.
+/// The decode estimate used by an engine implementation. Users do not need to interact with this;
+/// it is only for engine implementors.
 ///
 /// Implementors may want to store relevant calculations when constructing this to avoid having
 /// to calculate them again during actual decoding.
@@ -96,6 +95,6 @@ pub trait DecodeEstimate {
     fn decoded_length_estimate(&self) -> usize;
 }
 
-/// An engine that will work on all CPUs using the standard base64 alphabet.
+/// An engine that will work on all CPUs using the standard base64 alphabet and config.
 pub const DEFAULT_ENGINE: FastPortable =
     FastPortable::from(&alphabet::STANDARD, fast_portable::PAD);

@@ -20,7 +20,7 @@ const INPUT_BLOCK_LEN: usize = CHUNKS_PER_FAST_LOOP_BLOCK * INPUT_CHUNK_LEN;
 const DECODED_BLOCK_LEN: usize =
     CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
-/// Estimate with metadata for FastPortable's decode logic
+#[doc(hidden)]
 pub struct FastPortableEstimate {
     /// Total number of decode chunks, including a possibly partial last chunk
     num_chunks: usize,

@@ -14,10 +14,11 @@ use crate::{
     DecodeError, PAD_BYTE,
 };
 
+// the case::foo syntax includes the "foo" in the generated test method names
 #[template]
 #[rstest(engine_wrapper,
-case(FastPortableWrapper {}),
-case(NaiveWrapper {}),
+case::fast_portable(FastPortableWrapper {}),
+case::naive(NaiveWrapper {}),
 )]
 fn all_engines<E: EngineWrapper>(engine_wrapper: E) {}
 
@@ -830,7 +831,7 @@ impl EngineWrapper for FastPortableWrapper {
     fn standard_forgiving() -> Self::Engine {
         fast_portable::FastPortable::from(
             &STANDARD,
-            fast_portable::FastPortableConfig::from(true, true),
+            fast_portable::FastPortableConfig::new().with_decode_allow_trailing_bits(true),
         )
     }
 
@@ -841,7 +842,9 @@ impl EngineWrapper for FastPortableWrapper {
     }
 
     fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        let config = fast_portable::FastPortableConfig::from(rng.gen(), rng.gen());
+        let config = fast_portable::FastPortableConfig::new()
+            .with_encode_padding(rng.gen())
+            .with_decode_allow_trailing_bits(rng.gen());
 
         fast_portable::FastPortable::from(alphabet, config)
     }

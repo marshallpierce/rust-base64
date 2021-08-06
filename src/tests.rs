@@ -63,14 +63,16 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
 
         encode_engine_string(&input_buf, &mut encoded_buf, &engine);
 
-        assert_encode_sanity(&encoded_buf, engine.config().padding(), input_len);
+        assert_encode_sanity(&encoded_buf, engine.config().encode_padding(), input_len);
 
         assert_eq!(input_buf, decode_engine(&encoded_buf, &engine).unwrap());
     }
 }
 
 pub fn random_config<R: Rng>(rng: &mut R) -> FastPortableConfig {
-    FastPortableConfig::from(rng.gen(), rng.gen())
+    FastPortableConfig::new()
+        .with_encode_padding(rng.gen())
+        .with_decode_allow_trailing_bits(rng.gen())
 }
 
 pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {

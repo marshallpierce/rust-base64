@@ -206,7 +206,7 @@ fn reports_invalid_last_symbol_correctly() {
         let config = random_config(&mut rng);
         let alphabet = random_alphabet(&mut rng);
         // changing padding will cause invalid padding errors when we twiddle the last byte
-        let engine = FastPortable::from(alphabet, config.with_padding(false));
+        let engine = FastPortable::from(alphabet, config.with_encode_padding(false));
         encode_engine_string(&bytes[..], &mut b64, &engine);
         b64_bytes.extend(b64.bytes());
         assert_eq!(b64_bytes.len(), b64.len());

@@ -54,7 +54,7 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String {
-    let encoded_size = encoded_len(input.as_ref().len(), engine.config().padding())
+    let encoded_size = encoded_len(input.as_ref().len(), engine.config().encode_padding())
         .expect("integer overflow when calculating buffer size");
     let mut buf = vec![0; encoded_size];
 
@@ -148,7 +148,7 @@ pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 ) -> usize {
     let input_bytes = input.as_ref();
 
-    let encoded_size = encoded_len(input_bytes.len(), engine.config().padding())
+    let encoded_size = encoded_len(input_bytes.len(), engine.config().encode_padding())
         .expect("usize overflow when calculating buffer size");
 
     let mut b64_output = &mut output_buf[0..encoded_size];
@@ -178,7 +178,7 @@ fn encode_with_padding<E: Engine>(
 
     let b64_bytes_written = engine.encode(input, output);
 
-    let padding_bytes = if engine.config().padding() {
+    let padding_bytes = if engine.config().encode_padding() {
         add_padding(input.len(), &mut output[b64_bytes_written..])
     } else {
         0
@@ -350,12 +350,12 @@ mod tests {
             );
             assert_encode_sanity(
                 &encoded_data_no_prefix,
-                engine.config().padding(),
+                engine.config().encode_padding(),
                 input_len,
             );
             assert_encode_sanity(
                 &encoded_data_with_prefix[prefix_len..],
-                engine.config().padding(),
+                engine.config().encode_padding(),
                 input_len,
             );
 
@@ -401,7 +401,7 @@ mod tests {
 
             let engine = random_engine(&mut rng);
 
-            let encoded_size = encoded_len(input_len, engine.config().padding()).unwrap();
+            let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
 
             assert_eq!(
                 encoded_size,
@@ -410,7 +410,7 @@ mod tests {
 
             assert_encode_sanity(
                 std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                engine.config().padding(),
+                engine.config().encode_padding(),
                 input_len,
             );
 
@@ -447,7 +447,7 @@ mod tests {
 
             let engine = random_engine(&mut rng);
 
-            let encoded_size = encoded_len(input_len, engine.config().padding()).unwrap();
+            let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
 
             encoded_data.resize(encoded_size, 0);
 
@@ -458,7 +458,7 @@ mod tests {
 
             assert_encode_sanity(
                 std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                engine.config().padding(),
+                engine.config().encode_padding(),
                 input_len,
             );
 
@@ -490,7 +490,7 @@ mod tests {
             let engine = random_engine(&mut rng);
 
             // fill up the output buffer with garbage
-            let encoded_size = encoded_len(input_len, config.padding()).unwrap();
+            let encoded_size = encoded_len(input_len, config.encode_padding()).unwrap();
             for _ in 0..encoded_size {
                 output.push(rng.gen());
             }
@@ -529,7 +529,7 @@ mod tests {
             let engine = random_engine(&mut rng);
 
             // fill up the output buffer with garbage
-            let encoded_size = encoded_len(input_len, engine.config().padding()).unwrap();
+            let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
             for _ in 0..encoded_size + 1000 {
                 output.push(rng.gen());
             }

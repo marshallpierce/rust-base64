@@ -176,8 +176,8 @@ impl super::Engine for FastPortable {
         )
     }
 
-    fn config(&self) -> Self::Config {
-        self.config
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 }
 
@@ -238,43 +238,61 @@ fn read_u64(s: &[u8]) -> u64 {
     u64::from_be_bytes(s[..8].try_into().unwrap())
 }
 
-/// Contains miscellaneous configuration parameters for base64 encoding and decoding.
+/// Contains configuration parameters for base64 encoding and decoding.
+///
+/// ```
+/// # use base64::engine::fast_portable::FastPortableConfig;
+/// let config = FastPortableConfig::new()
+///     .with_encode_padding(false);
+///     // further customize using `.with_*` methods as needed
+/// ```
+///
+/// The constants [PAD] and [NO_PAD] cover most use cases.
 ///
 /// To specify the characters used, see [crate::alphabet::Alphabet].
 #[derive(Clone, Copy, Debug)]
 pub struct FastPortableConfig {
-    /// `true` to pad output with `=` characters
-    padding: bool,
-    /// `true` to ignore excess nonzero bits in the last few symbols, otherwise an error is returned
+    encode_padding: bool,
     decode_allow_trailing_bits: bool,
 }
 
 impl FastPortableConfig {
-    /// Create a new config.
+    /// Create a new config with `padding` = `true` and `decode_allow_trailing_bits` = `false`.
     ///
-    /// - `padding`: if `true`, encoding will append `=` padding characters to produce an
-    /// output whose length is a multiple of 4. Padding is not needed for decoding and
-    /// only serves to waste bytes but it's in the spec. For new applications, consider
-    /// not using padding.
-    /// - `decode_allow_trailing_bits`: If unsure, use `false`.
-    /// Useful if you need to decode base64 produced by a buggy encoder that
-    /// has bits set in the unused space on the last base64 character as per
-    /// [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
-    /// If invalid trailing bits are present and this `true`, those bits will
-    /// be silently ignored, else `DecodeError::InvalidLastSymbol` will be emitted.
-    pub const fn from(padding: bool, decode_allow_trailing_bits: bool) -> FastPortableConfig {
+    /// This probably matches most people's expectations, but consider disabling padding to save
+    /// a few bytes unless you specifically need it for compatibility with some legacy system.
+    pub const fn new() -> FastPortableConfig {
         FastPortableConfig {
-            padding,
-            decode_allow_trailing_bits,
+            // RFC states that padding must be applied by default
+            encode_padding: true,
+            decode_allow_trailing_bits: false,
         }
     }
 
-    /// Create a new `Config` based on `self` with an updated `padding` parameter.
-    pub const fn with_padding(self, padding: bool) -> FastPortableConfig {
-        FastPortableConfig { padding, ..self }
+    /// Create a new config based on `self` with an updated `padding` parameter.
+    ///
+    /// If `true`, encoding will append either 1 or 2 `=` padding characters to produce an
+    /// output whose length is a multiple of 4.
+    ///
+    /// Padding is not needed for correct decoding and only serves to waste bytes, but it's in the
+    /// [spec](https://datatracker.ietf.org/doc/html/rfc4648#section-3.2).
+    ///
+    /// For new applications, consider not using padding if the decoders you're using don't require
+    /// padding to be present.
+    pub const fn with_encode_padding(self, padding: bool) -> FastPortableConfig {
+        FastPortableConfig {
+            encode_padding: padding,
+            ..self
+        }
     }
 
-    /// Create a new `Config` based on `self` with an updated `decode_allow_trailing_bits` parameter.
+    /// Create a new config based on `self` with an updated `decode_allow_trailing_bits` parameter.
+    ///
+    /// Most users will not need to configure this. It's useful if you need to decode base64
+    /// produced by a buggy encoder that has bits set in the unused space on the last base64
+    /// character as per [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
+    /// If invalid trailing bits are present and this is `true`, those bits will
+    /// be silently ignored, else `DecodeError::InvalidLastSymbol` will be emitted.
     pub const fn with_decode_allow_trailing_bits(self, allow: bool) -> FastPortableConfig {
         FastPortableConfig {
             decode_allow_trailing_bits: allow,
@@ -283,20 +301,21 @@ impl FastPortableConfig {
     }
 }
 
+impl Default for FastPortableConfig {
+    /// Delegates to [FastPortableConfig::new].
+    fn default() -> Self {
+        FastPortableConfig::new()
+    }
+}
+
 impl Config for FastPortableConfig {
-    fn padding(&self) -> bool {
-        self.padding
+    fn encode_padding(&self) -> bool {
+        self.encode_padding
     }
 }
 
 /// Include padding bytes when encoding.
-pub const PAD: FastPortableConfig = FastPortableConfig {
-    padding: true,
-    decode_allow_trailing_bits: false,
-};
+pub const PAD: FastPortableConfig = FastPortableConfig::new();
 
 /// Don't add padding when encoding.
-pub const NO_PAD: FastPortableConfig = FastPortableConfig {
-    padding: false,
-    decode_allow_trailing_bits: false,
-};
+pub const NO_PAD: FastPortableConfig = FastPortableConfig::new().with_encode_padding(false);

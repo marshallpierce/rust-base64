@@ -264,8 +264,8 @@ impl Engine for Naive {
         Ok(output_index)
     }
 
-    fn config(&self) -> Self::Config {
-        self.config
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 }
 
@@ -301,7 +301,7 @@ pub struct NaiveConfig {
 }
 
 impl Config for NaiveConfig {
-    fn padding(&self) -> bool {
+    fn encode_padding(&self) -> bool {
         self.padding
     }
 }
