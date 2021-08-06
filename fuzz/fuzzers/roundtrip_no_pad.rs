@@ -4,7 +4,7 @@ extern crate base64;
 use base64::engine::fast_portable;
 
 fuzz_target!(|data: &[u8]| {
-    let config = fast_portable::FastPortableConfig::from(false, false);
+    let config = fast_portable::FastPortableConfig::new().with_encode_padding(false);
     let engine = fast_portable::FastPortable::from(&base64::alphabet::STANDARD, config);
 
     let encoded = base64::encode_engine(&data, &engine);

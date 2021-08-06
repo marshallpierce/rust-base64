@@ -23,7 +23,9 @@ pub fn random_engine(data: &[u8]) -> fast_portable::FastPortable {
         alphabet::STANDARD
     };
 
-    let config = fast_portable::FastPortableConfig::from(rng.gen(), rng.gen());
+    let config = fast_portable::FastPortableConfig::new()
+        .with_encode_padding(rng.gen())
+        .with_decode_allow_trailing_bits(rng.gen());
 
     fast_portable::FastPortable::from(&alphabet, config)
 }

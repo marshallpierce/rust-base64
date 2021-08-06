@@ -67,8 +67,8 @@ jobs:
           command: |
             if [[ '<< parameters.rust_img >>' = 'rustlang/rust:nightly' ]]
             then
-              cargo +nightly install cargo-fuzz
-              cargo fuzz list | xargs -L 1 -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1
+              cargo install cargo-fuzz
+              cargo fuzz list | xargs -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1
             fi
 
       - save_cache:
