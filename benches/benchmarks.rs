@@ -5,15 +5,14 @@ extern crate rand;
 
 use base64::display;
 use base64::{
-    decode, decode_config_buf, decode_config_slice, encode, encode_config_buf, encode_config_slice,
-    write, Config,
+    decode, decode_engine_slice, decode_engine_vec, encode, encode_engine_slice,
+    encode_engine_string, write,
 };
 
+use base64::engine::DEFAULT_ENGINE;
 use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
 use rand::{FromEntropy, Rng};
 use std::io::{self, Read, Write};
-
-const TEST_CONFIG: Config = base64::STANDARD;
 
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
@@ -33,7 +32,7 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
 
     let mut buf = Vec::new();
     b.iter(|| {
-        decode_config_buf(&encoded, TEST_CONFIG, &mut buf).unwrap();
+        decode_engine_vec(&encoded, &mut buf, &DEFAULT_ENGINE).unwrap();
         black_box(&buf);
         buf.clear();
     });
@@ -47,7 +46,7 @@ fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
     let mut buf = Vec::new();
     buf.resize(size, 0);
     b.iter(|| {
-        decode_config_slice(&encoded, TEST_CONFIG, &mut buf).unwrap();
+        decode_engine_slice(&encoded, &mut buf, &DEFAULT_ENGINE).unwrap();
         black_box(&buf);
     });
 }
@@ -63,7 +62,7 @@ fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
 
     b.iter(|| {
         let mut cursor = io::Cursor::new(&encoded[..]);
-        let mut decoder = base64::read::DecoderReader::new(&mut cursor, TEST_CONFIG);
+        let mut decoder = base64::read::DecoderReader::from(&mut cursor, &DEFAULT_ENGINE);
         decoder.read_to_end(&mut buf).unwrap();
         buf.clear();
         black_box(&buf);
@@ -83,7 +82,7 @@ fn do_encode_bench_display(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
     b.iter(|| {
-        let e = format!("{}", display::Base64Display::with_config(&v, TEST_CONFIG));
+        let e = format!("{}", display::Base64Display::from(&v, &DEFAULT_ENGINE));
         black_box(&e);
     });
 }
@@ -93,7 +92,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
     let mut buf = String::new();
     b.iter(|| {
-        encode_config_buf(&v, TEST_CONFIG, &mut buf);
+        encode_engine_string(&v, &mut buf, &DEFAULT_ENGINE);
         buf.clear();
     });
 }
@@ -105,7 +104,7 @@ fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
     // conservative estimate of encoded size
     buf.resize(v.len() * 2, 0);
     b.iter(|| {
-        encode_config_slice(&v, TEST_CONFIG, &mut buf);
+        encode_engine_slice(&v, &mut buf, &DEFAULT_ENGINE);
     });
 }
 
@@ -117,7 +116,7 @@ fn do_encode_bench_stream(b: &mut Bencher, &size: &usize) {
     buf.reserve(size * 2);
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = write::EncoderWriter::new(&mut buf, TEST_CONFIG);
+        let mut stream_enc = write::EncoderWriter::from(&mut buf, &DEFAULT_ENGINE);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
     });
@@ -128,7 +127,7 @@ fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
 
     b.iter(|| {
-        let mut stream_enc = write::EncoderStringWriter::new(TEST_CONFIG);
+        let mut stream_enc = write::EncoderStringWriter::from(&DEFAULT_ENGINE);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
         let _ = stream_enc.into_inner();
@@ -142,7 +141,7 @@ fn do_encode_bench_string_reuse_buf_stream(b: &mut Bencher, &size: &usize) {
     let mut buf = String::new();
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = write::EncoderStringWriter::from(&mut buf, TEST_CONFIG);
+        let mut stream_enc = write::EncoderStringWriter::from_consumer(&mut buf, &DEFAULT_ENGINE);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
         let _ = stream_enc.into_inner();
