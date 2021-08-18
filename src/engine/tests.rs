@@ -6,9 +6,10 @@ use rstest::rstest;
 use rstest_reuse::{apply, template};
 use std::iter;
 
+use crate::tests::assert_encode_sanity;
 use crate::{
     alphabet::{Alphabet, STANDARD},
-    encode,
+    decode_engine, encode,
     engine::{fast_portable, naive, Engine},
     tests::random_alphabet,
     DecodeError, PAD_BYTE,
@@ -122,7 +123,9 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
     let mut encode_buf = Vec::<u8>::new();
     let mut encode_buf_backup = Vec::<u8>::new();
 
-    let len_range = Uniform::new(1, 1_000);
+    let input_len_range = Uniform::new(0, 5);
+    let prefix_len_range = Uniform::new(0, 5);
+    let suffix_len_range = Uniform::new(0, 5);
 
     for _ in 0..10_000 {
         let engine = E::random(&mut rng);
@@ -131,23 +134,37 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
         encode_buf.clear();
         encode_buf_backup.clear();
 
-        let orig_len = fill_rand(&mut orig_data, &mut rng, &len_range);
-        let expected_encode_len = engine_encoded_len(orig_len);
-        encode_buf.resize(expected_encode_len, 0);
+        let orig_len = fill_rand(&mut orig_data, &mut rng, &input_len_range);
 
-        // oversize encode buffer so we can easily tell if it writes anything more than
-        // just the encoded data
-        fill_rand_len(&mut encode_buf, &mut rng, (expected_encode_len + 100) * 2);
+        // write a random prefix
+        let prefix_len = fill_rand(&mut encode_buf, &mut rng, &prefix_len_range);
+        let expected_encode_len_no_pad = engine_encoded_len(orig_len);
+        // leave space for encoded data
+        encode_buf.resize(expected_encode_len_no_pad + prefix_len, 0);
+        // and a random suffix
+        let suffix_len = fill_rand(&mut encode_buf, &mut rng, &suffix_len_range);
+
         encode_buf_backup.extend_from_slice(&encode_buf[..]);
 
-        let encoded_len = engine.encode(&orig_data[..], &mut encode_buf[..]);
-        assert_eq!(expected_encode_len, encoded_len);
+        let encoded_len_no_pad = engine.encode(&orig_data[..], &mut encode_buf[prefix_len..]);
+        assert_eq!(expected_encode_len_no_pad, encoded_len_no_pad);
 
         // no writes past what it claimed to write
+        assert_eq!(&encode_buf_backup[..prefix_len], &encode_buf[..prefix_len]);
         assert_eq!(
-            &encode_buf_backup[encoded_len..],
-            &encode_buf[encoded_len..]
-        )
+            &encode_buf_backup[(prefix_len + encoded_len_no_pad)..],
+            &encode_buf[(prefix_len + encoded_len_no_pad)..]
+        );
+
+        let encoded_data = &encode_buf[prefix_len..(prefix_len + encoded_len_no_pad)];
+        assert_encode_sanity(
+            std::str::from_utf8(encoded_data).unwrap(),
+            // engines don't pad
+            false,
+            orig_len,
+        );
+
+        assert_eq!(orig_data, decode_engine(encoded_data, &engine).unwrap());
     }
 }
 
@@ -269,6 +286,37 @@ fn decode_detect_invalid_last_symbol_two_bytes<E: EngineWrapper>(engine_wrapper:
         assert_eq!(
             Err(DecodeError::InvalidLastSymbol(prefix.len() + 2, b'X')),
             engine.decode_ez_str_vec(input.as_str())
+        );
+    }
+}
+
+#[apply(all_engines)]
+fn decode_detect_invalid_last_symbol_when_length_is_also_invalid<E: EngineWrapper>(
+    engine_wrapper: E,
+) {
+    let mut rng = rand::rngs::SmallRng::from_entropy();
+
+    // check across enough lengths that it would likely cover any implementation's various internal
+    // small/large input division
+    for len in 0_usize..1000 {
+        if len % 4 != 1 {
+            continue;
+        }
+
+        let engine = E::random_alphabet(&mut rng, &STANDARD);
+
+        let mut input = vec![b'A'; len];
+
+        // with a valid last char, it's InvalidLength
+        assert_eq!(
+            Err(DecodeError::InvalidLength),
+            decode_engine(&input, &engine)
+        );
+        // after mangling the last char, it's InvalidByte
+        input[len - 1] = b'*';
+        assert_eq!(
+            Err(DecodeError::InvalidByte(len - 1, b'*')),
+            decode_engine(&input, &engine)
         );
     }
 }

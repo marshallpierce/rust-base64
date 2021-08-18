@@ -10,10 +10,10 @@ mod naive;
 #[cfg(test)]
 mod tests;
 
-/// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use.
+/// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
 /// Different implementations offer different characteristics. The library currently ships with
-/// a general-purpose [FastPortable] that offers good speed and works on any CPU, with more choices
+/// a general-purpose [FastPortable] impl that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
 /// See [DEFAULT_ENGINE] if you just want standard base64. Otherwise, when possible, it's
@@ -40,10 +40,9 @@ pub trait Engine: Send + Sync {
     /// Must not write any bytes into the output slice other than the encoded data.
     fn encode(&self, input: &[u8], output: &mut [u8]) -> usize;
 
-    /// As an optimization, it is sometimes helpful to have a conservative estimate of the decoded
-    /// size before doing the decoding.
-    ///
-    /// The result of this must be passed to [Engine::decode()].
+    /// As an optimization to prevent the decoded length from being calculated twice, it is
+    /// sometimes helpful to have a conservative estimate of the decoded size before doing the
+    /// decoding, so this calculation is done separately and passed to [Engine::decode()] as needed.
     fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate;
 
     /// Decode `input` base64 bytes into the `output` buffer.
@@ -87,14 +86,14 @@ pub trait Config {
 /// The decode estimate used by an engine implementation. Users do not need to interact with this;
 /// it is only for engine implementors.
 ///
-/// Implementors may want to store relevant calculations when constructing this to avoid having
-/// to calculate them again during actual decoding.
+/// Implementors may store relevant data here when constructing this to avoid having to calculate
+/// them again during actual decoding.
 pub trait DecodeEstimate {
     /// Returns a conservative (err on the side of too big) estimate of the decoded length to use
     /// for pre-allocating buffers, etc.
     fn decoded_length_estimate(&self) -> usize;
 }
 
-/// An engine that will work on all CPUs using the standard base64 alphabet and config.
+/// A [FastPortable] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::fast_portable::PAD] config.
 pub const DEFAULT_ENGINE: FastPortable =
     FastPortable::from(&alphabet::STANDARD, fast_portable::PAD);

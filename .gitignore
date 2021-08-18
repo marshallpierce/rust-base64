@@ -10,5 +10,5 @@ main.rs
 *.iml
 
 # `perf record` files
-perf.data*
+/*perf.data*
 /tmp

@@ -216,23 +216,6 @@ pub(crate) const fn decode_table(alphabet: &Alphabet) -> [u8; 256] {
     return decode_table;
 }
 
-// fn decode_aligned(symbol: u8, decode_table: &[u8; 256]) -> u8 {
-//     let mut result: u8 = 0x00;
-//     // If `symbol` is inside the printable range, one of these two derived indices will be equal to
-//     // the original index, and the decoded byte will end up in `result`. If `symbol` is not
-//     // printable, neither will equal the original symbol, and so both decoded bytes will have 0x00
-//     // as a mask.
-//     // TODO invalid bytes decoded to 0x00 instead of 0xFF?
-//     let idx: [u8; 2] = [symbol % 64, symbol % 64 + 64];
-//     for i in 0..2 {
-//         let symbol_eq_mod = idx[i] == symbol;
-//         // if symbol equals its mod flavor, 0xFF, else 0x00
-//         let mask = ((symbol_eq_mod) as i8 - 1) as u8;
-//         result = result | (decode_table[idx[i] as usize] & mask);
-//     }
-//     result
-// }
-
 #[inline]
 fn read_u64(s: &[u8]) -> u64 {
     u64::from_be_bytes(s[..8].try_into().unwrap())
@@ -315,6 +298,9 @@ impl Config for FastPortableConfig {
 }
 
 /// Include padding bytes when encoding.
+///
+/// This is the standard per the base64 RFC, but consider using [NO_PAD] instead as padding serves
+/// little purpose in practice.
 pub const PAD: FastPortableConfig = FastPortableConfig::new();
 
 /// Don't add padding when encoding.

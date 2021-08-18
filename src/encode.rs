@@ -7,7 +7,7 @@ use crate::PAD_BYTE;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::{string::String, vec};
 
-///Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE), alphabet, and config.
+///Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE).
 ///Returns a `String`.
 ///
 ///# Example

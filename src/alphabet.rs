@@ -1,5 +1,6 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
+use crate::PAD_BYTE;
 #[cfg(any(feature = "std", test))]
 use std::{convert, error, fmt};
 
@@ -17,7 +18,7 @@ const ALPHABET_SIZE: usize = 64;
 ///     &custom,
 ///     base64::engine::fast_portable::PAD);
 /// ```
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alphabet {
     pub(crate) symbols: [u8; ALPHABET_SIZE],
 }
@@ -39,7 +40,7 @@ impl Alphabet {
         Alphabet { symbols }
     }
 
-    /// Create a `CharacterSet` from a string of 64 unique printable ASCII bytes.
+    /// Create an `Alphabet` from a string of 64 unique printable ASCII bytes.
     ///
     /// The `=` byte is not allowed as it is used for padding.
     ///
@@ -62,7 +63,7 @@ impl Alphabet {
                     return Err(ParseAlphabetError::UnprintableByte(byte));
                 }
                 // = is assumed to be padding, so cannot be used as a symbol
-                if b'=' == byte {
+                if byte == PAD_BYTE {
                     return Err(ParseAlphabetError::ReservedByte(byte));
                 }
 
@@ -121,9 +122,9 @@ impl fmt::Display for ParseAlphabetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParseAlphabetError::InvalidLength => write!(f, "Invalid length - must be 64 bytes"),
-            ParseAlphabetError::DuplicatedByte(b) => write!(f, "Duplicated byte: {}", b),
-            ParseAlphabetError::UnprintableByte(b) => write!(f, "Unprintable byte: {}", b),
-            ParseAlphabetError::ReservedByte(b) => write!(f, "Reserved byte: {}", b),
+            ParseAlphabetError::DuplicatedByte(b) => write!(f, "Duplicated byte: {:#04x}", b),
+            ParseAlphabetError::UnprintableByte(b) => write!(f, "Unprintable byte: {:#04x}", b),
+            ParseAlphabetError::ReservedByte(b) => write!(f, "Reserved byte: {:#04x}", b),
         }
     }
 }

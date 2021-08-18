@@ -9,8 +9,6 @@ use core::fmt;
 #[cfg(any(feature = "std", test))]
 use std::error;
 
-// TODO how to handle InvalidLastSymbol and InvalidLength behavior across engines?
-
 /// Errors that can occur while decoding.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -58,7 +56,7 @@ impl error::Error for DecodeError {
     }
 }
 
-///Decode base64 using the [default engine](DEFAULT_ENGINE), alphabet, and config.
+///Decode base64 using the [default engine](DEFAULT_ENGINE).
 ///Returns a `Result` containing a `Vec<u8>`.
 ///
 ///# Example
@@ -93,10 +91,10 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///
 ///    // custom engine setup
 ///    let bytes_url = base64::decode_engine(
-///        "aGVsbG8gaW50ZXJuZXR-Cg==",
+///        "aGVsbG8gaW50ZXJuZXR-Cg",
 ///        &base64::engine::fast_portable::FastPortable::from(
 ///            &base64::alphabet::URL_SAFE,
-///            base64::engine::fast_portable::PAD),
+///            base64::engine::fast_portable::NO_PAD),
 ///
 ///    ).unwrap();
 ///    println!("{:?}", bytes_url);
