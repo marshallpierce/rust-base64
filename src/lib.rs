@@ -109,9 +109,9 @@ pub mod engine;
 pub mod alphabet;
 
 mod encode;
-pub use crate::encode::encode_engine_slice;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::encode::{encode, encode_engine, encode_engine_string};
+pub use crate::encode::{encode_engine_slice, encoded_len};
 
 mod decode;
 #[cfg(any(feature = "alloc", feature = "std", test))]

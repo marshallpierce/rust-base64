@@ -191,7 +191,10 @@ fn encode_with_padding<E: Engine>(
     debug_assert_eq!(expected_encoded_size, encoded_bytes);
 }
 
-/// calculate the base64 encoded string size, including padding if appropriate
+/// Calculate the base64 encoded length for a given input length, optionally including any
+/// appropriate padding bytes.
+///
+/// Returns `None` if the encoded length can't be represented in `usize`.
 pub fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
     let rem = bytes_len % 3;
 

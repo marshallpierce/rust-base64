@@ -8,6 +8,7 @@
 - Since there are already multiple breaking changes, various functions are renamed to be more consistent and discoverable.
 - MSRV is now 1.47.0 to allow various things to use `const fn`.
 - `DecoderReader` now owns its inner reader, and can expose it via `into_inner()`. For symmetry, `EncoderWriter` can do the same with its writer.
+- `encoded_len` is now public so you can size encode buffers precisely.
 
 # 0.13.0
 
