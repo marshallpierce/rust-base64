@@ -16,6 +16,11 @@ rust-version = "1.47.0"
 name = "benchmarks"
 harness = false
 
+[[bench]]
+name = "avx2benchmarks"
+harness = false
+required-features = ["avx2"]
+
 [dev-dependencies]
 criterion = "0.3.4"
 rand = "0.6.1"
@@ -23,6 +28,7 @@ structopt = "0.3.21"
 # test fixtures for engine tests
 rstest = "0.11.0"
 rstest_reuse = "0.1.3"
+lazy_static = "1.4.0"
 
 [features]
 default = ["std"]

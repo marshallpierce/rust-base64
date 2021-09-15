@@ -17,11 +17,25 @@ use crate::{
 
 // the case::foo syntax includes the "foo" in the generated test method names
 #[template]
+#[cfg_attr(feature = "avx2", rstest(engine_wrapper,
+case::avx2(avx2_tests::AVX2Wrapper {}),
+case::fast_portable(FastPortableWrapper {}),
+case::naive(NaiveWrapper {}),
+))]
+#[cfg_attr(not(feature = "avx2"), rstest(engine_wrapper,
+case::fast_portable(FastPortableWrapper {}),
+case::naive(NaiveWrapper {}),
+))]
+// Absolutely all engines
+fn all_engines<E: EngineWrapper>(engine_wrapper: E) {}
+
+#[template]
 #[rstest(engine_wrapper,
 case::fast_portable(FastPortableWrapper {}),
 case::naive(NaiveWrapper {}),
 )]
-fn all_engines<E: EngineWrapper>(engine_wrapper: E) {}
+// Engines that can handle a custom alphabet
+fn literate_engines<E: EngineWrapper>(engine_wrapper: E) {}
 
 #[apply(all_engines)]
 fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
@@ -290,7 +304,7 @@ fn decode_detect_invalid_last_symbol_two_bytes<E: EngineWrapper>(engine_wrapper:
     }
 }
 
-#[apply(all_engines)]
+#[apply(literate_engines)]
 fn decode_detect_invalid_last_symbol_when_length_is_also_invalid<E: EngineWrapper>(
     engine_wrapper: E,
 ) {
@@ -489,7 +503,7 @@ fn decode_invalid_trailing_bits_ignored_when_configured<E: EngineWrapper>(engine
     }
 }
 
-#[apply(all_engines)]
+#[apply(literate_engines)]
 fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
     let mut rng = rand::rngs::SmallRng::from_entropy();
 
@@ -936,6 +950,37 @@ impl EngineWrapper for NaiveWrapper {
         };
 
         naive::Naive::from(alphabet, config)
+    }
+}
+
+
+#[cfg(feature = "avx2")]
+mod avx2_tests {
+    use super::*;
+    use crate::engine::avx2;
+
+    pub(super) struct AVX2Wrapper {}
+
+    impl EngineWrapper for AVX2Wrapper {
+        type Engine = avx2::AVX2Encoder;
+
+        fn standard() -> Self::Engine {
+            avx2::AVX2Encoder::from_standard(avx2::AVX2Config::default())
+        }
+
+        fn standard_forgiving() -> Self::Engine {
+            avx2::AVX2Encoder::from_standard(avx2::AVX2Config::default()
+                .with_decode_allow_trailing_bits(true))
+        }
+
+        fn random<R: Rng>(_rng: &mut R) -> Self::Engine {
+            // The avx alg can't handle custom alphabets yet
+            avx2::AVX2Encoder::from_standard(avx2::AVX2Config::default())
+        }
+
+        fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
+            unimplemented!()
+        }
     }
 }
 
