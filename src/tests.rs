@@ -7,7 +7,7 @@ use crate::engine::{Config, Engine};
 use rand::{
     distributions::{Distribution, Uniform},
     seq::SliceRandom,
-    FromEntropy, Rng,
+    Rng, SeedableRng,
 };
 
 #[test]

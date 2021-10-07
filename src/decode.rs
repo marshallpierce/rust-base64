@@ -207,7 +207,7 @@ mod tests {
     use crate::tests::random_engine;
     use rand::{
         distributions::{Distribution, Uniform},
-        FromEntropy, Rng,
+        Rng, SeedableRng,
     };
 
     #[test]
@@ -329,7 +329,6 @@ mod tests {
         let mut decode_buf = Vec::new();
 
         let input_len_range = Uniform::new(0, 1000);
-
         let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
