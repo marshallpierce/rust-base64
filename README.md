@@ -1,5 +1,4 @@
-[base64](https://crates.io/crates/base64)
-===
+# [base64](https://crates.io/crates/base64)
 
 [![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64) [![CircleCI](https://circleci.com/gh/marshallpierce/rust-base64/tree/master.svg?style=shield)](https://circleci.com/gh/marshallpierce/rust-base64/tree/master) [![codecov](https://codecov.io/gh/marshallpierce/rust-base64/branch/master/graph/badge.svg)](https://codecov.io/gh/marshallpierce/rust-base64) [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 
@@ -11,8 +10,7 @@ It's base64. What more could anyone want?
 
 This library's goals are to be *correct* and *fast*. It's thoroughly tested and widely used. It exposes functionality at multiple levels of abstraction so you can choose the level of convenience vs performance that you want, e.g. `decode_engine_slice` decodes into an existing `&mut [u8]` and is pretty fast (2.6GiB/s for a 3 KiB input), whereas `decode_engine` allocates a new `Vec<u8>` and returns it, which might be more convenient in some cases, but is slower (although still fast enough for almost any purpose) at 2.1 GiB/s.
 
-Example
----
+## Example
 
 ```rust
 extern crate base64;
@@ -30,8 +28,24 @@ fn main() {
 
 See the [docs](https://docs.rs/base64) for all the details.
 
-Rust version compatibility
----
+## FAQ
+
+### I need to decode base64 with whitespace/null bytes/other random things interspersed in it. What should I do?
+
+Remove non-base64 characters from your input before decoding.
+
+If you have a `Vec` of base64, [retain](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.retain) can be used to strip out whatever you need removed.
+
+If you have a `Read` (e.g. reading a file or network socket), there are various approaches.
+
+- Use [iter_read](https://crates.io/crates/iter-read) together with `Read`'s `bytes()` to filter out unwanted bytes.
+- Implement `Read` with a `read()` impl that delegates to your actual `Read`, and then drops any bytes you don't want.
+
+### I need to line-wrap base64, e.g. for MIME/PEM.
+
+[line-wrap](https://crates.io/crates/line-wrap) does just that.
+
+## Rust version compatibility
 
 The minimum required Rust version is 1.47.0.
 
@@ -41,8 +55,7 @@ Contributions are very welcome. However, because this library is used widely, an
 
 All this means that it takes me a fair amount of time to review each PR, so it might take quite a while to carve out the free time to give each PR the attention it deserves. I will get to everyone eventually!
 
-Developing
----
+## Developing
 
 Benchmarks are in `benches/`. Running them requires nightly rust, but `rustup` makes it easy:
 
@@ -50,13 +63,11 @@ Benchmarks are in `benches/`. Running them requires nightly rust, but `rustup` m
 rustup run nightly cargo bench
 ```
 
-no_std
----
+## no_std
 
 This crate supports no_std. By default the crate targets std via the `std` feature. You can deactivate the `default-features` to target core instead. In that case you lose out on all the functionality revolving around `std::io`, `std::error::Error` and heap allocations. There is an additional `alloc` feature that you can activate to bring back the support for heap allocations.
 
-Profiling
----
+## Profiling
 
 On Linux, you can use [perf](https://perf.wiki.kernel.org/index.php/Main_Page) for profiling. Then compile the benchmarks with `rustup nightly run cargo bench --no-run`.
 
@@ -95,8 +106,7 @@ You'll see a bunch of interleaved rust source and assembly like this. The sectio
 ```
 
 
-Fuzzing
----
+## Fuzzing
 
 This uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz). See `fuzz/fuzzers` for the available fuzzing scripts. To run, use an invocation like these:
 
@@ -108,7 +118,6 @@ cargo +nightly fuzz run decode_random
 ```
 
 
-License
----
+## License
 
 This project is dual-licensed under MIT and Apache 2.0.
