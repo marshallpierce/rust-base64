@@ -1,6 +1,6 @@
 [package]
 name = "base64"
-version = "0.13.0"
+version = "0.20.0-alpha.1"
 authors = ["Alice Maz <alice@alicemaz.com>", "Marshall Pierce <marshall@mpierce.org>"]
 description = "encodes and decodes base64 as bytes or utf8"
 repository = "https://github.com/marshallpierce/rust-base64"
@@ -10,6 +10,7 @@ keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT/Apache-2.0"
 edition = "2018"
+rust-version = "1.47.0"
 
 [[bench]]
 name = "benchmarks"
