@@ -953,7 +953,6 @@ impl EngineWrapper for NaiveWrapper {
     }
 }
 
-
 #[cfg(feature = "avx2")]
 mod avx2_tests {
     use super::*;
@@ -969,8 +968,9 @@ mod avx2_tests {
         }
 
         fn standard_forgiving() -> Self::Engine {
-            avx2::AVX2Encoder::from_standard(avx2::AVX2Config::default()
-                .with_decode_allow_trailing_bits(true))
+            avx2::AVX2Encoder::from_standard(
+                avx2::AVX2Config::default().with_decode_allow_trailing_bits(true),
+            )
         }
 
         fn random<R: Rng>(_rng: &mut R) -> Self::Engine {

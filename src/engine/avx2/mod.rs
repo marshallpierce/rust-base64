@@ -29,7 +29,7 @@ pub struct AVX2Encoder {
     config: AVX2Config,
 
     // Alphabet LUT for serial steps
-    encode_table: [u8;  64],
+    encode_table: [u8; 64],
     decode_table: [u8; 256],
 
     // Alphabet LUT for vectorized steps
@@ -37,7 +37,7 @@ pub struct AVX2Encoder {
     decode_offsets: __m256i,
 
     // The algorithm in use needs to be able to distinguish between the two singletons outside the
-    // [A-Za-z] ranges. 
+    // [A-Za-z] ranges.
     // For STANDARD these are '+' and '/' and the engine matches against '/' i.e. 0x2F
     // For URL_SAFE these are '-' and '_' and the engine matches against '_' i.e. 0x5F
     singleton_mask: __m256i,
@@ -51,9 +51,9 @@ impl AVX2Encoder {
     pub fn from_standard(config: AVX2Config) -> Self {
         let encode_offsets = unsafe {
             _mm256_setr_epi8(
-            //  00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15
-                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,-19,-16, 65,  0,  0,
-                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,-19,-16, 65,  0,  0,
+                //  00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15
+                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -19, -16, 65, 0, 0, 71, -4, -4, -4, -4,
+                -4, -4, -4, -4, -4, -4, -19, -16, 65, 0, 0,
             )
         };
 
@@ -62,9 +62,9 @@ impl AVX2Encoder {
         // The one exception to that is the value '/' (0x2F) which has to be handled specifically.
         let decode_offsets = unsafe {
             _mm256_setr_epi8(
-            //  00 01  02 03   04   05   06   07  08 09 10 11 12 13 14 15
-                 0, 0, 19, 4, -65, -65, -71, -71, 16, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 19, 4, -65, -65, -71, -71, 16, 0, 0, 0, 0, 0, 0, 0
+                //  00 01  02 03   04   05   06   07  08 09 10 11 12 13 14 15
+                0, 0, 19, 4, -65, -65, -71, -71, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 4, -65, -65,
+                -71, -71, 16, 0, 0, 0, 0, 0, 0, 0,
             )
         };
 
@@ -91,7 +91,7 @@ impl AVX2Encoder {
                 // 0     1     2     3     4     5     6     7
                 -0x1, -0x1, 0x01, 0x02, 0x04, 0x08, 0x04, 0x08,
                 // 8     9    10    11    12    13    14    15
-                -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1
+                -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1,
             )
         };
         // Witnesses for the low nibbles.
@@ -134,17 +134,17 @@ impl AVX2Encoder {
     pub fn from_url_safe(config: AVX2Config) -> Self {
         let encode_offsets = unsafe {
             _mm256_setr_epi8(
-            //  00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15
-                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,-17, 32, 65,  0,  0,
-                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4,-17, 32, 65,  0,  0,
+                //  00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15
+                71, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -17, 32, 65, 0, 0, 71, -4, -4, -4, -4,
+                -4, -4, -4, -4, -4, -4, -17, 32, 65, 0, 0,
             )
         };
 
         let decode_offsets = unsafe {
             _mm256_setr_epi8(
-            // 00 01  02  03   04   05   06   07  08  09  10  11  12  13  14  15
-                0, 0, 17,  4, -65, -65, -71, -71,  0,  0,  0,-32,  0,  0,  0,  0,
-                0, 0, 17,  4, -65, -65, -71, -71,  0,  0,  0,-32,  0,  0,  0,  0
+                // 00 01  02  03   04   05   06   07  08  09  10  11  12  13  14  15
+                0, 0, 17, 4, -65, -65, -71, -71, 0, 0, 0, -32, 0, 0, 0, 0, 0, 0, 17, 4, -65, -65,
+                -71, -71, 0, 0, 0, -32, 0, 0, 0, 0,
             )
         };
 
@@ -158,7 +158,7 @@ impl AVX2Encoder {
                 // 0     1     2     3     4     5     6     7
                 -0x1, -0x1, 0x01, 0x02, 0x04, 0x08, 0x04, 0x08,
                 // 8     9    10    11    12    13    14    15
-                -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1
+                -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1, -0x1,
             )
         };
         // Lo witnesses for url-safe are slightly different than for standard:
@@ -200,13 +200,11 @@ pub struct AVX2Estimate {
 impl AVX2Estimate {
     pub(crate) fn from(input_len: usize) -> AVX2Estimate {
         let num_chunks = input_len
-                .checked_add(INPUT_CHUNK_LEN - 1)
-                .expect("Overflow when calculating number of chunks in input")
-                / INPUT_CHUNK_LEN;
+            .checked_add(INPUT_CHUNK_LEN - 1)
+            .expect("Overflow when calculating number of chunks in input")
+            / INPUT_CHUNK_LEN;
 
-        AVX2Estimate {
-            num_chunks,
-        }
+        AVX2Estimate { num_chunks }
     }
 }
 
@@ -218,14 +216,16 @@ impl DecodeEstimate for AVX2Estimate {
     }
 }
 
-
 #[inline(always)]
 unsafe fn load_block(input: __m256i) -> __m256i {
     // TODO: Explain this load shuffle
-    let i: __m256i = _mm256_shuffle_epi8(input, _mm256_set_epi8(
-        10, 11,  9, 10,  7,  8,  6,  7,  4,  5,  3,  4,  1,  2,  0,  1,
-        14, 15, 13, 14, 11, 12, 10, 11,  8,  9,  7,  8,  5,  6,  4,  5
-    ));
+    let i: __m256i = _mm256_shuffle_epi8(
+        input,
+        _mm256_set_epi8(
+            10, 11, 9, 10, 7, 8, 6, 7, 4, 5, 3, 4, 1, 2, 0, 1, 14, 15, 13, 14, 11, 12, 10, 11, 8,
+            9, 7, 8, 5, 6, 4, 5,
+        ),
+    );
     let t0: __m256i = _mm256_and_si256(i, _mm256_set1_epi32(0x0fc0fc00));
     let t1: __m256i = _mm256_mulhi_epu16(t0, _mm256_set1_epi32(0x04000040));
     let t2: __m256i = _mm256_and_si256(i, _mm256_set1_epi32(0x003f03f0));
@@ -240,10 +240,10 @@ unsafe fn decode(
     hi_witness_lut: __m256i,
     offsets: __m256i,
     mask_singleton: __m256i,
-    block: __m256i
+    block: __m256i,
 ) -> __m256i {
     // The most relevant information to understand this algorithm is this tidbit:
-    // AVX shuffle conveniently work like table lookups; c = _mm256_shuffle_epi8(a,b) behaves* like 
+    // AVX shuffle conveniently work like table lookups; c = _mm256_shuffle_epi8(a,b) behaves* like
     // for i in 0..16 {
     //     c[i] = a[b[i]];
     //     c[i+16] = a[b[i+16]];
@@ -286,7 +286,7 @@ unsafe fn decode(
     // conditionals.
     // _mm256_testz_si256 used here bitwise AND's both input vectors and returns 1 if the result is
     // zero and 0 if the result has any bit set.
-    // So we need to now generate a `witness` for the high and low nibble each so that 
+    // So we need to now generate a `witness` for the high and low nibble each so that
     // `witness_hi & witness_lo == 0` iff the input is valid.
     let witness_lo = _mm256_shuffle_epi8(lo_witness_lut, lo_nibbles);
     let witness_hi = _mm256_shuffle_epi8(hi_witness_lut, hi_nibbles);
@@ -304,26 +304,29 @@ unsafe fn decode(
     // In the last decoding step we do two things: Add 0x6 to all hi nibbles where we found our
     // singleton. This makes input 0x2F check for offset in offsets[8] and 0x5F in offsets[11].
     // Then, get the actual offset amount from `offsets` and add it to our input.
-    let offsetidxs = _mm256_add_epi8(hi_nibbles, _mm256_and_si256(eq_singleton, _mm256_set1_epi8(0x6)));
+    let offsetidxs = _mm256_add_epi8(
+        hi_nibbles,
+        _mm256_and_si256(eq_singleton, _mm256_set1_epi8(0x6)),
+    );
     let offsetvals = _mm256_shuffle_epi8(offsets, offsetidxs);
     let shuffeled = _mm256_add_epi8(block, offsetvals);
 
     // This merges the 16, 6 bit wide but byte aligned, values in each half into a packed 12 byte
     // block of data each.
-    let merge_ab_and_bc = _mm256_maddubs_epi16(shuffeled, 
-        _mm256_set1_epi32(0x01400140));
+    let merge_ab_and_bc = _mm256_maddubs_epi16(shuffeled, _mm256_set1_epi32(0x01400140));
     let madd = _mm256_madd_epi16(merge_ab_and_bc, _mm256_set1_epi32(0x00011000));
-    let shuffle = _mm256_shuffle_epi8(madd, _mm256_setr_epi8(
-        2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1,
-        2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1
-    ));
+    let shuffle = _mm256_shuffle_epi8(
+        madd,
+        _mm256_setr_epi8(
+            2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1, 2, 1, 0, 6, 5, 4, 10, 9, 8, 14,
+            13, 12, -1, -1, -1, -1,
+        ),
+    );
 
     // Compact the two 128 bit lanes filled with 12 bytes of data each down to 24
     // consecutive bytes.
     // TODO This could also be done with _mm256_storeu2_m128i.
-    _mm256_permutevar8x32_epi32(shuffle, _mm256_setr_epi32(
-            0, 1, 2, 4, 5, 6, -1, -1
-    ))
+    _mm256_permutevar8x32_epi32(shuffle, _mm256_setr_epi32(0, 1, 2, 4, 5, 6, -1, -1))
 }
 
 #[inline(always)]
@@ -338,7 +341,7 @@ unsafe fn decode_masked(
     offsets: __m256i,
     mask_singleton: __m256i,
     mask_input: __m256i,
-    block: __m256i
+    block: __m256i,
 ) -> __m256i {
     let mask_nib = _mm256_set1_epi8(0b00001111);
     let block_shifted = _mm256_srli_epi32(block, 4);
@@ -355,26 +358,28 @@ unsafe fn decode_masked(
     }
 
     let eq_singleton = _mm256_cmpeq_epi8(block, mask_singleton);
-    let offsetidxs = _mm256_add_epi8(hi_nibbles, _mm256_and_si256(eq_singleton, _mm256_set1_epi8(0x6)));
+    let offsetidxs = _mm256_add_epi8(
+        hi_nibbles,
+        _mm256_and_si256(eq_singleton, _mm256_set1_epi8(0x6)),
+    );
     let offsetvals = _mm256_shuffle_epi8(offsets, offsetidxs);
     let shuffeled = _mm256_add_epi8(block, offsetvals);
 
-    let merge_ab_and_bc = _mm256_maddubs_epi16(shuffeled, 
-        _mm256_set1_epi32(0x01400140));
+    let merge_ab_and_bc = _mm256_maddubs_epi16(shuffeled, _mm256_set1_epi32(0x01400140));
     let madd = _mm256_madd_epi16(merge_ab_and_bc, _mm256_set1_epi32(0x00011000));
-    let shuffle = _mm256_shuffle_epi8(madd, _mm256_setr_epi8(
-        2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1,
-        2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1
-    ));
+    let shuffle = _mm256_shuffle_epi8(
+        madd,
+        _mm256_setr_epi8(
+            2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1, 2, 1, 0, 6, 5, 4, 10, 9, 8, 14,
+            13, 12, -1, -1, -1, -1,
+        ),
+    );
 
     // Compact the two 128 bit lanes filled with 12 bytes of data each down to 24
     // consecutive bytes.
     // TODO This could also be done with _mm256_storeu2_m128i.
-    _mm256_permutevar8x32_epi32(shuffle, _mm256_setr_epi32(
-            0, 1, 2, 4, 5, 6, -1, -1
-    ))
+    _mm256_permutevar8x32_epi32(shuffle, _mm256_setr_epi32(0, 1, 2, 4, 5, 6, -1, -1))
 }
-
 
 #[inline]
 unsafe fn encode(offsets: __m256i, input: __m256i) -> __m256i {
@@ -385,13 +390,13 @@ unsafe fn encode(offsets: __m256i, input: __m256i) -> __m256i {
     return _mm256_add_epi8(result, input);
 }
 
-const ENCODE_TABLE: [u8; 64] = 
+const ENCODE_TABLE: [u8; 64] =
     crate::engine::fast_portable::encode_table(&crate::alphabet::STANDARD);
-const URL_ENCODE_TABLE: [u8; 64] = 
+const URL_ENCODE_TABLE: [u8; 64] =
     crate::engine::fast_portable::encode_table(&crate::alphabet::URL_SAFE);
-const DECODE_TABLE: [u8; 256] = 
+const DECODE_TABLE: [u8; 256] =
     crate::engine::fast_portable::decode_table(&crate::alphabet::STANDARD);
-const URL_DECODE_TABLE: [u8; 256] = 
+const URL_DECODE_TABLE: [u8; 256] =
     crate::engine::fast_portable::decode_table(&crate::alphabet::URL_SAFE);
 
 const MASKLOAD: [i32; 16] = [-1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -438,8 +443,10 @@ impl super::Engine for AVX2Encoder {
                 // 1. The compiler will not store, write to or otherwise use this ptr.
                 // 2. _mm256_maskload_epi32 will never attempt to read masked bytes from memory.
                 let mem_addr: *const u8 = input.as_ptr().offset(-4);
-                block = _mm256_maskload_epi32(mem_addr.cast(), 
-                    _mm256_set_epi32(SKIP,LOAD,LOAD,LOAD,LOAD,LOAD,LOAD,SKIP));
+                block = _mm256_maskload_epi32(
+                    mem_addr.cast(),
+                    _mm256_set_epi32(SKIP, LOAD, LOAD, LOAD, LOAD, LOAD, LOAD, SKIP),
+                );
 
                 let expanded: __m256i = load_block(block);
                 let outblock: __m256i = encode(self.encode_offsets, expanded);
@@ -454,7 +461,7 @@ impl super::Engine for AVX2Encoder {
                 // the middle 24 bytes are kept as input. Thus we offset the input by four bytes to
                 // the left and have it be 32 bytes wide. This is safe since input_index is at this
                 // point always at least 24 and at most input.len()-29.
-                let input_chunk = &input[(input_index-4)..(input_index + 28)];
+                let input_chunk = &input[(input_index - 4)..(input_index + 28)];
                 let output_chunk = &mut output[output_index..(output_index + 32)];
 
                 unsafe {
@@ -467,12 +474,10 @@ impl super::Engine for AVX2Encoder {
                     let outblock: __m256i = encode(self.encode_offsets, expanded);
                     // Third step: Write the data into the output
                     _mm256_storeu_si256(output_chunk.as_mut_ptr().cast(), outblock);
-
                 }
                 output_index += BLOCKS_PER_FAST_LOOP * 8;
                 input_index += BLOCKS_PER_FAST_LOOP * 6;
             }
-
         }
         // End of fast loop.
         // TODO: In the case that we do more than one AVX2 round per fast loop we should still
@@ -480,7 +485,7 @@ impl super::Engine for AVX2Encoder {
         // only one round per loop.
 
         // We may need padding. Everything except the last three bytes is fair game, the last three
-        // bytes have one of three special cases: 
+        // bytes have one of three special cases:
         // 1) All three bytes are one group and can be encoded as is
         // 2) The first of the last three bytes is part of the group before, the other two have to
         //    be encoded in a shorter group.
@@ -510,7 +515,7 @@ impl super::Engine for AVX2Encoder {
         let rem = input.len() - input_index;
 
         if rem == 2 {
-            let final_input = input.len()-2;
+            let final_input = input.len() - 2;
             output[output_index] = self.encode_table[(input[final_input] >> 2) as usize];
             output[output_index + 1] =
                 self.encode_table[((input[final_input] << 4 | input[final_input + 1] >> 4)
@@ -519,7 +524,7 @@ impl super::Engine for AVX2Encoder {
                 self.encode_table[((input[final_input + 1] << 2) & LOW_SIX_BITS_U8) as usize];
             output_index += 3;
         } else if rem == 1 {
-            let final_input = input.len()-1;
+            let final_input = input.len() - 1;
             output[output_index] = self.encode_table[(input[final_input] >> 2) as usize];
             output[output_index + 1] =
                 self.encode_table[((input[final_input] << 4) & LOW_SIX_BITS_U8) as usize];
@@ -551,7 +556,7 @@ impl super::Engine for AVX2Encoder {
                 }
 
                 return Err(DecodeError::InvalidLength);
-            },
+            }
             // A multiple of 4 input bytes mean output will be undersized for whole word writes,
             // but allow whole word reads, or contain padding. In that case we skip an extra word
             // in stage 2 to not write OOB and to not hit padding.
@@ -591,7 +596,7 @@ impl super::Engine for AVX2Encoder {
             // Only valid input of 11 bytes is unpadded data decoding to 8 bytes output.
             // FIXME: Prove this is correct or remove it. Doing an extra fast loop over two bytes
             // is not worth violating safety.
-            // 11 => 11, 
+            // 11 => 11,
             x if x <= 12 => (BLOCKS_PER_FAST_LOOP * 8) + x,
             x if x > 12 => x,
             _ => unreachable!("Maths, how does it work?"),
@@ -625,18 +630,23 @@ impl super::Engine for AVX2Encoder {
                 // data.
                 let output_chunk = &mut output[output_index..(output_index + 32)];
 
-
                 unsafe {
                     block = _mm256_loadu_si256(input_chunk.as_ptr().cast());
-                    block = decode(&mut invalid, 
-                        self.lo_witnesses, 
-                        self.hi_witnesses, 
-                        self.decode_offsets, 
-                        self.singleton_mask, 
-                        block);
+                    block = decode(
+                        &mut invalid,
+                        self.lo_witnesses,
+                        self.hi_witnesses,
+                        self.decode_offsets,
+                        self.singleton_mask,
+                        block,
+                    );
 
                     if invalid {
-                        return Err(find_invalid_input(input_index, input_chunk, &self.decode_table));
+                        return Err(find_invalid_input(
+                            input_index,
+                            input_chunk,
+                            &self.decode_table,
+                        ));
                     }
 
                     _mm256_storeu_si256(output_chunk.as_mut_ptr().cast(), block);
@@ -666,21 +676,27 @@ impl super::Engine for AVX2Encoder {
             let output_chunk = &mut output[output_index..(output_index + 24)];
 
             unsafe {
-                // Set the mask to only write the 24 lowest bytes into the output. 
+                // Set the mask to only write the 24 lowest bytes into the output.
                 let mask_output = _mm256_loadu_si256(MASKLOAD[2..10].as_ptr().cast());
 
                 block = _mm256_loadu_si256(input_chunk.as_ptr().cast());
-                block = decode(&mut invalid, 
-                        self.lo_witnesses, 
-                        self.hi_witnesses, 
-                        self.decode_offsets,
-                        self.singleton_mask,
-                        block);
+                block = decode(
+                    &mut invalid,
+                    self.lo_witnesses,
+                    self.hi_witnesses,
+                    self.decode_offsets,
+                    self.singleton_mask,
+                    block,
+                );
 
                 _mm256_maskstore_epi32(output_chunk.as_mut_ptr().cast(), mask_output, block);
             }
             if invalid {
-                return Err(find_invalid_input(input_index, input_chunk, &self.decode_table));
+                return Err(find_invalid_input(
+                    input_index,
+                    input_chunk,
+                    &self.decode_table,
+                ));
             }
 
             input_index += 32;
@@ -710,9 +726,8 @@ impl super::Engine for AVX2Encoder {
 
             // Use a const array to create the mask from. This should be close by and hopefully in
             // cache.
-            let input_mask = &MASKLOAD[8-input_mask_index..];
-            let output_mask = &MASKLOAD[8-output_mask_index..];
-
+            let input_mask = &MASKLOAD[8 - input_mask_index..];
+            let output_mask = &MASKLOAD[8 - output_mask_index..];
 
             // We take ourselves correctly sized chunks. This can panic if the output or input are
             // too small but in that case we would perform OOB operations in the next step
@@ -727,17 +742,21 @@ impl super::Engine for AVX2Encoder {
 
                 block = _mm256_maskload_epi32(input_chunk.as_ptr().cast(), mask_input);
                 let outblock = decode_masked(
-                        &mut invalid,
-                        self.lo_witnesses, 
-                        self.hi_witnesses, 
-                        self.decode_offsets,
-                        self.singleton_mask,
-                        mask_input,
-                        block
+                    &mut invalid,
+                    self.lo_witnesses,
+                    self.hi_witnesses,
+                    self.decode_offsets,
+                    self.singleton_mask,
+                    mask_input,
+                    block,
                 );
 
                 if invalid {
-                    return Err(find_invalid_input(input_index, input_chunk, &self.decode_table));
+                    return Err(find_invalid_input(
+                        input_index,
+                        input_chunk,
+                        &self.decode_table,
+                    ));
                 }
 
                 _mm256_maskstore_epi32(output_chunk.as_mut_ptr().cast(), mask_output, outblock);
@@ -746,7 +765,6 @@ impl super::Engine for AVX2Encoder {
             input_index += input_mask_index * 4;
             output_index += input_mask_index * 3;
         }
-
 
         // Now we have anything between two and four bytes of input left. Not counting padding
 
@@ -868,9 +886,11 @@ fn find_invalid_input(input_index: usize, input: &[u8], decode_table: &[u8; 256]
         }
     }
 
-    unreachable!("find_invalid_input was given valid input {:?}, global index {}", input, input_index);
+    unreachable!(
+        "find_invalid_input was given valid input {:?}, global index {}",
+        input, input_index
+    );
 }
-
 
 #[derive(Clone, Copy, Debug)]
 /// Config for the AVX2 Encoder
@@ -943,15 +963,15 @@ mod tests {
 
     #[test]
     fn maskload_array_is_sane() {
-        assert_eq!(&MASKLOAD[0..8],  &[-1,-1,-1,-1,-1,-1,-1,-1]);
-        assert_eq!(&MASKLOAD[1..9],  &[-1,-1,-1,-1,-1,-1,-1, 0]);
-        assert_eq!(&MASKLOAD[2..10], &[-1,-1,-1,-1,-1,-1, 0, 0]);
-        assert_eq!(&MASKLOAD[3..11], &[-1,-1,-1,-1,-1, 0, 0, 0]);
-        assert_eq!(&MASKLOAD[4..12], &[-1,-1,-1,-1, 0, 0, 0, 0]);
-        assert_eq!(&MASKLOAD[5..13], &[-1,-1,-1, 0, 0, 0, 0, 0]);
-        assert_eq!(&MASKLOAD[6..14], &[-1,-1, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&MASKLOAD[0..8], &[-1, -1, -1, -1, -1, -1, -1, -1]);
+        assert_eq!(&MASKLOAD[1..9], &[-1, -1, -1, -1, -1, -1, -1, 0]);
+        assert_eq!(&MASKLOAD[2..10], &[-1, -1, -1, -1, -1, -1, 0, 0]);
+        assert_eq!(&MASKLOAD[3..11], &[-1, -1, -1, -1, -1, 0, 0, 0]);
+        assert_eq!(&MASKLOAD[4..12], &[-1, -1, -1, -1, 0, 0, 0, 0]);
+        assert_eq!(&MASKLOAD[5..13], &[-1, -1, -1, 0, 0, 0, 0, 0]);
+        assert_eq!(&MASKLOAD[6..14], &[-1, -1, 0, 0, 0, 0, 0, 0]);
         assert_eq!(&MASKLOAD[7..15], &[-1, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(&MASKLOAD[8..16], &[ 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&MASKLOAD[8..16], &[0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     #[test]
@@ -964,8 +984,8 @@ mod tests {
             match i % 4 {
                 1 => assert_eq!(r, Err(DecodeError::InvalidLength)),
                 x => {
-                    assert_eq!(r.unwrap().len(), i*3/4, "Failed on len {}", x);
-                },
+                    assert_eq!(r.unwrap().len(), i * 3 / 4, "Failed on len {}", x);
+                }
             }
         }
     }

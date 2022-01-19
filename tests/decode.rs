@@ -94,8 +94,9 @@ fn decode_urlsafe() {
          -AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq\
          -wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy\
          8_T19vf4-fr7_P3-_w==",
-         &engine
-    ).unwrap();
+        &engine,
+    )
+    .unwrap();
     let mut bytes: Vec<u8> = (0..255).collect();
     bytes.push(255);
 
@@ -106,7 +107,7 @@ fn decode_urlsafe() {
 mod avx2test {
     use super::*;
 
-    use base64::engine::avx2::{AVX2Encoder, AVX2Config};
+    use base64::engine::avx2::{AVX2Config, AVX2Encoder};
 
     #[test]
     fn decode_long() {
@@ -119,7 +120,7 @@ mod avx2test {
             &engine
         ).unwrap();
         println!("{:?}", out);
-        for (a,b) in out.iter().enumerate() {
+        for (a, b) in out.iter().enumerate() {
             assert_eq!(a as u8, *b);
         }
     }

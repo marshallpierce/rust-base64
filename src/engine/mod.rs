@@ -4,9 +4,11 @@ use crate::{alphabet, DecodeError};
 
 pub mod fast_portable;
 
-#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"),
-          target_feature = "avx2",
-          feature = "avx2"))]
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "avx2",
+    feature = "avx2"
+))]
 pub mod avx2;
 
 #[cfg(test)]

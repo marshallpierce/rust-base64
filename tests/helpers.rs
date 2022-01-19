@@ -26,7 +26,7 @@ pub fn compare_decode(expected: &str, target: &str) {
         String::from_utf8(decode_engine(target.as_bytes(), engine).unwrap()).unwrap()
     );
 
-    use base64::engine::avx2::{AVX2Encoder, AVX2Config};
+    use base64::engine::avx2::{AVX2Config, AVX2Encoder};
     let engine = AVX2Encoder::from_standard(AVX2Config::new());
 
     assert_eq!(

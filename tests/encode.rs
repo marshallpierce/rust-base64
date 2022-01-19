@@ -13,7 +13,7 @@ fn compare_encode(expected: &str, target: &[u8]) {
 fn compare_encode(expected: &str, target: &[u8]) {
     assert_eq!(expected, encode(target));
 
-    use base64::engine::avx2::{AVX2Encoder, AVX2Config};
+    use base64::engine::avx2::{AVX2Config, AVX2Encoder};
     let engine: AVX2Encoder = AVX2Encoder::from_standard(AVX2Config::new());
 
     assert_eq!(expected, encode_engine(target, &engine));
@@ -127,7 +127,7 @@ fn encode_url_safe_without_padding() {
 mod avx2tests {
     use super::*;
 
-    use base64::engine::avx2::{AVX2Encoder, AVX2Config};
+    use base64::engine::avx2::{AVX2Config, AVX2Encoder};
 
     #[test]
     fn encode_all_bytes_url() {
