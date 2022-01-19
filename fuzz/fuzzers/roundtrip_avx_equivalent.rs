@@ -2,10 +2,10 @@
 #[macro_use] extern crate libfuzzer_sys;
 extern crate base64;
 
-use base64::engine::DEFAULT_ENGINE;
-
-use base64::engine::avx2::{AVX2Encoder, AVX2Config};
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
 fuzz_target!(|data: &[u8]| {
+    use base64::engine::DEFAULT_ENGINE;
+    use base64::engine::avx2::{AVX2Encoder, AVX2Config};
     let avx_engine = AVX2Encoder::from_standard(AVX2Config::new());
 
     let avx_encoded = base64::encode_engine(&data, &avx_engine);
@@ -15,4 +15,8 @@ fuzz_target!(|data: &[u8]| {
 
     assert_eq!(data, def_decoded.as_slice());
     assert_eq!(data, avx_decoded.as_slice());
+});
+#[cfg(not(target_feature = "avx2"))]
+fuzz_target!(|_data: &[u8]| {
+    // When not compiled with avx2 there's absolutely nothing we can do.
 });
