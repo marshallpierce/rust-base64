@@ -18,8 +18,8 @@ impl Naive {
 
     pub const fn from(alphabet: &Alphabet, config: NaiveConfig) -> Naive {
         Naive {
-            encode_table: encode_table(&alphabet),
-            decode_table: decode_table(&alphabet),
+            encode_table: encode_table(alphabet),
+            decode_table: decode_table(alphabet),
             config,
         }
     }

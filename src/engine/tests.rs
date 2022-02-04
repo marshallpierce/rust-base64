@@ -501,7 +501,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
 
     for _ in 0..10_000 {
         let alphabet = random_alphabet(&mut rng);
-        let engine = E::random_alphabet(&mut rng, &alphabet);
+        let engine = E::random_alphabet(&mut rng, alphabet);
 
         orig_data.clear();
         encode_buf.clear();
@@ -886,7 +886,7 @@ impl EngineWrapper for FastPortableWrapper {
     fn random<R: Rng>(rng: &mut R) -> Self::Engine {
         let alphabet = random_alphabet(rng);
 
-        Self::random_alphabet(rng, &alphabet)
+        Self::random_alphabet(rng, alphabet)
     }
 
     fn random_alphabet<R: Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {

@@ -27,8 +27,8 @@ impl FastPortable {
     /// if the engine will be used repeatedly.
     pub const fn from(alphabet: &Alphabet, config: FastPortableConfig) -> FastPortable {
         FastPortable {
-            encode_table: encode_table(&alphabet),
-            decode_table: decode_table(&alphabet),
+            encode_table: encode_table(alphabet),
+            decode_table: decode_table(alphabet),
             config,
         }
     }
