@@ -372,7 +372,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
             }
         }
 
-        prefix.extend_from_slice("AAAA".as_bytes());
+        prefix.extend_from_slice(b"AAAA");
     }
 }
 
@@ -437,7 +437,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
                 }
             }
         }
-        prefix.extend_from_slice("AAAA".as_bytes());
+        prefix.extend_from_slice(b"AAAA");
     }
 }
 
