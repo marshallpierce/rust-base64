@@ -208,7 +208,7 @@ pub mod tests {
             encoder.encode(bytes, &mut sink).unwrap();
         }
 
-        return s;
+        s
     }
 
     // An abstraction around sinks so that we can have tests that easily to any sink implementation

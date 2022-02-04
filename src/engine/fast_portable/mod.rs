@@ -194,7 +194,7 @@ pub(crate) const fn encode_table(alphabet: &Alphabet) -> [u8; 64] {
         }
     }
 
-    return encode_table;
+    encode_table
 }
 
 /// Returns a table mapping base64 bytes as the lookup index to either:
@@ -213,7 +213,7 @@ pub(crate) const fn decode_table(alphabet: &Alphabet) -> [u8; 256] {
         index += 1;
     }
 
-    return decode_table;
+    decode_table
 }
 
 #[inline]

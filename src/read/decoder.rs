@@ -121,7 +121,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
 
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
 
-        return Ok(read);
+        Ok(read)
     }
 
     /// Decode the requested number of bytes from the b64 buffer into the provided buffer. It's the
