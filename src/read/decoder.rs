@@ -135,7 +135,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
 
         let decoded = decode_engine_slice(
             &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
-            &mut buf[..],
+            &mut *buf,
             self.engine,
         )
         .map_err(|e| match e {
