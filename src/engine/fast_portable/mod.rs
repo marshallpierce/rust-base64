@@ -25,8 +25,8 @@ impl FastPortable {
     ///
     /// While not very expensive to initialize, ideally these should be cached
     /// if the engine will be used repeatedly.
-    pub const fn from(alphabet: &Alphabet, config: FastPortableConfig) -> FastPortable {
-        FastPortable {
+    pub const fn from(alphabet: &Alphabet, config: FastPortableConfig) -> Self {
+        Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
             config,
@@ -244,8 +244,8 @@ impl FastPortableConfig {
     ///
     /// This probably matches most people's expectations, but consider disabling padding to save
     /// a few bytes unless you specifically need it for compatibility with some legacy system.
-    pub const fn new() -> FastPortableConfig {
-        FastPortableConfig {
+    pub const fn new() -> Self {
+        Self {
             // RFC states that padding must be applied by default
             encode_padding: true,
             decode_allow_trailing_bits: false,
@@ -262,8 +262,8 @@ impl FastPortableConfig {
     ///
     /// For new applications, consider not using padding if the decoders you're using don't require
     /// padding to be present.
-    pub const fn with_encode_padding(self, padding: bool) -> FastPortableConfig {
-        FastPortableConfig {
+    pub const fn with_encode_padding(self, padding: bool) -> Self {
+        Self {
             encode_padding: padding,
             ..self
         }
@@ -276,8 +276,8 @@ impl FastPortableConfig {
     /// character as per [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
     /// If invalid trailing bits are present and this is `true`, those bits will
     /// be silently ignored, else `DecodeError::InvalidLastSymbol` will be emitted.
-    pub const fn with_decode_allow_trailing_bits(self, allow: bool) -> FastPortableConfig {
-        FastPortableConfig {
+    pub const fn with_decode_allow_trailing_bits(self, allow: bool) -> Self {
+        Self {
             decode_allow_trailing_bits: allow,
             ..self
         }
@@ -287,7 +287,7 @@ impl FastPortableConfig {
 impl Default for FastPortableConfig {
     /// Delegates to [FastPortableConfig::new].
     fn default() -> Self {
-        FastPortableConfig::new()
+        Self::new()
     }
 }
 

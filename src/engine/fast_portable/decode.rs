@@ -27,8 +27,8 @@ pub struct FastPortableEstimate {
 }
 
 impl FastPortableEstimate {
-    pub(crate) fn from(input_len: usize) -> FastPortableEstimate {
-        FastPortableEstimate {
+    pub(crate) fn from(input_len: usize) -> Self {
+        Self {
             num_chunks: num_chunks(input_len),
         }
     }

@@ -16,8 +16,8 @@ impl Naive {
     const ENCODE_INPUT_CHUNK_SIZE: usize = 3;
     const DECODE_INPUT_CHUNK_SIZE: usize = 4;
 
-    pub const fn from(alphabet: &Alphabet, config: NaiveConfig) -> Naive {
-        Naive {
+    pub const fn from(alphabet: &Alphabet, config: NaiveConfig) -> Self {
+        Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
             config,
@@ -44,17 +44,17 @@ impl Engine for Naive {
 
         const LOW_SIX_BITS: u32 = 0x3F;
 
-        let rem = input.len() % Naive::ENCODE_INPUT_CHUNK_SIZE;
+        let rem = input.len() % Self::ENCODE_INPUT_CHUNK_SIZE;
         // will never underflow
         let complete_chunk_len = input.len() - rem;
 
         let mut input_index = 0_usize;
         let mut output_index = 0_usize;
         if let Some(last_complete_chunk_index) =
-            complete_chunk_len.checked_sub(Naive::ENCODE_INPUT_CHUNK_SIZE)
+            complete_chunk_len.checked_sub(Self::ENCODE_INPUT_CHUNK_SIZE)
         {
             while input_index <= last_complete_chunk_index {
-                let chunk = &input[input_index..input_index + Naive::ENCODE_INPUT_CHUNK_SIZE];
+                let chunk = &input[input_index..input_index + Self::ENCODE_INPUT_CHUNK_SIZE];
 
                 // populate low 24 bits from 3 bytes
                 let chunk_int: u32 =
@@ -68,7 +68,7 @@ impl Engine for Naive {
                 output[output_index + 3] =
                     self.encode_table[chunk_int.bitand(LOW_SIX_BITS) as usize];
 
-                input_index += Naive::ENCODE_INPUT_CHUNK_SIZE;
+                input_index += Self::ENCODE_INPUT_CHUNK_SIZE;
                 output_index += 4;
             }
         }
@@ -127,22 +127,22 @@ impl Engine for Naive {
         const BOTTOM_BYTE: u32 = 0xFF;
 
         // can only use the main loop on non-trailing chunks
-        if input.len() > Naive::DECODE_INPUT_CHUNK_SIZE {
+        if input.len() > Self::DECODE_INPUT_CHUNK_SIZE {
             // skip the last chunk, whether it's partial or full, since it might
             // have padding, and start at the beginning of the chunk before that
             let last_complete_chunk_start_index = estimate.complete_chunk_len
                 - if estimate.rem == 0 {
                     // Trailing chunk is also full chunk, so there must be at least 2 chunks, and
                     // this won't underflow
-                    Naive::DECODE_INPUT_CHUNK_SIZE * 2
+                    Self::DECODE_INPUT_CHUNK_SIZE * 2
                 } else {
                     // Trailing chunk is partial, so it's already excluded in
                     // complete_chunk_len
-                    Naive::DECODE_INPUT_CHUNK_SIZE
+                    Self::DECODE_INPUT_CHUNK_SIZE
                 };
 
             while input_index <= last_complete_chunk_start_index {
-                let chunk = &input[input_index..input_index + Naive::DECODE_INPUT_CHUNK_SIZE];
+                let chunk = &input[input_index..input_index + Self::DECODE_INPUT_CHUNK_SIZE];
                 let decoded_int: u32 = self.decode_byte_into_u32(input_index, chunk[0])?.shl(18)
                     | self
                         .decode_byte_into_u32(input_index + 1, chunk[1])?
@@ -154,7 +154,7 @@ impl Engine for Naive {
                 output[output_index + 1] = decoded_int.shr(8_u8).bitand(BOTTOM_BYTE) as u8;
                 output[output_index + 2] = decoded_int.bitand(BOTTOM_BYTE) as u8;
 
-                input_index += Naive::DECODE_INPUT_CHUNK_SIZE;
+                input_index += Self::DECODE_INPUT_CHUNK_SIZE;
                 output_index += 3;
             }
         }
@@ -273,11 +273,11 @@ pub struct NaiveEstimate {
 }
 
 impl NaiveEstimate {
-    fn from(input_len: usize) -> NaiveEstimate {
+    fn from(input_len: usize) -> Self {
         let rem = input_len % Naive::DECODE_INPUT_CHUNK_SIZE;
         let complete_chunk_len = input_len - rem;
 
-        NaiveEstimate {
+        Self {
             rem,
             complete_chunk_len,
         }

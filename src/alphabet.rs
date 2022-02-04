@@ -26,7 +26,7 @@ pub struct Alphabet {
 impl Alphabet {
     /// Performs no checks so that it can be const.
     /// Used only for known-valid strings.
-    const fn from_str_unchecked(alphabet: &str) -> Alphabet {
+    const fn from_str_unchecked(alphabet: &str) -> Self {
         let mut symbols = [0_u8; ALPHABET_SIZE];
         let source_bytes = alphabet.as_bytes();
 
@@ -37,7 +37,7 @@ impl Alphabet {
             index += 1;
         }
 
-        Alphabet { symbols }
+        Self { symbols }
     }
 
     /// Create an `Alphabet` from a string of 64 unique printable ASCII bytes.
@@ -100,7 +100,7 @@ impl convert::TryFrom<&str> for Alphabet {
     type Error = ParseAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Alphabet::from_str(value)
+        Self::from_str(value)
     }
 }
 

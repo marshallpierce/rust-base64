@@ -15,16 +15,16 @@ enum Alphabet {
 
 impl Default for Alphabet {
     fn default() -> Self {
-        Alphabet::Standard
+        Self::Standard
     }
 }
 
 impl FromStr for Alphabet {
     type Err = String;
-    fn from_str(s: &str) -> Result<Alphabet, String> {
+    fn from_str(s: &str) -> Result<Self, String> {
         match s {
-            "standard" => Ok(Alphabet::Standard),
-            "urlsafe" => Ok(Alphabet::UrlSafe),
+            "standard" => Ok(Self::Standard),
+            "urlsafe" => Ok(Self::UrlSafe),
             _ => Err(format!("alphabet '{}' unrecognized", s)),
         }
     }
