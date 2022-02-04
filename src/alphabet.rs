@@ -242,6 +242,6 @@ mod tests {
             STANDARD,
             Alphabet::try_from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
                 .unwrap()
-        )
+        );
     }
 }

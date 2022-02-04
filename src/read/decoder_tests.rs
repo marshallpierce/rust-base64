@@ -179,7 +179,12 @@ fn read_in_short_increments_with_short_delegate_reads() {
             rng: &mut rand::thread_rng(),
         };
 
-        consume_with_short_reads_and_validate(&mut rng, &bytes[..], &mut decoded, &mut short_reader)
+        consume_with_short_reads_and_validate(
+            &mut rng,
+            &bytes[..],
+            &mut decoded,
+            &mut short_reader,
+        );
     }
 }
 

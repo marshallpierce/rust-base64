@@ -362,7 +362,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
                             // remove prefix
                             .map(|decoded| decoded[decoded_prefix_len..].to_vec());
 
-                        assert_eq!(Ok(bytes.clone()), res)
+                        assert_eq!(Ok(bytes.clone()), res);
                     }
                     None => assert_eq!(
                         Err(DecodeError::InvalidLastSymbol(1, s2)),
@@ -427,7 +427,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
                                 // remove prefix
                                 .map(|decoded| decoded[decoded_prefix_len..].to_vec());
 
-                            assert_eq!(Ok(bytes.clone()), res)
+                            assert_eq!(Ok(bytes.clone()), res);
                         }
                         None => assert_eq!(
                             Err(DecodeError::InvalidLastSymbol(2, s3)),

@@ -105,7 +105,7 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 
         encoder
             .encode(input_bytes, &mut sink)
-            .expect("Writing to a String shouldn't fail")
+            .expect("Writing to a String shouldn't fail");
     }
 }
 
