@@ -567,7 +567,7 @@ impl<'a, W: Write, R: Rng> Write for PartialInterruptingWriter<'a, W, R> {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
-        if self.rng.gen_range(0.0, 1.0) <= self.full_input_fraction || buf.len() == 0 {
+        if self.rng.gen_range(0.0, 1.0) <= self.full_input_fraction || buf.is_empty() {
             // pass through the buf untouched
             self.w.write(buf)
         } else {
