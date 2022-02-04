@@ -162,11 +162,8 @@ pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
         .expect("Overflow when calculating output buffer length");
     buffer.resize(total_len_estimate, 0);
 
-    let bytes_written;
-    {
-        let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = engine.decode(input_bytes, buffer_slice, estimate)?;
-    }
+    let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
+    let bytes_written = engine.decode(input_bytes, buffer_slice, estimate)?;
 
     buffer.truncate(starting_output_len + bytes_written);
 

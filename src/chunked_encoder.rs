@@ -201,12 +201,11 @@ pub mod tests {
 
     fn chunked_encode_str(bytes: &[u8], config: FastPortableConfig) -> String {
         let mut s = String::new();
-        {
-            let mut sink = StringSink::from(&mut s);
-            let engine = FastPortable::from(&STANDARD, config);
-            let encoder = ChunkedEncoder::from(&engine);
-            encoder.encode(bytes, &mut sink).unwrap();
-        }
+
+        let mut sink = StringSink::from(&mut s);
+        let engine = FastPortable::from(&STANDARD, config);
+        let encoder = ChunkedEncoder::from(&engine);
+        encoder.encode(bytes, &mut sink).unwrap();
 
         s
     }
@@ -222,10 +221,8 @@ pub mod tests {
         fn encode_to_string<E: Engine>(&self, engine: &E, bytes: &[u8]) -> String {
             let encoder = ChunkedEncoder::from(engine);
             let mut s = String::new();
-            {
-                let mut sink = StringSink::from(&mut s);
-                encoder.encode(bytes, &mut sink).unwrap();
-            }
+            let mut sink = StringSink::from(&mut s);
+            encoder.encode(bytes, &mut sink).unwrap();
 
             s
         }
