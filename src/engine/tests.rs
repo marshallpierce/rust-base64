@@ -572,15 +572,15 @@ fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E
 
                 // varying amounts of padding in the penultimate quad
                 for _ in 0..num_valid_bytes_penultimate_quad {
-                    s.push_str("A");
+                    s.push('A');
                 }
                 // finish penultimate quad with padding
                 for _ in num_valid_bytes_penultimate_quad..4 {
-                    s.push_str("=");
+                    s.push('=');
                 }
                 // and more padding in the final quad
                 for _ in 0..num_pad_bytes_in_final_quad {
-                    s.push_str("=");
+                    s.push('=');
                 }
 
                 // padding should be an invalid byte before the final quad.
@@ -608,11 +608,11 @@ fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapp
 
             // every invalid padding position with a 3-byte final quad: 1 to 3 bytes after padding
             for _ in 0..(3 - bytes_after_padding) {
-                s.push_str("A");
+                s.push('A');
             }
-            s.push_str("=");
+            s.push('=');
             for _ in 0..bytes_after_padding {
-                s.push_str("A");
+                s.push('A');
             }
 
             // First (and only) padding byte is invalid.
@@ -675,7 +675,7 @@ fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine
             let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
             let padding: String = iter::repeat("=").take(pad_bytes).collect();
             s.push_str(&padding);
-            s.push_str("E");
+            s.push('E');
 
             if pad_bytes % 4 == 0 {
                 assert_eq!(
@@ -706,13 +706,13 @@ fn decode_one_char_in_final_quad_with_padding_error<E: EngineWrapper>(engine_wra
         );
 
         // more padding doesn't change the error
-        s.push_str("=");
+        s.push('=');
         assert_eq!(
             DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
             engine.decode_ez_str_vec(&s).unwrap_err()
         );
 
-        s.push_str("=");
+        s.push('=');
         assert_eq!(
             DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
             engine.decode_ez_str_vec(&s).unwrap_err()
@@ -730,10 +730,10 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
                 let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
 
                 for _ in 0..final_quad_symbols {
-                    s.push_str("A");
+                    s.push('A');
                 }
                 for _ in 0..padding_symbols {
-                    s.push_str("=");
+                    s.push('=');
                 }
 
                 match final_quad_symbols + padding_symbols {
