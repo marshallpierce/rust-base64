@@ -249,7 +249,6 @@ mod tests {
         distributions::{Distribution, Uniform},
         FromEntropy, Rng,
     };
-    use std;
     use std::str;
 
     const URL_SAFE_NO_PAD_ENGINE: FastPortable = FastPortable::from(&URL_SAFE, NO_PAD);
