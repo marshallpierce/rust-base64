@@ -293,7 +293,7 @@ fn consume_with_short_reads_and_validate<R: Read>(
     expected_bytes: &[u8],
     decoded: &mut Vec<u8>,
     short_reader: &mut R,
-) -> () {
+) {
     let mut total_read = 0_usize;
     loop {
         assert!(
