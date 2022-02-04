@@ -4,7 +4,6 @@
 use rand::{self, distributions::Distribution, distributions::Uniform, FromEntropy, Rng};
 use rstest::rstest;
 use rstest_reuse::{apply, template};
-use std::iter;
 
 use crate::tests::assert_encode_sanity;
 use crate::{
@@ -549,7 +548,7 @@ fn decode_single_pad_byte_after_2_chars_in_trailing_quad_ok<E: EngineWrapper>(en
     let engine = E::standard();
 
     for num_prefix_quads in 0..50 {
-        let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+        let mut s: String = "ABCD".repeat(num_prefix_quads);
         // weird padding, but should be allowed
         s.push_str("Zg=");
 
@@ -568,7 +567,7 @@ fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E
         for num_valid_bytes_penultimate_quad in 0..4 {
             // can't have 1 or it would be invalid length
             for num_pad_bytes_in_final_quad in 2..4 {
-                let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+                let mut s: String = "ABCD".repeat(num_prefix_quads);
 
                 // varying amounts of padding in the penultimate quad
                 for _ in 0..num_valid_bytes_penultimate_quad {
@@ -604,7 +603,7 @@ fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapp
 
     for num_prefix_quads in 0..50 {
         for bytes_after_padding in 1..4 {
-            let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+            let mut s: String = "ABCD".repeat(num_prefix_quads);
 
             // every invalid padding position with a 3-byte final quad: 1 to 3 bytes after padding
             for _ in 0..(3 - bytes_after_padding) {
@@ -629,7 +628,7 @@ fn decode_absurd_pad_error<E: EngineWrapper>(engine_wrapper: E) {
     let engine = E::standard();
 
     for num_prefix_quads in 0..50 {
-        let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+        let mut s: String = "ABCD".repeat(num_prefix_quads);
         s.push_str("==Y=Wx===pY=2U=====");
 
         // first padding byte
@@ -647,8 +646,8 @@ fn decode_too_much_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
     for num_prefix_quads in 0..50 {
         // add enough padding to ensure that we'll hit all decode stages at the different lengths
         for pad_bytes in 1..64 {
-            let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
-            let padding: String = iter::repeat("=").take(pad_bytes).collect();
+            let mut s: String = "ABCD".repeat(num_prefix_quads);
+            let padding: String = "=".repeat(pad_bytes);
             s.push_str(&padding);
 
             if pad_bytes % 4 == 1 {
@@ -672,8 +671,8 @@ fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine
 
     for num_prefix_quads in 0..50 {
         for pad_bytes in 0..32 {
-            let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
-            let padding: String = iter::repeat("=").take(pad_bytes).collect();
+            let mut s: String = "ABCD".repeat(num_prefix_quads);
+            let padding: String = "=".repeat(pad_bytes);
             s.push_str(&padding);
             s.push('E');
 
@@ -697,7 +696,7 @@ fn decode_one_char_in_final_quad_with_padding_error<E: EngineWrapper>(engine_wra
     let engine = E::standard();
 
     for num_prefix_quads in 0..50 {
-        let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+        let mut s: String = "ABCD".repeat(num_prefix_quads);
         s.push_str("E=");
 
         assert_eq!(
@@ -727,7 +726,7 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
     for num_prefix_quads in 0..50 {
         for final_quad_symbols in 0..2 {
             for padding_symbols in 0..(4 - final_quad_symbols) {
-                let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+                let mut s: String = "ABCD".repeat(num_prefix_quads);
 
                 for _ in 0..final_quad_symbols {
                     s.push('A');
@@ -765,7 +764,7 @@ fn decode_invalid_trailing_bytes<E: EngineWrapper>(engine_wrapper: E) {
     let engine = E::standard();
 
     for num_prefix_quads in 0..50 {
-        let mut s: String = iter::repeat("ABCD").take(num_prefix_quads).collect();
+        let mut s: String = "ABCD".repeat(num_prefix_quads);
         s.push_str("Cg==\n");
 
         // The case of trailing newlines is common enough to warrant a test for a good error

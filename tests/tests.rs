@@ -123,7 +123,7 @@ fn roundtrip_decode_trailing_10_bytes() {
     // to handle that case.
 
     for num_quads in 0..25 {
-        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+        let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
         let decoded = decode(&s).unwrap();
