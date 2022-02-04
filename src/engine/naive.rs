@@ -109,21 +109,17 @@ impl Engine for Naive {
         output: &mut [u8],
         estimate: Self::DecodeEstimate,
     ) -> Result<usize, DecodeError> {
-        match estimate.rem {
-            1 => {
-                // trailing whitespace is so common that it's worth it to check the last byte to
-                // possibly return a better error message
-                if let Some(b) = input.last() {
-                    if *b != PAD_BYTE
-                        && self.decode_table[*b as usize] == fast_portable::INVALID_VALUE
-                    {
-                        return Err(DecodeError::InvalidByte(input.len() - 1, *b));
-                    }
+        if estimate.rem == 1 {
+            // trailing whitespace is so common that it's worth it to check the last byte to
+            // possibly return a better error message
+            if let Some(b) = input.last() {
+                if *b != PAD_BYTE && self.decode_table[*b as usize] == fast_portable::INVALID_VALUE
+                {
+                    return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
-
-                return Err(DecodeError::InvalidLength);
             }
-            _ => {}
+
+            return Err(DecodeError::InvalidLength);
         }
 
         let mut input_index = 0_usize;
