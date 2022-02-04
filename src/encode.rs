@@ -600,7 +600,7 @@ mod tests {
     fn encode_imap() {
         assert_eq!(
             encode_engine(b"\xFB\xFF", &FastPortable::from(&IMAP_MUTF7, NO_PAD)),
-            encode_engine(b"\xFB\xFF", &FastPortable::from(&STANDARD, NO_PAD)).replace("/", ",")
+            encode_engine(b"\xFB\xFF", &FastPortable::from(&STANDARD, NO_PAD)).replace('/', ",")
         );
     }
 }

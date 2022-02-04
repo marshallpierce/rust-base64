@@ -776,7 +776,7 @@ fn decode_invalid_trailing_bytes<E: EngineWrapper>(engine_wrapper: E) {
         );
 
         // extra padding, however, is still InvalidLength
-        let s = s.replace("\n", "=");
+        let s = s.replace('\n', "=");
         assert_eq!(
             Err(DecodeError::InvalidLength),
             engine.decode_ez_str_vec(&s)
