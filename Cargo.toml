@@ -8,7 +8,7 @@ documentation = "https://docs.rs/base64"
 readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 edition = "2018"
 rust-version = "1.47.0"
 
