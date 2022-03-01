@@ -85,7 +85,7 @@
     variant_size_differences,
     warnings
 )]
-#![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "unsafe"), forbid(unsafe_code))]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 #[cfg(all(feature = "alloc", not(any(feature = "std", test))))]
