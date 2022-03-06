@@ -57,7 +57,9 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
     let encoded_size = encoded_len(input.as_ref().len(), engine.config().encode_padding())
         .expect("integer overflow when calculating buffer size");
     let mut buf = Vec::with_capacity(encoded_size);
-    unsafe { buf.set_len(encoded_size); }
+    unsafe {
+        buf.set_len(encoded_size);
+    }
 
     encode_with_padding(input.as_ref(), &mut buf[..], engine, encoded_size);
 
