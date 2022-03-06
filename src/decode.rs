@@ -105,8 +105,7 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
     input: T,
     engine: &E,
 ) -> Result<Vec<u8>, DecodeError> {
-    let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
-
+    let mut buffer = Vec::new();
     decode_engine_vec(input, &mut buffer, engine).map(|_| buffer)
 }
 
@@ -156,11 +155,14 @@ pub fn decode_engine_vec<'e, 'o, E: Engine, T: AsRef<[u8]>>(
     let starting_output_len = buffer.len();
 
     let estimate = engine.decoded_length_estimate(input_bytes.len());
-    let total_len_estimate = estimate
-        .decoded_length_estimate()
+    let len_estimate = estimate.decoded_length_estimate();
+    let total_len_estimate = len_estimate
         .checked_add(starting_output_len)
         .expect("Overflow when calculating output buffer length");
-    buffer.resize(total_len_estimate, 0);
+    buffer.reserve(len_estimate);
+    unsafe {
+        buffer.set_len(total_len_estimate);
+    }
 
     let bytes_written;
     {
