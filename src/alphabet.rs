@@ -121,10 +121,10 @@ pub enum ParseAlphabetError {
 impl fmt::Display for ParseAlphabetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParseAlphabetError::InvalidLength => write!(f, "Invalid length - must be 64 bytes"),
-            ParseAlphabetError::DuplicatedByte(b) => write!(f, "Duplicated byte: {:#04x}", b),
-            ParseAlphabetError::UnprintableByte(b) => write!(f, "Unprintable byte: {:#04x}", b),
-            ParseAlphabetError::ReservedByte(b) => write!(f, "Reserved byte: {:#04x}", b),
+            Self::InvalidLength => write!(f, "Invalid length - must be 64 bytes"),
+            Self::DuplicatedByte(b) => write!(f, "Duplicated byte: {:#04x}", b),
+            Self::UnprintableByte(b) => write!(f, "Unprintable byte: {:#04x}", b),
+            Self::ReservedByte(b) => write!(f, "Reserved byte: {:#04x}", b),
         }
     }
 }

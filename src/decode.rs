@@ -30,11 +30,9 @@ pub enum DecodeError {
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            DecodeError::InvalidByte(index, byte) => {
-                write!(f, "Invalid byte {}, offset {}.", byte, index)
-            }
-            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
-            DecodeError::InvalidLastSymbol(index, byte) => {
+            Self::InvalidByte(index, byte) => write!(f, "Invalid byte {}, offset {}.", byte, index),
+            Self::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            Self::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
         }
@@ -45,9 +43,9 @@ impl fmt::Display for DecodeError {
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
-            DecodeError::InvalidByte(_, _) => "invalid byte",
-            DecodeError::InvalidLength => "invalid length",
-            DecodeError::InvalidLastSymbol(_, _) => "invalid last symbol",
+            Self::InvalidByte(_, _) => "invalid byte",
+            Self::InvalidLength => "invalid length",
+            Self::InvalidLastSymbol(_, _) => "invalid last symbol",
         }
     }
 
