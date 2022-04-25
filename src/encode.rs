@@ -13,8 +13,6 @@ use alloc::{string::String, vec};
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///fn main() {
 ///    let b64 = base64::encode(b"hello world");
 ///    println!("{}", b64);
@@ -31,8 +29,6 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,
@@ -69,8 +65,6 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,
@@ -122,8 +116,6 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 /// # Example
 ///
 /// ```rust
-/// extern crate base64;
-///
 /// fn main() {
 ///     let s = b"hello internet!";
 ///     let mut buf = Vec::new();

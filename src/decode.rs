@@ -62,8 +62,6 @@ impl error::Error for DecodeError {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///fn main() {
 ///    let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
 ///    println!("{:?}", bytes);
@@ -80,8 +78,6 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///fn main() {
 ///    let bytes = base64::decode_engine(
 ///        "aGVsbG8gd29ybGR+Cg==",
@@ -117,8 +113,6 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,

@@ -1,7 +1,5 @@
-extern crate base64;
 #[macro_use]
 extern crate criterion;
-extern crate rand;
 
 use base64::display;
 use base64::{

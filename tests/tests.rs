@@ -1,6 +1,3 @@
-extern crate base64;
-extern crate rand;
-
 use rand::{FromEntropy, Rng};
 
 use base64::engine::{Engine, DEFAULT_ENGINE};

@@ -1,5 +1,3 @@
-extern crate base64;
-
 use base64::alphabet::URL_SAFE;
 use base64::engine::fast_portable::{NO_PAD, PAD};
 use base64::*;

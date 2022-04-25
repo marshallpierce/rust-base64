@@ -1,5 +1,3 @@
-extern crate base64;
-
 use base64::*;
 
 pub fn compare_decode(expected: &str, target: &str) {
