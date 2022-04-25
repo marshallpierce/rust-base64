@@ -483,7 +483,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             let bytes_written = engine.encode(&input, &mut output);
 
@@ -522,7 +522,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             encode_with_padding(&input, &mut output[0..encoded_size], &engine, encoded_size);
 
@@ -549,7 +549,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             let bytes_written = add_padding(input_len, &mut output);
 
