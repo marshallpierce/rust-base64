@@ -62,10 +62,8 @@ impl error::Error for DecodeError {
 ///# Example
 ///
 ///```rust
-///fn main() {
-///    let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
-///    println!("{:?}", bytes);
-///}
+/// let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
+/// println!("{:?}", bytes);
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
@@ -78,7 +76,6 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///# Example
 ///
 ///```rust
-///fn main() {
 ///    let bytes = base64::decode_engine(
 ///        "aGVsbG8gd29ybGR+Cg==",
 ///        &base64::engine::DEFAULT_ENGINE,
@@ -94,7 +91,6 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///
 ///    ).unwrap();
 ///    println!("{:?}", bytes_url);
-///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(

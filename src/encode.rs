@@ -13,10 +13,8 @@ use alloc::{string::String, vec};
 ///# Example
 ///
 ///```rust
-///fn main() {
-///    let b64 = base64::encode(b"hello world");
-///    println!("{}", b64);
-///}
+/// let b64 = base64::encode(b"hello world");
+/// println!("{}", b64);
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
@@ -34,7 +32,6 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///        &base64::alphabet::URL_SAFE,
 ///        base64::engine::fast_portable::NO_PAD);
 ///
-///fn main() {
 ///    let b64 = base64::encode_engine(
 ///        b"hello world~",
 ///        &base64::engine::DEFAULT_ENGINE
@@ -46,7 +43,6 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///        &URL_SAFE_ENGINE
 ///        );
 ///    println!("{}", b64_url);
-///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String {
@@ -116,22 +112,20 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 /// # Example
 ///
 /// ```rust
-/// fn main() {
-///     let s = b"hello internet!";
-///     let mut buf = Vec::new();
-///     // make sure we'll have a slice big enough for base64 + padding
-///     buf.resize(s.len() * 4 / 3 + 4, 0);
+/// let s = b"hello internet!";
+/// let mut buf = Vec::new();
+/// // make sure we'll have a slice big enough for base64 + padding
+/// buf.resize(s.len() * 4 / 3 + 4, 0);
 ///
-///     let bytes_written = base64::encode_engine_slice(
-///         s,
-///         &mut buf,
-///         &base64::engine::DEFAULT_ENGINE);
+/// let bytes_written = base64::encode_engine_slice(
+///     s,
+///     &mut buf,
+///     &base64::engine::DEFAULT_ENGINE);
 ///
-///     // shorten our vec down to just what was written
-///     buf.resize(bytes_written, 0);
+/// // shorten our vec down to just what was written
+/// buf.resize(bytes_written, 0);
 ///
-///     assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
-/// }
+/// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
 /// ```
 pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
