@@ -1,3 +1,7 @@
+extern crate rand;
+extern crate rand_pcg;
+extern crate ring;
+
 use base64::{alphabet, engine::fast_portable};
 use self::rand::{Rng, SeedableRng};
 use self::rand_pcg::Pcg32;

@@ -1,5 +1,6 @@
 #![no_main]
 #[macro_use] extern crate libfuzzer_sys;
+extern crate base64;
 
 use base64::engine::DEFAULT_ENGINE;
 
