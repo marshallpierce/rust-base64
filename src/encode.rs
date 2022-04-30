@@ -5,7 +5,7 @@ use crate::engine::DEFAULT_ENGINE;
 use crate::engine::{Config, Engine};
 use crate::PAD_BYTE;
 #[cfg(any(feature = "alloc", feature = "std", test))]
-use alloc::{string::String, vec};
+use alloc::string::String;
 
 ///Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE).
 ///Returns a `String`.
@@ -56,11 +56,14 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String {
     let encoded_size = encoded_len(input.as_ref().len(), engine.config().encode_padding())
         .expect("integer overflow when calculating buffer size");
-    let mut buf = vec![0; encoded_size];
+    let mut buf = Vec::with_capacity(encoded_size);
+    unsafe {
+        buf.set_len(encoded_size);
+    }
 
     encode_with_padding(input.as_ref(), &mut buf[..], engine, encoded_size);
 
-    String::from_utf8(buf).expect("Invalid UTF8")
+    unsafe { String::from_utf8_unchecked(buf) }
 }
 
 ///Encode arbitrary octets as base64.
