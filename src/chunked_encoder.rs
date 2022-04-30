@@ -108,7 +108,7 @@ impl<'a> Sink for StringSink<'a> {
 pub mod tests {
     use rand::{
         distributions::{Distribution, Uniform},
-        FromEntropy, Rng,
+        Rng, SeedableRng,
     };
 
     use crate::alphabet::STANDARD;

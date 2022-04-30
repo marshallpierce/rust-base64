@@ -1,7 +1,7 @@
 // rstest_reuse template functions have unused variables
 #![allow(unused_variables)]
 
-use rand::{self, distributions::Distribution, distributions::Uniform, FromEntropy, Rng};
+use rand::{self, distributions::Distribution, distributions::Uniform, Rng, SeedableRng};
 use rstest::rstest;
 use rstest_reuse::{apply, template};
 use std::iter;
