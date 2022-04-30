@@ -146,10 +146,10 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
 ///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
-pub fn decode_engine_vec<'e, 'o, E: Engine, T: AsRef<[u8]>>(
+pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
     input: T,
-    buffer: &'o mut Vec<u8>,
-    engine: &'e E,
+    buffer: &mut Vec<u8>,
+    engine: &E,
 ) -> Result<(), DecodeError> {
     let input_bytes = input.as_ref();
 
@@ -184,10 +184,10 @@ pub fn decode_engine_vec<'e, 'o, E: Engine, T: AsRef<[u8]>>(
 /// # Panics
 ///
 /// If the slice is not large enough, this will panic.
-pub fn decode_engine_slice<'e, 'o, E: Engine, T: AsRef<[u8]>>(
+pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
-    output: &'o mut [u8],
-    engine: &'e E,
+    output: &mut [u8],
+    engine: &E,
 ) -> Result<usize, DecodeError> {
     let input_bytes = input.as_ref();
 

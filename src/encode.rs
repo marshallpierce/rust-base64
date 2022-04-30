@@ -151,9 +151,9 @@ pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     let encoded_size = encoded_len(input_bytes.len(), engine.config().encode_padding())
         .expect("usize overflow when calculating buffer size");
 
-    let mut b64_output = &mut output_buf[0..encoded_size];
+    let b64_output = &mut output_buf[0..encoded_size];
 
-    encode_with_padding(&input_bytes, &mut b64_output, engine, encoded_size);
+    encode_with_padding(input_bytes, b64_output, engine, encoded_size);
 
     encoded_size
 }

@@ -319,13 +319,11 @@ fn decode_chunk(
     decode_table: &[u8; 256],
     output: &mut [u8],
 ) -> Result<(), DecodeError> {
-    let mut accum: u64;
-
     let morsel = decode_table[input[0] as usize];
     if morsel == INVALID_VALUE {
         return Err(DecodeError::InvalidByte(index_at_start_of_input, input[0]));
     }
-    accum = (morsel as u64) << 58;
+    let mut accum: u64 = (morsel as u64) << 58;
 
     let morsel = decode_table[input[1] as usize];
     if morsel == INVALID_VALUE {

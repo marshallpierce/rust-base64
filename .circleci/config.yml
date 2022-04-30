@@ -8,15 +8,20 @@ workflows:
           matrix:
             parameters:
               rust_img: [
-                  # The default rust images (not -slim or -alpine) are based on buildpack-deps. Hopefully this will
-                  # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
-                  # therefore faster than a minimal, customized alpine.
-                  # MSRV
-                  'rust:1.47.0',
-                  # stable
-                  'rust:latest',
-                  'rustlang/rust:nightly'
-                  # would be nice to have beta as well: https://github.com/rust-lang/docker-rust/issues/14
+                # Yes, a single-parameter axis, but means it can be referred to as a cache parameter easily without
+                # duplicating the magic version number throughout this file.
+                # The default rust images (not -slim or -alpine) are based on buildpack-deps. Hopefully this will
+                # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
+                # therefore faster than a minimal, customized alpine.
+                # MSRV
+                'rust:1.47.0'
+              ]
+              # a hacky scheme to work around CircleCI's inability to deal with mutable docker tags, forcing us to
+              # get a nightly or stable toolchain via rustup instead of a mutable docker tag
+              toolchain_override: [
+                '__msrv__', # won't add any other toolchains, just uses what's in the docker image
+                'stable',
+                'nightly'
               ]
 
 jobs:
@@ -24,20 +29,30 @@ jobs:
     parameters:
       rust_img:
         type: string
+      toolchain_override:
+        type: string
     docker:
       - image: << parameters.rust_img >>
     steps:
       - checkout
       - restore_cache:
-          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+          key: project-cache-v5-<< parameters.rust_img >>-<< parameters.toolchain_override >>-{{ checksum "Cargo.toml" }}
+      - run:
+          name: Setup toolchain
+          command: |
+            if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
+            then
+              rustup toolchain add '<< parameters.toolchain_override >>'
+              rustup default '<< parameters.toolchain_override >>'
+            fi
+      - run:
+          name: Log rustc version
+          command: rustc --version
       - run:
           name: Check formatting
           command: |
             rustup component add rustfmt
             cargo fmt -- --check
-      - run:
-          name: Add arm toolchain
-          command: rustup target add thumbv6m-none-eabi
       - run:
           name: Build all targets
           command: cargo build --all-targets
@@ -47,6 +62,9 @@ jobs:
       - run:
           name: Build with only alloc
           command: cargo build --no-default-features --features alloc
+      - run:
+          name: Add arm toolchain
+          command: rustup target add thumbv6m-none-eabi
       - run:
           name: Build ARM without default features (no_std)
           command: cargo build --target thumbv6m-none-eabi --no-default-features
@@ -60,19 +78,19 @@ jobs:
           name: Build docs
           command: cargo doc --verbose
       - run:
-          name: Confirm a fuzzer can run
+          name: Confirm fuzzers can run
           # TERM=dumb prevents cargo fuzz list from printing with color
           environment:
             TERM: dumb
           command: |
-            if [[ '<< parameters.rust_img >>' = 'rustlang/rust:nightly' ]]
+            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
             then
               cargo install cargo-fuzz
               cargo fuzz list | xargs -I FUZZER cargo fuzz run FUZZER -- -max_total_time=1
             fi
 
       - save_cache:
-          key: project-cache-v3-<< parameters.rust_img >>-{{ checksum "Cargo.toml" }}
+          key: project-cache-v5-<< parameters.rust_img >>-<< parameters.toolchain_override >>-{{ checksum "Cargo.toml" }}
           paths:
             # rust docker img doesn't use $HOME/[.cargo,.rustup]
             - /usr/local/cargo

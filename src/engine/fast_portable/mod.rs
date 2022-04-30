@@ -27,8 +27,8 @@ impl FastPortable {
     /// if the engine will be used repeatedly.
     pub const fn from(alphabet: &Alphabet, config: FastPortableConfig) -> FastPortable {
         FastPortable {
-            encode_table: encode_table(&alphabet),
-            decode_table: decode_table(&alphabet),
+            encode_table: encode_table(alphabet),
+            decode_table: decode_table(alphabet),
             config,
         }
     }
@@ -194,7 +194,7 @@ pub(crate) const fn encode_table(alphabet: &Alphabet) -> [u8; 64] {
         }
     }
 
-    return encode_table;
+    encode_table
 }
 
 /// Returns a table mapping base64 bytes as the lookup index to either:
@@ -213,7 +213,7 @@ pub(crate) const fn decode_table(alphabet: &Alphabet) -> [u8; 256] {
         index += 1;
     }
 
-    return decode_table;
+    decode_table
 }
 
 #[inline]

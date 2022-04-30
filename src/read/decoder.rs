@@ -90,7 +90,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     /// Returns a Result with the number of (decoded) bytes copied.
     fn flush_decoded_buf(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         debug_assert!(self.decoded_len > 0);
-        debug_assert!(buf.len() > 0);
+        debug_assert!(!buf.is_empty());
 
         let copy_len = cmp::min(self.decoded_len, buf.len());
         debug_assert!(copy_len > 0);
@@ -121,7 +121,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
 
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
 
-        return Ok(read);
+        Ok(read)
     }
 
     /// Decode the requested number of bytes from the b64 buffer into the provided buffer. It's the
@@ -131,11 +131,11 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     fn decode_to_buf(&mut self, num_bytes: usize, buf: &mut [u8]) -> io::Result<usize> {
         debug_assert!(self.b64_len >= num_bytes);
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
-        debug_assert!(buf.len() > 0);
+        debug_assert!(!buf.is_empty());
 
         let decoded = decode_engine_slice(
             &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
-            &mut buf[..],
+            buf,
             self.engine,
         )
         .map_err(|e| match e {
@@ -183,7 +183,7 @@ impl<'e, E: Engine, R: Read> Read for DecoderReader<'e, E, R> {
     /// Any errors emitted by the delegate reader are returned. Decoding errors due to invalid
     /// base64 are also possible, and will have `io::ErrorKind::InvalidData`.
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Ok(0);
         }
 
