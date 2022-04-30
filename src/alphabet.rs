@@ -1,8 +1,9 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
 use crate::PAD_BYTE;
+use core::{convert, fmt};
 #[cfg(any(feature = "std", test))]
-use std::{convert, error, fmt};
+use std::error;
 
 const ALPHABET_SIZE: usize = 64;
 
@@ -43,9 +44,6 @@ impl Alphabet {
     /// Create an `Alphabet` from a string of 64 unique printable ASCII bytes.
     ///
     /// The `=` byte is not allowed as it is used for padding.
-    ///
-    /// The `const`-ness of this function isn't useful as of rust 1.54.0 since `const` `unwrap()`,
-    /// etc, haven't shipped yet, but that's [on the roadmap](https://github.com/rust-lang/rust/issues/85194).
     pub const fn from_str(alphabet: &str) -> Result<Self, ParseAlphabetError> {
         let bytes = alphabet.as_bytes();
         if bytes.len() != ALPHABET_SIZE {
@@ -95,7 +93,6 @@ impl Alphabet {
     }
 }
 
-#[cfg(any(feature = "std", test))]
 impl convert::TryFrom<&str> for Alphabet {
     type Error = ParseAlphabetError;
 
@@ -117,7 +114,6 @@ pub enum ParseAlphabetError {
     ReservedByte(u8),
 }
 
-#[cfg(any(feature = "std", test))]
 impl fmt::Display for ParseAlphabetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
