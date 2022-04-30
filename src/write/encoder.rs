@@ -129,7 +129,7 @@ impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
         // If we could consume self in finish(), we wouldn't have to worry about this case, but
         // finish() is retryable in the face of I/O errors, so we can't consume here.
         if self.delegate.is_none() {
-            panic!("Encoder has already had finish() called")
+            panic!("Encoder has already had finish() called");
         };
 
         self.write_final_leftovers()?;

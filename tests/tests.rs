@@ -1,6 +1,3 @@
-extern crate base64;
-extern crate rand;
-
 use rand::{Rng, SeedableRng};
 
 use base64::engine::{Engine, DEFAULT_ENGINE};
@@ -123,7 +120,7 @@ fn roundtrip_decode_trailing_10_bytes() {
     // to handle that case.
 
     for num_quads in 0..25 {
-        let mut s: String = std::iter::repeat("ABCD").take(num_quads).collect();
+        let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
         let decoded = decode(&s).unwrap();
@@ -147,10 +144,7 @@ fn display_wrapper_matches_normal_encode() {
 
     assert_eq!(
         encode(&bytes),
-        format!(
-            "{}",
-            base64::display::Base64Display::from(&bytes, &DEFAULT_ENGINE)
-        )
+        format!("{}", display::Base64Display::from(&bytes, &DEFAULT_ENGINE))
     );
 }
 

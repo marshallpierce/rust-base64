@@ -30,11 +30,9 @@ pub enum DecodeError {
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            DecodeError::InvalidByte(index, byte) => {
-                write!(f, "Invalid byte {}, offset {}.", byte, index)
-            }
-            DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
-            DecodeError::InvalidLastSymbol(index, byte) => {
+            Self::InvalidByte(index, byte) => write!(f, "Invalid byte {}, offset {}.", byte, index),
+            Self::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            Self::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
         }
@@ -45,9 +43,9 @@ impl fmt::Display for DecodeError {
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
-            DecodeError::InvalidByte(_, _) => "invalid byte",
-            DecodeError::InvalidLength => "invalid length",
-            DecodeError::InvalidLastSymbol(_, _) => "invalid last symbol",
+            Self::InvalidByte(_, _) => "invalid byte",
+            Self::InvalidLength => "invalid length",
+            Self::InvalidLastSymbol(_, _) => "invalid last symbol",
         }
     }
 
@@ -62,12 +60,8 @@ impl error::Error for DecodeError {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
-///fn main() {
-///    let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
-///    println!("{:?}", bytes);
-///}
+/// let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
+/// println!("{:?}", bytes);
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
@@ -80,9 +74,6 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
-///fn main() {
 ///    let bytes = base64::decode_engine(
 ///        "aGVsbG8gd29ybGR+Cg==",
 ///        &base64::engine::DEFAULT_ENGINE,
@@ -98,7 +89,6 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///
 ///    ).unwrap();
 ///    println!("{:?}", bytes_url);
-///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
@@ -117,8 +107,6 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,
@@ -162,11 +150,8 @@ pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
         .expect("Overflow when calculating output buffer length");
     buffer.resize(total_len_estimate, 0);
 
-    let bytes_written;
-    {
-        let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = engine.decode(input_bytes, buffer_slice, estimate)?;
-    }
+    let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
+    let bytes_written = engine.decode(input_bytes, buffer_slice, estimate)?;
 
     buffer.truncate(starting_output_len + bytes_written);
 

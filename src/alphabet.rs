@@ -27,7 +27,7 @@ pub struct Alphabet {
 impl Alphabet {
     /// Performs no checks so that it can be const.
     /// Used only for known-valid strings.
-    const fn from_str_unchecked(alphabet: &str) -> Alphabet {
+    const fn from_str_unchecked(alphabet: &str) -> Self {
         let mut symbols = [0_u8; ALPHABET_SIZE];
         let source_bytes = alphabet.as_bytes();
 
@@ -38,7 +38,7 @@ impl Alphabet {
             index += 1;
         }
 
-        Alphabet { symbols }
+        Self { symbols }
     }
 
     /// Create an `Alphabet` from a string of 64 unique printable ASCII bytes.
@@ -97,7 +97,7 @@ impl convert::TryFrom<&str> for Alphabet {
     type Error = ParseAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Alphabet::from_str(value)
+        Self::from_str(value)
     }
 }
 
@@ -117,10 +117,10 @@ pub enum ParseAlphabetError {
 impl fmt::Display for ParseAlphabetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParseAlphabetError::InvalidLength => write!(f, "Invalid length - must be 64 bytes"),
-            ParseAlphabetError::DuplicatedByte(b) => write!(f, "Duplicated byte: {:#04x}", b),
-            ParseAlphabetError::UnprintableByte(b) => write!(f, "Unprintable byte: {:#04x}", b),
-            ParseAlphabetError::ReservedByte(b) => write!(f, "Reserved byte: {:#04x}", b),
+            Self::InvalidLength => write!(f, "Invalid length - must be 64 bytes"),
+            Self::DuplicatedByte(b) => write!(f, "Duplicated byte: {:#04x}", b),
+            Self::UnprintableByte(b) => write!(f, "Unprintable byte: {:#04x}", b),
+            Self::ReservedByte(b) => write!(f, "Reserved byte: {:#04x}", b),
         }
     }
 }
@@ -238,6 +238,6 @@ mod tests {
             STANDARD,
             Alphabet::try_from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
                 .unwrap()
-        )
+        );
     }
 }

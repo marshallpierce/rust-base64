@@ -27,8 +27,8 @@ pub struct FastPortableEstimate {
 }
 
 impl FastPortableEstimate {
-    pub(crate) fn from(input_len: usize) -> FastPortableEstimate {
-        FastPortableEstimate {
+    pub(crate) fn from(input_len: usize) -> Self {
+        Self {
             num_chunks: num_chunks(input_len),
         }
     }
@@ -323,7 +323,7 @@ fn decode_chunk(
     if morsel == INVALID_VALUE {
         return Err(DecodeError::InvalidByte(index_at_start_of_input, input[0]));
     }
-    let mut accum: u64 = (morsel as u64) << 58;
+    let mut accum = (morsel as u64) << 58;
 
     let morsel = decode_table[input[1] as usize];
     if morsel == INVALID_VALUE {

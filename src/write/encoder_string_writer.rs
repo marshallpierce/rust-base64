@@ -103,14 +103,14 @@ pub trait StrConsumer {
 /// As for io::Write, `StrConsumer` is implemented automatically for `&mut S`.
 impl<S: StrConsumer + ?Sized> StrConsumer for &mut S {
     fn consume(&mut self, buf: &str) {
-        (**self).consume(buf)
+        (**self).consume(buf);
     }
 }
 
 /// Pushes the str onto the end of the String
 impl StrConsumer for String {
     fn consume(&mut self, buf: &str) {
-        self.push_str(buf)
+        self.push_str(buf);
     }
 }
 

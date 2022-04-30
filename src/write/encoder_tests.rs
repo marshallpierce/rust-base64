@@ -327,12 +327,12 @@ fn every_possible_split_of_input() {
 #[test]
 fn encode_random_config_matches_normal_encode_reasonable_input_len() {
     // choose up to 2 * buf size, so ~half the time it'll use a full buffer
-    do_encode_random_config_matches_normal_encode(super::encoder::BUF_SIZE * 2)
+    do_encode_random_config_matches_normal_encode(super::encoder::BUF_SIZE * 2);
 }
 
 #[test]
 fn encode_random_config_matches_normal_encode_tiny_input_len() {
-    do_encode_random_config_matches_normal_encode(10)
+    do_encode_random_config_matches_normal_encode(10);
 }
 
 #[test]
@@ -567,7 +567,7 @@ impl<'a, W: Write, R: Rng> Write for PartialInterruptingWriter<'a, W, R> {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
-        if self.rng.gen_range(0.0..1.0) <= self.full_input_fraction || buf.len() == 0 {
+        if self.rng.gen_range(0.0..1.0) <= self.full_input_fraction || buf.is_empty() {
             // pass through the buf untouched
             self.w.write(buf)
         } else {

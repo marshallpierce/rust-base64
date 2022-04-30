@@ -13,8 +13,6 @@ This library's goals are to be *correct* and *fast*. It's thoroughly tested and 
 ## Example
 
 ```rust
-extern crate base64;
-
 use base64::{encode, decode};
 
 fn main() {

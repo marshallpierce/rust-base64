@@ -13,12 +13,8 @@ use alloc::{string::String, vec};
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
-///fn main() {
-///    let b64 = base64::encode(b"hello world");
-///    println!("{}", b64);
-///}
+/// let b64 = base64::encode(b"hello world");
+/// println!("{}", b64);
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
@@ -31,14 +27,11 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,
 ///        base64::engine::fast_portable::NO_PAD);
 ///
-///fn main() {
 ///    let b64 = base64::encode_engine(
 ///        b"hello world~",
 ///        &base64::engine::DEFAULT_ENGINE
@@ -50,7 +43,6 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///        &URL_SAFE_ENGINE
 ///        );
 ///    println!("{}", b64_url);
-///}
 ///```
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String {
@@ -69,8 +61,6 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
 ///# Example
 ///
 ///```rust
-///extern crate base64;
-///
 ///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
 ///    base64::engine::fast_portable::FastPortable::from(
 ///        &base64::alphabet::URL_SAFE,
@@ -105,7 +95,7 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 
         encoder
             .encode(input_bytes, &mut sink)
-            .expect("Writing to a String shouldn't fail")
+            .expect("Writing to a String shouldn't fail");
     }
 }
 
@@ -122,24 +112,20 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 /// # Example
 ///
 /// ```rust
-/// extern crate base64;
+/// let s = b"hello internet!";
+/// let mut buf = Vec::new();
+/// // make sure we'll have a slice big enough for base64 + padding
+/// buf.resize(s.len() * 4 / 3 + 4, 0);
 ///
-/// fn main() {
-///     let s = b"hello internet!";
-///     let mut buf = Vec::new();
-///     // make sure we'll have a slice big enough for base64 + padding
-///     buf.resize(s.len() * 4 / 3 + 4, 0);
+/// let bytes_written = base64::encode_engine_slice(
+///     s,
+///     &mut buf,
+///     &base64::engine::DEFAULT_ENGINE);
 ///
-///     let bytes_written = base64::encode_engine_slice(
-///         s,
-///         &mut buf,
-///         &base64::engine::DEFAULT_ENGINE);
+/// // shorten our vec down to just what was written
+/// buf.resize(bytes_written, 0);
 ///
-///     // shorten our vec down to just what was written
-///     buf.resize(bytes_written, 0);
-///
-///     assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
-/// }
+/// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
 /// ```
 pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
@@ -249,7 +235,6 @@ mod tests {
         distributions::{Distribution, Uniform},
         Rng, SeedableRng,
     };
-    use std;
     use std::str;
 
     const URL_SAFE_NO_PAD_ENGINE: FastPortable = FastPortable::from(&URL_SAFE, NO_PAD);
@@ -363,7 +348,7 @@ mod tests {
             );
 
             // append plain encode onto prefix
-            prefix.push_str(&mut encoded_data_no_prefix);
+            prefix.push_str(&encoded_data_no_prefix);
 
             assert_eq!(prefix, encoded_data_with_prefix);
 
@@ -498,7 +483,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             let bytes_written = engine.encode(&input, &mut output);
 
@@ -537,7 +522,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             encode_with_padding(&input, &mut output[0..encoded_size], &engine, encoded_size);
 
@@ -564,7 +549,7 @@ mod tests {
                 output.push(rng.gen());
             }
 
-            let orig_output_buf = output.to_vec();
+            let orig_output_buf = output.clone();
 
             let bytes_written = add_padding(input_len, &mut output);
 
@@ -601,7 +586,7 @@ mod tests {
     fn encode_imap() {
         assert_eq!(
             encode_engine(b"\xFB\xFF", &FastPortable::from(&IMAP_MUTF7, NO_PAD)),
-            encode_engine(b"\xFB\xFF", &FastPortable::from(&STANDARD, NO_PAD)).replace("/", ",")
+            encode_engine(b"\xFB\xFF", &FastPortable::from(&STANDARD, NO_PAD)).replace('/', ",")
         );
     }
 }
