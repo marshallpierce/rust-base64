@@ -1,5 +1,3 @@
-extern crate base64;
-
 use base64::engine::fast_portable::{FastPortable, NO_PAD};
 use base64::engine::DEFAULT_ENGINE;
 use base64::*;

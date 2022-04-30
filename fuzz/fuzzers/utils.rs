@@ -1,4 +1,3 @@
-extern crate base64;
 extern crate rand;
 extern crate rand_pcg;
 extern crate ring;

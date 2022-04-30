@@ -76,7 +76,7 @@ pub fn random_config<R: Rng>(rng: &mut R) -> FastPortableConfig {
 }
 
 pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {
-    &ALPHABETS.choose(rng).unwrap()
+    ALPHABETS.choose(rng).unwrap()
 }
 
 pub fn random_engine<R: Rng>(rng: &mut R) -> FastPortable {

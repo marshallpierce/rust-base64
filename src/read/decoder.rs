@@ -1,6 +1,4 @@
-use crate::engine::Engine;
-use crate::{decode_engine_slice, DecodeError};
-use std::io::Read;
+use crate::{decode_engine_slice, engine::Engine, DecodeError};
 use std::{cmp, fmt, io};
 
 // This should be large, but it has to fit on the stack.
@@ -169,7 +167,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     }
 }
 
-impl<'e, E: Engine, R: Read> Read for DecoderReader<'e, E, R> {
+impl<'e, E: Engine, R: io::Read> io::Read for DecoderReader<'e, E, R> {
     /// Decode input from the wrapped reader.
     ///
     /// Under non-error circumstances, this returns `Ok` with the value being the number of bytes

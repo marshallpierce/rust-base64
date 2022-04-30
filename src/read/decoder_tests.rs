@@ -179,7 +179,12 @@ fn read_in_short_increments_with_short_delegate_reads() {
             rng: &mut rand::thread_rng(),
         };
 
-        consume_with_short_reads_and_validate(&mut rng, &bytes[..], &mut decoded, &mut short_reader)
+        consume_with_short_reads_and_validate(
+            &mut rng,
+            &bytes[..],
+            &mut decoded,
+            &mut short_reader,
+        );
     }
 }
 
@@ -291,9 +296,9 @@ fn reports_invalid_byte_correctly() {
 fn consume_with_short_reads_and_validate<R: Read>(
     rng: &mut rand::rngs::ThreadRng,
     expected_bytes: &[u8],
-    decoded: &mut Vec<u8>,
+    decoded: &mut [u8],
     short_reader: &mut R,
-) -> () {
+) {
     let mut total_read = 0_usize;
     loop {
         assert!(
@@ -305,7 +310,7 @@ fn consume_with_short_reads_and_validate<R: Read>(
         if total_read == expected_bytes.len() {
             assert_eq!(expected_bytes, &decoded[..total_read]);
             // should be done
-            assert_eq!(0, short_reader.read(&mut decoded[..]).unwrap());
+            assert_eq!(0, short_reader.read(&mut *decoded).unwrap());
             // didn't write anything
             assert_eq!(expected_bytes, &decoded[..total_read]);
 
