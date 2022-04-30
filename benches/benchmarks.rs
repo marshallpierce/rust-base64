@@ -11,7 +11,7 @@ use base64::{
 
 use base64::engine::DEFAULT_ENGINE;
 use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
-use rand::{FromEntropy, Rng};
+use rand::{Rng, SeedableRng};
 use std::io::{self, Read, Write};
 
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {

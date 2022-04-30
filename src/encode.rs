@@ -247,7 +247,7 @@ mod tests {
     use crate::tests::random_engine;
     use rand::{
         distributions::{Distribution, Uniform},
-        FromEntropy, Rng,
+        Rng, SeedableRng,
     };
     use std;
     use std::str;

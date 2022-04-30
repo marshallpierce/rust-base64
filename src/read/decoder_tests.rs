@@ -94,7 +94,7 @@ fn handles_short_read_from_delegate() {
         b64.clear();
         decoded.clear();
 
-        let size = rng.gen_range(0, 10 * BUF_SIZE);
+        let size = rng.gen_range(0..(10 * BUF_SIZE));
         bytes.extend(iter::repeat(0).take(size));
         bytes.truncate(size);
         rng.fill_bytes(&mut bytes[..size]);
@@ -129,7 +129,7 @@ fn read_in_short_increments() {
         b64.clear();
         decoded.clear();
 
-        let size = rng.gen_range(0, 10 * BUF_SIZE);
+        let size = rng.gen_range(0..(10 * BUF_SIZE));
         bytes.extend(iter::repeat(0).take(size));
         // leave room to play around with larger buffers
         decoded.extend(iter::repeat(0).take(size * 3));
@@ -160,7 +160,7 @@ fn read_in_short_increments_with_short_delegate_reads() {
         b64.clear();
         decoded.clear();
 
-        let size = rng.gen_range(0, 10 * BUF_SIZE);
+        let size = rng.gen_range(0..(10 * BUF_SIZE));
         bytes.extend(iter::repeat(0).take(size));
         // leave room to play around with larger buffers
         decoded.extend(iter::repeat(0).take(size * 3));
@@ -197,7 +197,7 @@ fn reports_invalid_last_symbol_correctly() {
         b64.clear();
         b64_bytes.clear();
 
-        let size = rng.gen_range(1, 10 * BUF_SIZE);
+        let size = rng.gen_range(1..(10 * BUF_SIZE));
         bytes.extend(iter::repeat(0).take(size));
         decoded.extend(iter::repeat(0).take(size));
         rng.fill_bytes(&mut bytes[..]);
@@ -246,7 +246,7 @@ fn reports_invalid_byte_correctly() {
         b64.clear();
         decoded.clear();
 
-        let size = rng.gen_range(1, 10 * BUF_SIZE);
+        let size = rng.gen_range(1..(10 * BUF_SIZE));
         bytes.extend(iter::repeat(0).take(size));
         rng.fill_bytes(&mut bytes[..size]);
         assert_eq!(size, bytes.len());
@@ -255,7 +255,7 @@ fn reports_invalid_byte_correctly() {
 
         encode_engine_string(&bytes[..], &mut b64, &engine);
         // replace one byte, somewhere, with '*', which is invalid
-        let bad_byte_pos = rng.gen_range(0, &b64.len());
+        let bad_byte_pos = rng.gen_range(0..b64.len());
         let mut b64_bytes = b64.bytes().collect::<Vec<u8>>();
         b64_bytes[bad_byte_pos] = b'*';
 
@@ -311,7 +311,7 @@ fn consume_with_short_reads_and_validate<R: Read>(
 
             break;
         }
-        let decode_len = rng.gen_range(1, cmp::max(2, expected_bytes.len() * 2));
+        let decode_len = rng.gen_range(1..cmp::max(2, expected_bytes.len() * 2));
 
         let read = short_reader
             .read(&mut decoded[total_read..total_read + decode_len])
@@ -331,7 +331,7 @@ struct RandomShortRead<'a, 'b, R: io::Read, N: rand::Rng> {
 impl<'a, 'b, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, 'b, R, N> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         // avoid 0 since it means EOF for non-empty buffers
-        let effective_len = cmp::min(self.rng.gen_range(1, 20), buf.len());
+        let effective_len = cmp::min(self.rng.gen_range(1..20), buf.len());
 
         self.delegate.read(&mut buf[..effective_len])
     }

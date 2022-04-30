@@ -1,7 +1,7 @@
 extern crate base64;
 extern crate rand;
 
-use rand::{FromEntropy, Rng};
+use rand::{Rng, SeedableRng};
 
 use base64::engine::{Engine, DEFAULT_ENGINE};
 use base64::*;
