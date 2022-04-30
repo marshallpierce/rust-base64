@@ -54,6 +54,15 @@ jobs:
             rustup component add rustfmt
             cargo fmt -- --check
       - run:
+          name: Check clippy lints
+          # we only care about stable clippy -- nightly clippy is a bit wild
+          command: |
+            if [[ '<< parameters.toolchain_override >>' == 'stable' ]]
+            then
+              rustup component add clippy
+              cargo clippy --all-targets
+            fi
+      - run:
           name: Build all targets
           command: cargo build --all-targets
       - run:
