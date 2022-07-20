@@ -1,13 +1,18 @@
-use crate::{alphabet, decode_engine, encode::encoded_len, encode_engine_string};
-
 use std::str;
 
-use crate::engine::fast_portable::{FastPortable, FastPortableConfig};
-use crate::engine::{Config, Engine};
 use rand::{
-    distributions::{Distribution, Uniform},
+    distributions,
+    distributions::{Distribution as _, Uniform},
     seq::SliceRandom,
     Rng, SeedableRng,
+};
+
+use crate::{
+    alphabet, decode_engine,
+    encode::encoded_len,
+    encode_engine_string,
+    engine::fast_portable::{DecodePaddingMode, FastPortable, FastPortableConfig},
+    engine::{Config, Engine},
 };
 
 #[test]
@@ -70,9 +75,25 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
 }
 
 pub fn random_config<R: Rng>(rng: &mut R) -> FastPortableConfig {
+    let mode = rng.gen();
     FastPortableConfig::new()
-        .with_encode_padding(rng.gen())
+        .with_encode_padding(match mode {
+            DecodePaddingMode::Indifferent => rng.gen(),
+            DecodePaddingMode::RequireCanonical => true,
+            DecodePaddingMode::RequireNone => false,
+        })
+        .with_decode_padding_mode(mode)
         .with_decode_allow_trailing_bits(rng.gen())
+}
+
+impl distributions::Distribution<DecodePaddingMode> for distributions::Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> DecodePaddingMode {
+        match rng.gen_range(0..=2) {
+            0 => DecodePaddingMode::Indifferent,
+            1 => DecodePaddingMode::RequireCanonical,
+            _ => DecodePaddingMode::RequireNone,
+        }
+    }
 }
 
 pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {

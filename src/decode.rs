@@ -13,6 +13,7 @@ use std::error;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     /// An invalid byte was found in the input. The offset and offending byte are provided.
+    /// Padding characters (`=`) interspersed in the encoded form will be treated as invalid bytes.
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
     /// A typical cause of this is stray trailing whitespace or other separator bytes.
@@ -22,9 +23,12 @@ pub enum DecodeError {
     InvalidLength,
     /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
     /// This is indicative of corrupted or truncated Base64.
-    /// Unlike InvalidByte, which reports symbols that aren't in the alphabet, this error is for
+    /// Unlike `InvalidByte`, which reports symbols that aren't in the alphabet, this error is for
     /// symbols that are in the alphabet but represent nonsensical encodings.
     InvalidLastSymbol(usize, u8),
+    /// The nature of the padding was not as configured: absent or incorrect when it must be
+    /// canonical, or present when it must be absent, etc.
+    InvalidPadding,
 }
 
 impl fmt::Display for DecodeError {
@@ -35,6 +39,7 @@ impl fmt::Display for DecodeError {
             Self::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
+            Self::InvalidPadding => write!(f, "Invalid padding"),
         }
     }
 }
@@ -46,6 +51,7 @@ impl error::Error for DecodeError {
             Self::InvalidByte(_, _) => "invalid byte",
             Self::InvalidLength => "invalid length",
             Self::InvalidLastSymbol(_, _) => "invalid last symbol",
+            Self::InvalidPadding => "invalid padding",
         }
     }
 

@@ -59,6 +59,9 @@ pub trait Engine: Send + Sync {
     /// [RFC](https://tools.ietf.org/html/rfc4648#section-3.5).
     ///
     /// Decoding must not write any bytes into the output slice other than the decoded data.
+    ///
+    /// Non-canonical trailing bits in the final tokens and padding must be reported as errors,
+    /// though implementations may choose to allow altering that behavior via config.
     fn decode(
         &self,
         input: &[u8],

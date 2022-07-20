@@ -1,44 +1,9 @@
 use base64::alphabet::URL_SAFE;
-use base64::engine::fast_portable::{NO_PAD, PAD};
+use base64::engine::fast_portable::PAD;
 use base64::*;
 
 fn compare_encode(expected: &str, target: &[u8]) {
     assert_eq!(expected, encode(target));
-}
-
-#[test]
-fn encode_rfc4648_0() {
-    compare_encode("", b"");
-}
-
-#[test]
-fn encode_rfc4648_1() {
-    compare_encode("Zg==", b"f");
-}
-
-#[test]
-fn encode_rfc4648_2() {
-    compare_encode("Zm8=", b"fo");
-}
-
-#[test]
-fn encode_rfc4648_3() {
-    compare_encode("Zm9v", b"foo");
-}
-
-#[test]
-fn encode_rfc4648_4() {
-    compare_encode("Zm9vYg==", b"foob");
-}
-
-#[test]
-fn encode_rfc4648_5() {
-    compare_encode("Zm9vYmE=", b"fooba");
-}
-
-#[test]
-fn encode_rfc4648_6() {
-    compare_encode("Zm9vYmFy", b"foobar");
 }
 
 #[test]
@@ -92,20 +57,7 @@ fn encode_all_bytes_url() {
          8_T19vf4-fr7_P3-_w==",
         encode_engine(
             &bytes,
-            &engine::fast_portable::FastPortable::from(&URL_SAFE, PAD)
+            &engine::fast_portable::FastPortable::from(&URL_SAFE, PAD),
         )
-    );
-}
-
-#[test]
-fn encode_url_safe_without_padding() {
-    let encoded = encode_engine(
-        b"alice",
-        &engine::fast_portable::FastPortable::from(&URL_SAFE, NO_PAD),
-    );
-    assert_eq!(&encoded, "YWxpY2U");
-    assert_eq!(
-        String::from_utf8(decode(&encoded).unwrap()).unwrap(),
-        "alice"
     );
 }

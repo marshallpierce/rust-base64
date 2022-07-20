@@ -149,42 +149,6 @@ fn display_wrapper_matches_normal_encode() {
 }
 
 #[test]
-fn because_we_can() {
-    compare_decode("alice", "YWxpY2U=");
-    compare_decode("alice", &encode(b"alice"));
-    compare_decode("alice", &encode(&decode(&encode(b"alice")).unwrap()));
-}
-
-#[test]
-fn encode_engine_slice_can_use_inline_buffer() {
-    let mut buf: [u8; 22] = [0; 22];
-    let mut larger_buf: [u8; 24] = [0; 24];
-    let mut input: [u8; 16] = [0; 16];
-
-    let engine = FastPortable::from(&STANDARD, NO_PAD);
-
-    let mut rng = rand::rngs::SmallRng::from_entropy();
-    for elt in &mut input {
-        *elt = rng.gen();
-    }
-
-    assert_eq!(22, encode_engine_slice(&input, &mut buf, &engine));
-    let decoded = decode_engine(&buf, &engine).unwrap();
-
-    assert_eq!(decoded, input);
-
-    // let's try it again with padding
-
-    assert_eq!(
-        24,
-        encode_engine_slice(&input, &mut larger_buf, &DEFAULT_ENGINE)
-    );
-    let decoded = decode_engine(&buf, &DEFAULT_ENGINE).unwrap();
-
-    assert_eq!(decoded, input);
-}
-
-#[test]
 #[should_panic(expected = "index 24 out of range for slice of length 22")]
 fn encode_engine_slice_panics_when_buffer_too_small() {
     let mut buf: [u8; 22] = [0; 22];
