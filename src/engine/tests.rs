@@ -204,16 +204,16 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
                 &encode_buf[prefix_len..(prefix_len + encoded_len_no_pad + pad_len)],
                 &engine,
             )
-            .unwrap()
+                .unwrap()
         );
     }
 }
 
 #[apply(all_engines)]
 fn decode_doesnt_write_extra_bytes<E>(engine_wrapper: E)
-where
-    E: EngineWrapper,
-    <<E as EngineWrapper>::Engine as Engine>::Config: fmt::Debug,
+    where
+        E: EngineWrapper,
+        <<E as EngineWrapper>::Engine as Engine>::Config: fmt::Debug,
 {
     let mut rng = seeded_rng();
 
@@ -335,12 +335,12 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
 
     let mut base64_to_bytes = collections::HashMap::new();
 
-    for b in 0_u16..256 {
+    for b in 0_u8..=255 {
         let mut b64 = vec![0_u8; 4];
-        assert_eq!(2, engine.encode(&[b as u8], &mut b64[..]));
+        assert_eq!(2, engine.encode(&[b], &mut b64[..]));
         let _ = encode::add_padding(1, &mut b64[2..]);
 
-        assert!(base64_to_bytes.insert(b64, vec![b as u8]).is_none());
+        assert!(base64_to_bytes.insert(b64, vec![b]).is_none());
     }
 
     // every possible combination of trailing symbols must either decode to 1 byte or get InvalidLastSymbol, with or without any leading chunks
@@ -392,10 +392,10 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
     let mut base64_to_bytes = collections::HashMap::new();
 
     let mut bytes = [0_u8; 2];
-    for b1 in 0_u16..256 {
-        bytes[0] = b1 as u8;
-        for b2 in 0_u16..256 {
-            bytes[1] = b2 as u8;
+    for b1 in 0_u8..=255 {
+        bytes[0] = b1;
+        for b2 in 0_u8..=255 {
+            bytes[1] = b2;
             let mut b64 = vec![0_u8; 4];
             assert_eq!(3, engine.encode(&bytes, &mut b64[..]));
             let _ = encode::add_padding(2, &mut b64[3..]);
@@ -562,7 +562,7 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte<E: EngineWrap
     // the different amounts of proper padding, w/ offset from end for the last non-padding char
     let suffixes = vec![("/w==", 2), ("iYu=", 1), ("zzzz", 0)];
 
-    let prefix_quads_range = distributions::Uniform::from(0..256);
+    let prefix_quads_range = distributions::Uniform::from(0..=256);
 
     for mode in all_pad_modes() {
         // we don't encode so we don't care about encode padding
@@ -761,9 +761,10 @@ fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E
     let engine = E::standard();
 
     for num_prefix_quads in 0..256 {
+        // leave room for at least one pad byte in penultimate quad
         for num_valid_bytes_penultimate_quad in 0..4 {
             // can't have 1 or it would be invalid length
-            for num_pad_bytes_in_final_quad in 2..4 {
+            for num_pad_bytes_in_final_quad in 2..=4 {
                 let mut s: String = "ABCD".repeat(num_prefix_quads);
 
                 // varying amounts of padding in the penultimate quad
@@ -799,6 +800,7 @@ fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapp
     let engine = E::standard();
 
     for num_prefix_quads in 0..256 {
+        // leave at least one byte in the quad for padding
         for bytes_after_padding in 1..4 {
             let mut s: String = "ABCD".repeat(num_prefix_quads);
 
@@ -842,7 +844,7 @@ fn decode_too_much_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
 
     for num_prefix_quads in 0..256 {
         // add enough padding to ensure that we'll hit all decode stages at the different lengths
-        for pad_bytes in 1..64 {
+        for pad_bytes in 1..=64 {
             let mut s: String = "ABCD".repeat(num_prefix_quads);
             let padding: String = "=".repeat(pad_bytes);
             s.push_str(&padding);
@@ -867,7 +869,7 @@ fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine
     let engine = E::standard();
 
     for num_prefix_quads in 0..256 {
-        for pad_bytes in 0..32 {
+        for pad_bytes in 0..=32 {
             let mut s: String = "ABCD".repeat(num_prefix_quads);
             let padding: String = "=".repeat(pad_bytes);
             s.push_str(&padding);
@@ -921,8 +923,9 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
     let engine = E::standard();
 
     for num_prefix_quads in 0..256 {
+        // <2 is invalid
         for final_quad_symbols in 0..2 {
-            for padding_symbols in 0..(4 - final_quad_symbols) {
+            for padding_symbols in 0..=(4 - final_quad_symbols) {
                 let mut s: String = "ABCD".repeat(num_prefix_quads);
 
                 for _ in 0..final_quad_symbols {
@@ -977,6 +980,39 @@ fn decode_invalid_trailing_bytes<E: EngineWrapper>(engine_wrapper: E) {
             Err(DecodeError::InvalidLength),
             engine.decode_ez_str_vec(&s)
         );
+    }
+}
+
+#[apply(all_engines)]
+fn decode_wrong_length_error<E: EngineWrapper>(engine_wrapper: E) {
+    let engine = E::standard_with_pad_mode(true, DecodePaddingMode::Indifferent);
+
+    for num_prefix_quads in 0..256 {
+        // at least one token, otherwise it wouldn't be a final quad
+        for num_tokens_final_quad in 1..=4 {
+            for num_padding in 0..=(4 - num_tokens_final_quad) {
+                let mut s: String = "IIII".repeat(num_prefix_quads);
+                for _ in 0..num_tokens_final_quad {
+                    s.push_str("g");
+                }
+                for _ in 0..num_padding {
+                    s.push_str("=");
+                }
+
+                let res = engine.decode_ez_str_vec(&s);
+                println!("{}", s);
+                if num_tokens_final_quad >= 2 {
+                    assert_eq!(true, res.is_ok());
+                } else if num_tokens_final_quad == 1 && num_padding > 0 {
+                    // = is invalid if it's too early
+                    assert_eq!(Err(DecodeError::InvalidByte(num_prefix_quads * 4 + num_tokens_final_quad, 61)), res);
+                } else if num_padding > 2 {
+                    assert_eq!(Err(DecodeError::InvalidPadding), res);
+                } else {
+                    assert_eq!(Err(DecodeError::InvalidLength), res);
+                }
+            }
+        }
     }
 }
 
@@ -1055,7 +1091,7 @@ trait EngineWrapper {
     /// Return an engine configured for RFC standard alphabet with the provided encode and decode
     /// pad settings
     fn standard_with_pad_mode(encode_pad: bool, decode_pad_mode: DecodePaddingMode)
-        -> Self::Engine;
+                              -> Self::Engine;
 
     /// Return an engine configured for RFC standard base64 that allows invalid trailing bits
     fn standard_allow_trailing_bits() -> Self::Engine;

@@ -3,11 +3,8 @@ use rand::{Rng, SeedableRng};
 use base64::engine::{Engine, DEFAULT_ENGINE};
 use base64::*;
 
-use self::helpers::*;
 use base64::alphabet::STANDARD;
 use base64::engine::fast_portable::{FastPortable, NO_PAD};
-
-mod helpers;
 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random<E: Engine>(
