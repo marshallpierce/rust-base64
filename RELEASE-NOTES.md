@@ -1,5 +1,9 @@
 # 0.20.0
 
+## Next
+
+- MSRV is now 1.51.0 to keep up with `criterion`
+
 ## 0.20.0-alpha.1
 
 ### Breaking changes
