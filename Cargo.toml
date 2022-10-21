@@ -10,7 +10,7 @@ keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-rust-version = "1.47.0"
+rust-version = "1.51.0"
 
 [[bench]]
 name = "benchmarks"

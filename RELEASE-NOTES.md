@@ -1,5 +1,9 @@
 # 0.20.0
 
+## Next
+
+- MSRV is now 1.51.0 to keep up with `criterion`
+
 ## 0.20.0-alpha.1
 
 ### Breaking changes
@@ -12,6 +16,10 @@
 - MSRV is now 1.47.0 to allow various things to use `const fn`.
 - `DecoderReader` now owns its inner reader, and can expose it via `into_inner()`. For symmetry, `EncoderWriter` can do the same with its writer.
 - `encoded_len` is now public so you can size encode buffers precisely.
+
+# 0.13.1
+
+- More precise decode buffer sizing, avoiding unnecessary allocation in `decode_config`.
 
 # 0.13.0
 
