@@ -13,6 +13,10 @@
 - `DecoderReader` now owns its inner reader, and can expose it via `into_inner()`. For symmetry, `EncoderWriter` can do the same with its writer.
 - `encoded_len` is now public so you can size encode buffers precisely.
 
+# 0.13.1
+
+- More precise decode buffer sizing, avoiding unnecessary allocation in `decode_config`.
+
 # 0.13.0
 
 - Config methods are const
