@@ -334,11 +334,13 @@ impl Config for FastPortableConfig {
     }
 }
 
-/// Include padding bytes when encoding.
+/// Include padding bytes when encoding, and require that they be present when decoding.
 ///
 /// This is the standard per the base64 RFC, but consider using [NO_PAD] instead as padding serves
 /// little purpose in practice.
 pub const PAD: FastPortableConfig = FastPortableConfig::new();
 
-/// Don't add padding when encoding.
-pub const NO_PAD: FastPortableConfig = FastPortableConfig::new().with_encode_padding(false);
+/// Don't add padding when encoding, and require no padding when decoding.
+pub const NO_PAD: FastPortableConfig = FastPortableConfig::new()
+    .with_encode_padding(false)
+    .with_decode_padding_mode(DecodePaddingMode::RequireNone);

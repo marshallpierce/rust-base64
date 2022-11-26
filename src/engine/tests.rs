@@ -204,16 +204,16 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
                 &encode_buf[prefix_len..(prefix_len + encoded_len_no_pad + pad_len)],
                 &engine,
             )
-                .unwrap()
+            .unwrap()
         );
     }
 }
 
 #[apply(all_engines)]
 fn decode_doesnt_write_extra_bytes<E>(engine_wrapper: E)
-    where
-        E: EngineWrapper,
-        <<E as EngineWrapper>::Engine as Engine>::Config: fmt::Debug,
+where
+    E: EngineWrapper,
+    <<E as EngineWrapper>::Engine as Engine>::Config: fmt::Debug,
 {
     let mut rng = seeded_rng();
 
@@ -1000,12 +1000,17 @@ fn decode_wrong_length_error<E: EngineWrapper>(engine_wrapper: E) {
                 }
 
                 let res = engine.decode_ez_str_vec(&s);
-                println!("{}", s);
                 if num_tokens_final_quad >= 2 {
                     assert_eq!(true, res.is_ok());
                 } else if num_tokens_final_quad == 1 && num_padding > 0 {
                     // = is invalid if it's too early
-                    assert_eq!(Err(DecodeError::InvalidByte(num_prefix_quads * 4 + num_tokens_final_quad, 61)), res);
+                    assert_eq!(
+                        Err(DecodeError::InvalidByte(
+                            num_prefix_quads * 4 + num_tokens_final_quad,
+                            61
+                        )),
+                        res
+                    );
                 } else if num_padding > 2 {
                     assert_eq!(Err(DecodeError::InvalidPadding), res);
                 } else {
@@ -1091,7 +1096,7 @@ trait EngineWrapper {
     /// Return an engine configured for RFC standard alphabet with the provided encode and decode
     /// pad settings
     fn standard_with_pad_mode(encode_pad: bool, decode_pad_mode: DecodePaddingMode)
-                              -> Self::Engine;
+        -> Self::Engine;
 
     /// Return an engine configured for RFC standard base64 that allows invalid trailing bits
     fn standard_allow_trailing_bits() -> Self::Engine;

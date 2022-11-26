@@ -198,10 +198,12 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{encode::encode_engine_string, tests::assert_encode_sanity};
-
-    use crate::engine::Config;
-    use crate::tests::random_engine;
+    use crate::{
+        alphabet,
+        encode::encode_engine_string,
+        engine::{fast_portable, fast_portable::FastPortable, Config},
+        tests::{assert_encode_sanity, random_engine},
+    };
     use rand::{
         distributions::{Distribution, Uniform},
         Rng, SeedableRng,
@@ -356,12 +358,13 @@ mod tests {
 
     #[test]
     fn decode_engine_estimation_works_for_various_lengths() {
+        let engine = FastPortable::from(&alphabet::STANDARD, fast_portable::NO_PAD);
         for num_prefix_quads in 0..100 {
             for suffix in &["AA", "AAA", "AAAA"] {
                 let mut prefix = "AAAA".repeat(num_prefix_quads);
                 prefix.push_str(suffix);
                 // make sure no overflow (and thus a panic) occurs
-                let res = decode_engine(prefix, &DEFAULT_ENGINE);
+                let res = decode_engine(prefix, &engine);
                 assert!(res.is_ok());
             }
         }

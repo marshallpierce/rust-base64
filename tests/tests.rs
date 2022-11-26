@@ -120,13 +120,11 @@ fn roundtrip_decode_trailing_10_bytes() {
         let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
-        let decoded = decode(&s).unwrap();
+        let engine = FastPortable::from(&STANDARD, NO_PAD);
+        let decoded = decode_engine(&s, &engine).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
-        assert_eq!(
-            s,
-            encode_engine(&decoded, &FastPortable::from(&STANDARD, NO_PAD))
-        );
+        assert_eq!(s, encode_engine(&decoded, &engine));
     }
 }
 

@@ -1,8 +1,12 @@
 # 0.20.0
 
-## Next
+## 0.20.0-beta.1
+
+### Breaking changes
 
 - MSRV is now 1.51.0 to keep up with `criterion`
+- Decoding can now either ignore padding, require correct padding, or require no padding. The default is to require correct padding.
+  - The `NO_PAD` config now requires that padding be absent when decoding.
 
 ## 0.20.0-alpha.1
 
