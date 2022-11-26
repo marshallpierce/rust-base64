@@ -662,7 +662,7 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
             let prefix_quad_len = prefix_quads_range.sample(&mut rng);
 
             // ensure there is a suffix quad
-            let min_padding = if suffix_data_len == 0 { 1 } else { 0 };
+            let min_padding = usize::from(suffix_data_len == 0);
 
             // for all possible padding lengths
             for padding_len in min_padding..=(4 - suffix_data_len) {
@@ -993,15 +993,15 @@ fn decode_wrong_length_error<E: EngineWrapper>(engine_wrapper: E) {
             for num_padding in 0..=(4 - num_tokens_final_quad) {
                 let mut s: String = "IIII".repeat(num_prefix_quads);
                 for _ in 0..num_tokens_final_quad {
-                    s.push_str("g");
+                    s.push('g');
                 }
                 for _ in 0..num_padding {
-                    s.push_str("=");
+                    s.push('=');
                 }
 
                 let res = engine.decode_ez_str_vec(&s);
                 if num_tokens_final_quad >= 2 {
-                    assert_eq!(true, res.is_ok());
+                    assert!(res.is_ok());
                 } else if num_tokens_final_quad == 1 && num_padding > 0 {
                     // = is invalid if it's too early
                     assert_eq!(

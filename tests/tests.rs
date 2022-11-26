@@ -154,5 +154,5 @@ fn encode_engine_slice_panics_when_buffer_too_small() {
         *elt = rng.gen();
     }
 
-    encode_engine_slice(&input, &mut buf, &DEFAULT_ENGINE);
+    encode_engine_slice(input, &mut buf, &DEFAULT_ENGINE);
 }
