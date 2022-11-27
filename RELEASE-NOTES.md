@@ -4,7 +4,7 @@
 
 ### Breaking changes
 
-- MSRV is now 1.56.1
+- Update MSRV to 1.57.0
 - Decoding can now either ignore padding, require correct padding, or require no padding. The default is to require correct padding.
   - The `NO_PAD` config now requires that padding be absent when decoding.
 

@@ -14,7 +14,7 @@ workflows:
                 # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
                 # therefore faster than a minimal, customized alpine.
                 # MSRV
-                'rust:1.56.1'
+                'rust:1.57.0'
               ]
               # a hacky scheme to work around CircleCI's inability to deal with mutable docker tags, forcing us to
               # get a nightly or stable toolchain via rustup instead of a mutable docker tag
