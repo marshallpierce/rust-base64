@@ -2,7 +2,7 @@
 
 ## Next
 
-- MSRV is now 1.51.0 to keep up with `criterion`
+- Update MSRV to 1.57.0
 
 ## 0.20.0-alpha.1
 

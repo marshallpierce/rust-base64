@@ -45,7 +45,7 @@ If you have a `Read` (e.g. reading a file or network socket), there are various 
 
 ## Rust version compatibility
 
-The minimum required Rust version is 1.51.0.
+The minimum required Rust version is 1.57.0.
 
 # Contributing
 
