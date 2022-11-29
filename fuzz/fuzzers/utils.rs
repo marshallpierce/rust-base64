@@ -22,9 +22,16 @@ pub fn random_engine(data: &[u8]) -> fast_portable::FastPortable {
         alphabet::STANDARD
     };
 
+    let encode_padding = rng.gen();
+    let decode_padding = if encode_padding {
+        fast_portable::DecodePaddingMode::RequireCanonical
+    } else {
+        fast_portable::DecodePaddingMode::RequireNone
+    };
     let config = fast_portable::FastPortableConfig::new()
-        .with_encode_padding(rng.gen())
-        .with_decode_allow_trailing_bits(rng.gen());
+        .with_encode_padding(encode_padding)
+        .with_decode_allow_trailing_bits(rng.gen())
+        .with_decode_padding_mode(decode_padding);
 
     fast_portable::FastPortable::from(&alphabet, config)
 }
