@@ -11,7 +11,8 @@ cargo-fuzz = true
 [dependencies]
 rand = "0.6.1"
 rand_pcg = "0.1.1"
-ring = "0.13.5"
+sha2 = "0.10.6"
+
 [dependencies.base64]
 path = ".."
 [dependencies.libfuzzer-sys]

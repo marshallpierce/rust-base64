@@ -1,18 +1,20 @@
 extern crate rand;
 extern crate rand_pcg;
-extern crate ring;
+extern crate sha2;
 
-use base64::{alphabet, engine::fast_portable};
+use base64::{alphabet, engine::{self, fast_portable}};
 use self::rand::{Rng, SeedableRng};
 use self::rand_pcg::Pcg32;
-use self::ring::digest;
+use self::sha2::Digest as _;
 
 pub fn random_engine(data: &[u8]) -> fast_portable::FastPortable {
     // use sha256 of data as rng seed so it's repeatable
-    let sha = digest::digest(&digest::SHA256, data);
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(data);
+    let sha = hasher.finalize();
 
     let mut seed: [u8; 16] = [0; 16];
-    seed.copy_from_slice(&sha.as_ref()[0..16]);
+    seed.copy_from_slice(&sha.as_slice()[0..16]);
 
     let mut rng = Pcg32::from_seed(seed);
 
@@ -24,9 +26,9 @@ pub fn random_engine(data: &[u8]) -> fast_portable::FastPortable {
 
     let encode_padding = rng.gen();
     let decode_padding = if encode_padding {
-        fast_portable::DecodePaddingMode::RequireCanonical
+        engine::DecodePaddingMode::RequireCanonical
     } else {
-        fast_portable::DecodePaddingMode::RequireNone
+        engine::DecodePaddingMode::RequireNone
     };
     let config = fast_portable::FastPortableConfig::new()
         .with_encode_padding(encode_padding)
