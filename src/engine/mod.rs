@@ -60,8 +60,8 @@ pub trait Engine: Send + Sync {
     ///
     /// Decoding must not write any bytes into the output slice other than the decoded data.
     ///
-    /// Non-canonical trailing bits in the final tokens and padding must be reported as errors,
-    /// though implementations may choose to allow altering that behavior via config.
+    /// Non-canonical trailing bits in the final tokens or non-canonical padding must be reported as
+    /// errors unless the engine is configured otherwise.
     fn decode(
         &self,
         input: &[u8],
@@ -100,3 +100,17 @@ pub trait DecodeEstimate {
 /// A [FastPortable] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::fast_portable::PAD] config.
 pub const DEFAULT_ENGINE: FastPortable =
     FastPortable::from(&alphabet::STANDARD, fast_portable::PAD);
+
+/// Controls how pad bytes are handled when decoding.
+///
+/// Each [Engine] must support at least the behavior indicated by
+/// [DecodePaddingMode::RequireCanonical], and may support other modes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecodePaddingMode {
+    /// Canonical padding is allowed, but any fewer padding bytes than that is also allowed.
+    Indifferent,
+    /// Padding must be canonical (0, 1, or 2 `=` as needed to produce a 4 byte suffix).
+    RequireCanonical,
+    /// Padding must be absent -- for when you want predictable padding, without any wasted bytes.
+    RequireNone,
+}

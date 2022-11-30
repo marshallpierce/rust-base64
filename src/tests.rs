@@ -11,8 +11,10 @@ use crate::{
     alphabet, decode_engine,
     encode::encoded_len,
     encode_engine_string,
-    engine::fast_portable::{DecodePaddingMode, FastPortable, FastPortableConfig},
-    engine::{Config, Engine},
+    engine::{
+        fast_portable::{FastPortable, FastPortableConfig},
+        Config, DecodePaddingMode, Engine,
+    },
 };
 
 #[test]

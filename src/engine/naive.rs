@@ -1,7 +1,11 @@
-use crate::alphabet::Alphabet;
-use crate::engine::fast_portable::{decode_table, encode_table, DecodePaddingMode};
-use crate::engine::{fast_portable, Config, DecodeEstimate, Engine};
-use crate::{DecodeError, PAD_BYTE};
+use crate::{
+    alphabet::Alphabet,
+    engine::{
+        fast_portable::{self, decode_table, encode_table},
+        Config, DecodeEstimate, DecodePaddingMode, Engine,
+    },
+    DecodeError, PAD_BYTE,
+};
 use alloc::ops::BitOr;
 use std::ops::{BitAnd, Shl, Shr};
 

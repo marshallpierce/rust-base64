@@ -11,11 +11,8 @@ use std::{collections, fmt};
 use crate::{
     alphabet::{Alphabet, STANDARD},
     decode_engine, encode, encode_engine_slice,
-    engine::fast_portable::DecodePaddingMode,
-    engine::Config,
-    engine::{fast_portable, naive, Engine},
-    tests::random_alphabet,
-    tests::{assert_encode_sanity, random_config},
+    engine::{fast_portable, naive, Config, DecodePaddingMode, Engine},
+    tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, PAD_BYTE,
 };
 
@@ -624,10 +621,8 @@ fn decode_padding_starts_before_final_chunk_error_invalid_byte<E: EngineWrapper>
             // quads
             let padding_len = rng.gen_range(suffix_len + 1..encoded.len());
             // no non-padding after padding in this test, so padding goes to the end
-            let padding_end = encoded.len() - 1;
-            let padding_start = padding_end + 1 - padding_len;
-
-            encoded[padding_start..=padding_end].fill(PAD_BYTE);
+            let padding_start = encoded.len() - padding_len;
+            encoded[padding_start..].fill(PAD_BYTE);
 
             if suffix_len == 1 {
                 assert_eq!(
@@ -758,35 +753,71 @@ fn decode_pad_mode_indifferent_padding_accepts_anything<E: EngineWrapper>(engine
 //this is a MAY in the rfc: https://tools.ietf.org/html/rfc4648#section-3.3
 #[apply(all_engines)]
 fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        // leave room for at least one pad byte in penultimate quad
-        for num_valid_bytes_penultimate_quad in 0..4 {
-            // can't have 1 or it would be invalid length
-            for num_pad_bytes_in_final_quad in 2..=4 {
+        for num_prefix_quads in 0..256 {
+            // leave room for at least one pad byte in penultimate quad
+            for num_valid_bytes_penultimate_quad in 0..4 {
+                // can't have 1 or it would be invalid length
+                for num_pad_bytes_in_final_quad in 2..=4 {
+                    let mut s: String = "ABCD".repeat(num_prefix_quads);
+
+                    // varying amounts of padding in the penultimate quad
+                    for _ in 0..num_valid_bytes_penultimate_quad {
+                        s.push('A');
+                    }
+                    // finish penultimate quad with padding
+                    for _ in num_valid_bytes_penultimate_quad..4 {
+                        s.push('=');
+                    }
+                    // and more padding in the final quad
+                    for _ in 0..num_pad_bytes_in_final_quad {
+                        s.push('=');
+                    }
+
+                    // padding should be an invalid byte before the final quad.
+                    // Could argue that the *next* padding byte (in the next quad) is technically the first
+                    // erroneous one, but reporting that accurately is more complex and probably nobody cares
+                    assert_eq!(
+                        DecodeError::InvalidByte(
+                            num_prefix_quads * 4 + num_valid_bytes_penultimate_quad,
+                            b'=',
+                        ),
+                        engine.decode_ez_str_vec(&s).unwrap_err()
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[apply(all_engines)]
+fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapper: E) {
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
+
+        for num_prefix_quads in 0..256 {
+            // leave at least one byte in the quad for padding
+            for bytes_after_padding in 1..4 {
                 let mut s: String = "ABCD".repeat(num_prefix_quads);
 
-                // varying amounts of padding in the penultimate quad
-                for _ in 0..num_valid_bytes_penultimate_quad {
+                // every invalid padding position with a 3-byte final quad: 1 to 3 bytes after padding
+                for _ in 0..(3 - bytes_after_padding) {
                     s.push('A');
                 }
-                // finish penultimate quad with padding
-                for _ in num_valid_bytes_penultimate_quad..4 {
-                    s.push('=');
-                }
-                // and more padding in the final quad
-                for _ in 0..num_pad_bytes_in_final_quad {
-                    s.push('=');
+                s.push('=');
+                for _ in 0..bytes_after_padding {
+                    s.push('A');
                 }
 
-                // padding should be an invalid byte before the final quad.
-                // Could argue that the *next* padding byte (in the next quad) is technically the first
-                // erroneous one, but reporting that accurately is more complex and probably nobody cares
+                // First (and only) padding byte is invalid.
                 assert_eq!(
                     DecodeError::InvalidByte(
-                        num_prefix_quads * 4 + num_valid_bytes_penultimate_quad,
-                        b'=',
+                        num_prefix_quads * 4 + (3 - bytes_after_padding),
+                        b'='
                     ),
                     engine.decode_ez_str_vec(&s).unwrap_err()
                 );
@@ -796,26 +827,18 @@ fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E
 }
 
 #[apply(all_engines)]
-fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+fn decode_absurd_pad_error<E: EngineWrapper>(engine_wrapper: E) {
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        // leave at least one byte in the quad for padding
-        for bytes_after_padding in 1..4 {
+        for num_prefix_quads in 0..256 {
             let mut s: String = "ABCD".repeat(num_prefix_quads);
+            s.push_str("==Y=Wx===pY=2U=====");
 
-            // every invalid padding position with a 3-byte final quad: 1 to 3 bytes after padding
-            for _ in 0..(3 - bytes_after_padding) {
-                s.push('A');
-            }
-            s.push('=');
-            for _ in 0..bytes_after_padding {
-                s.push('A');
-            }
-
-            // First (and only) padding byte is invalid.
+            // first padding byte
             assert_eq!(
-                DecodeError::InvalidByte(num_prefix_quads * 4 + (3 - bytes_after_padding), b'='),
+                DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
                 engine.decode_ez_str_vec(&s).unwrap_err()
             );
         }
@@ -823,42 +846,29 @@ fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapp
 }
 
 #[apply(all_engines)]
-fn decode_absurd_pad_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
-
-    for num_prefix_quads in 0..256 {
-        let mut s: String = "ABCD".repeat(num_prefix_quads);
-        s.push_str("==Y=Wx===pY=2U=====");
-
-        // first padding byte
-        assert_eq!(
-            DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-            engine.decode_ez_str_vec(&s).unwrap_err()
-        );
-    }
-}
-
-#[apply(all_engines)]
 fn decode_too_much_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        // add enough padding to ensure that we'll hit all decode stages at the different lengths
-        for pad_bytes in 1..=64 {
-            let mut s: String = "ABCD".repeat(num_prefix_quads);
-            let padding: String = "=".repeat(pad_bytes);
-            s.push_str(&padding);
+        for num_prefix_quads in 0..256 {
+            // add enough padding to ensure that we'll hit all decode stages at the different lengths
+            for pad_bytes in 1..=64 {
+                let mut s: String = "ABCD".repeat(num_prefix_quads);
+                let padding: String = "=".repeat(pad_bytes);
+                s.push_str(&padding);
 
-            if pad_bytes % 4 == 1 {
-                assert_eq!(
-                    DecodeError::InvalidLength,
-                    engine.decode_ez_str_vec(&s).unwrap_err()
-                );
-            } else {
-                assert_eq!(
-                    DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-                    engine.decode_ez_str_vec(&s).unwrap_err()
-                );
+                if pad_bytes % 4 == 1 {
+                    assert_eq!(
+                        DecodeError::InvalidLength,
+                        engine.decode_ez_str_vec(&s).unwrap_err()
+                    );
+                } else {
+                    assert_eq!(
+                        DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
+                        engine.decode_ez_str_vec(&s).unwrap_err()
+                    );
+                }
             }
         }
     }
@@ -866,25 +876,28 @@ fn decode_too_much_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
 
 #[apply(all_engines)]
 fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        for pad_bytes in 0..=32 {
-            let mut s: String = "ABCD".repeat(num_prefix_quads);
-            let padding: String = "=".repeat(pad_bytes);
-            s.push_str(&padding);
-            s.push('E');
+        for num_prefix_quads in 0..256 {
+            for pad_bytes in 0..=32 {
+                let mut s: String = "ABCD".repeat(num_prefix_quads);
+                let padding: String = "=".repeat(pad_bytes);
+                s.push_str(&padding);
+                s.push('E');
 
-            if pad_bytes % 4 == 0 {
-                assert_eq!(
-                    DecodeError::InvalidLength,
-                    engine.decode_ez_str_vec(&s).unwrap_err()
-                );
-            } else {
-                assert_eq!(
-                    DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-                    engine.decode_ez_str_vec(&s).unwrap_err()
-                );
+                if pad_bytes % 4 == 0 {
+                    assert_eq!(
+                        DecodeError::InvalidLength,
+                        engine.decode_ez_str_vec(&s).unwrap_err()
+                    );
+                } else {
+                    assert_eq!(
+                        DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
+                        engine.decode_ez_str_vec(&s).unwrap_err()
+                    );
+                }
             }
         }
     }
@@ -892,66 +905,72 @@ fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine
 
 #[apply(all_engines)]
 fn decode_one_char_in_final_quad_with_padding_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        let mut s: String = "ABCD".repeat(num_prefix_quads);
-        s.push_str("E=");
+        for num_prefix_quads in 0..256 {
+            let mut s: String = "ABCD".repeat(num_prefix_quads);
+            s.push_str("E=");
 
-        assert_eq!(
-            DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-            engine.decode_ez_str_vec(&s).unwrap_err()
-        );
+            assert_eq!(
+                DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
+                engine.decode_ez_str_vec(&s).unwrap_err()
+            );
 
-        // more padding doesn't change the error
-        s.push('=');
-        assert_eq!(
-            DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-            engine.decode_ez_str_vec(&s).unwrap_err()
-        );
+            // more padding doesn't change the error
+            s.push('=');
+            assert_eq!(
+                DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
+                engine.decode_ez_str_vec(&s).unwrap_err()
+            );
 
-        s.push('=');
-        assert_eq!(
-            DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-            engine.decode_ez_str_vec(&s).unwrap_err()
-        );
+            s.push('=');
+            assert_eq!(
+                DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
+                engine.decode_ez_str_vec(&s).unwrap_err()
+            );
+        }
     }
 }
 
 #[apply(all_engines)]
 fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        // <2 is invalid
-        for final_quad_symbols in 0..2 {
-            for padding_symbols in 0..=(4 - final_quad_symbols) {
-                let mut s: String = "ABCD".repeat(num_prefix_quads);
+        for num_prefix_quads in 0..256 {
+            // <2 is invalid
+            for final_quad_symbols in 0..2 {
+                for padding_symbols in 0..=(4 - final_quad_symbols) {
+                    let mut s: String = "ABCD".repeat(num_prefix_quads);
 
-                for _ in 0..final_quad_symbols {
-                    s.push('A');
-                }
-                for _ in 0..padding_symbols {
-                    s.push('=');
-                }
-
-                match final_quad_symbols + padding_symbols {
-                    0 => continue,
-                    1 => {
-                        assert_eq!(
-                            DecodeError::InvalidLength,
-                            engine.decode_ez_str_vec(&s).unwrap_err()
-                        );
+                    for _ in 0..final_quad_symbols {
+                        s.push('A');
                     }
-                    _ => {
-                        // error reported at first padding byte
-                        assert_eq!(
-                            DecodeError::InvalidByte(
-                                num_prefix_quads * 4 + final_quad_symbols,
-                                b'=',
-                            ),
-                            engine.decode_ez_str_vec(&s).unwrap_err()
-                        );
+                    for _ in 0..padding_symbols {
+                        s.push('=');
+                    }
+
+                    match final_quad_symbols + padding_symbols {
+                        0 => continue,
+                        1 => {
+                            assert_eq!(
+                                DecodeError::InvalidLength,
+                                engine.decode_ez_str_vec(&s).unwrap_err()
+                            );
+                        }
+                        _ => {
+                            // error reported at first padding byte
+                            assert_eq!(
+                                DecodeError::InvalidByte(
+                                    num_prefix_quads * 4 + final_quad_symbols,
+                                    b'=',
+                                ),
+                                engine.decode_ez_str_vec(&s).unwrap_err()
+                            );
+                        }
                     }
                 }
             }
@@ -961,25 +980,28 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
 
 #[apply(all_engines)]
 fn decode_invalid_trailing_bytes<E: EngineWrapper>(engine_wrapper: E) {
-    let engine = E::standard();
+    for mode in all_pad_modes() {
+        // we don't encode so we don't care about encode padding
+        let engine = E::standard_with_pad_mode(true, mode);
 
-    for num_prefix_quads in 0..256 {
-        let mut s: String = "ABCD".repeat(num_prefix_quads);
-        s.push_str("Cg==\n");
+        for num_prefix_quads in 0..256 {
+            let mut s: String = "ABCD".repeat(num_prefix_quads);
+            s.push_str("Cg==\n");
 
-        // The case of trailing newlines is common enough to warrant a test for a good error
-        // message.
-        assert_eq!(
-            Err(DecodeError::InvalidByte(num_prefix_quads * 4 + 4, b'\n')),
-            engine.decode_ez_str_vec(&s)
-        );
+            // The case of trailing newlines is common enough to warrant a test for a good error
+            // message.
+            assert_eq!(
+                Err(DecodeError::InvalidByte(num_prefix_quads * 4 + 4, b'\n')),
+                engine.decode_ez_str_vec(&s)
+            );
 
-        // extra padding, however, is still InvalidLength
-        let s = s.replace('\n', "=");
-        assert_eq!(
-            Err(DecodeError::InvalidLength),
-            engine.decode_ez_str_vec(&s)
-        );
+            // extra padding, however, is still InvalidLength
+            let s = s.replace('\n', "=");
+            assert_eq!(
+                Err(DecodeError::InvalidLength),
+                engine.decode_ez_str_vec(&s)
+            );
+        }
     }
 }
 

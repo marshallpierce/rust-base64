@@ -1,5 +1,5 @@
 use crate::{
-    engine::fast_portable::{DecodePaddingMode, INVALID_VALUE},
+    engine::{fast_portable::INVALID_VALUE, DecodePaddingMode},
     DecodeError, PAD_BYTE,
 };
 
@@ -17,7 +17,7 @@ pub(crate) fn decode_suffix(
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
 ) -> Result<usize, DecodeError> {
-    // Finally, decode any leftovers that aren't a complete input block of 8 bytes.
+    // Decode any leftovers that aren't a complete input block of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
     let mut leftover_bits: u64 = 0;
     let mut morsels_in_leftover = 0;
@@ -46,7 +46,7 @@ pub(crate) fn decode_suffix(
                 let bad_padding_index = start_of_leftovers
                     + if padding_bytes > 0 {
                         // If we've already seen padding, report the first padding index.
-                        // This is to be consistent with the faster logic above: it will report an
+                        // This is to be consistent with the normal decode logic: it will report an
                         // error on the first padding character (since it doesn't expect to see
                         // anything but actual encoded data).
                         // This could only happen if the padding started in the previous quad since

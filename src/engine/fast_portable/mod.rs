@@ -1,7 +1,9 @@
 //! Provides the [FastPortable] engine and associated config types.
-use crate::alphabet::Alphabet;
-use crate::engine::Config;
-use crate::DecodeError;
+use crate::{
+    alphabet::Alphabet,
+    engine::{Config, DecodePaddingMode},
+    DecodeError,
+};
 use core::convert::TryInto;
 
 mod decode;
@@ -307,18 +309,6 @@ impl FastPortableConfig {
             ..self
         }
     }
-}
-
-// TODO move to top level of decode?
-/// Controls how pad bytes are handled when decoding.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DecodePaddingMode {
-    /// Canonical padding is allowed, but any fewer padding bytes than that is also allowed.
-    Indifferent,
-    /// Padding must be canonical (0, 1, or 2 `=` as needed to produce a 4 byte suffix).
-    RequireCanonical,
-    /// Padding must be absent -- for when you want predictable padding, without any wasted bytes.
-    RequireNone,
 }
 
 impl Default for FastPortableConfig {

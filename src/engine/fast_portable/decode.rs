@@ -1,6 +1,7 @@
-use crate::engine::fast_portable::{DecodePaddingMode, INVALID_VALUE};
-use crate::engine::DecodeEstimate;
-use crate::{DecodeError, PAD_BYTE};
+use crate::{
+    engine::{fast_portable::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
+    DecodeError, PAD_BYTE,
+};
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
