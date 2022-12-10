@@ -1,7 +1,5 @@
 # 0.20.0
 
-## 0.20.0-beta.1
-
 ### Breaking changes
 
 - Update MSRV to 1.57.0
