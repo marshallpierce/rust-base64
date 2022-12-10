@@ -11,7 +11,7 @@ fuzz_target!(|data: &[u8]| {
         .with_decode_padding_mode(engine::DecodePaddingMode::RequireNone);
     let engine = fast_portable::FastPortable::from(&base64::alphabet::STANDARD, config);
 
-    let encoded = base64::encode_engine(&data, &engine);
+    let encoded = base64::encode_engine(data, &engine);
     let decoded = base64::decode_engine(&encoded, &engine).unwrap();
     assert_eq!(data, decoded.as_slice());
 });

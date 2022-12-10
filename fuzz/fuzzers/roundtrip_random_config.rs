@@ -9,7 +9,7 @@ mod utils;
 fuzz_target!(|data: &[u8]| {
     let engine = utils::random_engine(data);
 
-    let encoded = encode_engine(&data, &engine);
+    let encoded = encode_engine(data, &engine);
     let decoded = decode_engine(&encoded, &engine).unwrap();
     assert_eq!(data, decoded.as_slice());
 });
