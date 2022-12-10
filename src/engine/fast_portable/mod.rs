@@ -1,10 +1,13 @@
 //! Provides the [FastPortable] engine and associated config types.
-use crate::alphabet::Alphabet;
-use crate::engine::Config;
-use crate::DecodeError;
+use crate::{
+    alphabet::Alphabet,
+    engine::{Config, DecodePaddingMode},
+    DecodeError,
+};
 use core::convert::TryInto;
 
 mod decode;
+pub(crate) mod decode_suffix;
 pub use decode::FastPortableEstimate;
 
 pub(crate) const INVALID_VALUE: u8 = 255;
@@ -173,6 +176,7 @@ impl super::Engine for FastPortable {
             output,
             &self.decode_table,
             self.config.decode_allow_trailing_bits,
+            self.config.decode_padding_mode,
         )
     }
 
@@ -237,10 +241,12 @@ fn read_u64(s: &[u8]) -> u64 {
 pub struct FastPortableConfig {
     encode_padding: bool,
     decode_allow_trailing_bits: bool,
+    decode_padding_mode: DecodePaddingMode,
 }
 
 impl FastPortableConfig {
-    /// Create a new config with `padding` = `true` and `decode_allow_trailing_bits` = `false`.
+    /// Create a new config with `padding` = `true`, `decode_allow_trailing_bits` = `false`, and
+    /// `decode_padding_mode = DecodePaddingMode::RequireCanonicalPadding`.
     ///
     /// This probably matches most people's expectations, but consider disabling padding to save
     /// a few bytes unless you specifically need it for compatibility with some legacy system.
@@ -249,13 +255,14 @@ impl FastPortableConfig {
             // RFC states that padding must be applied by default
             encode_padding: true,
             decode_allow_trailing_bits: false,
+            decode_padding_mode: DecodePaddingMode::RequireCanonical,
         }
     }
 
-    /// Create a new config based on `self` with an updated `padding` parameter.
+    /// Create a new config based on `self` with an updated `padding` setting.
     ///
-    /// If `true`, encoding will append either 1 or 2 `=` padding characters to produce an
-    /// output whose length is a multiple of 4.
+    /// If `padding` is `true`, encoding will append either 1 or 2 `=` padding characters as needed
+    /// to produce an output whose length is a multiple of 4.
     ///
     /// Padding is not needed for correct decoding and only serves to waste bytes, but it's in the
     /// [spec](https://datatracker.ietf.org/doc/html/rfc4648#section-3.2).
@@ -269,7 +276,7 @@ impl FastPortableConfig {
         }
     }
 
-    /// Create a new config based on `self` with an updated `decode_allow_trailing_bits` parameter.
+    /// Create a new config based on `self` with an updated `decode_allow_trailing_bits` setting.
     ///
     /// Most users will not need to configure this. It's useful if you need to decode base64
     /// produced by a buggy encoder that has bits set in the unused space on the last base64
@@ -279,6 +286,26 @@ impl FastPortableConfig {
     pub const fn with_decode_allow_trailing_bits(self, allow: bool) -> Self {
         Self {
             decode_allow_trailing_bits: allow,
+            ..self
+        }
+    }
+
+    /// Create a new config based on `self` with an updated `decode_padding_mode` setting.
+    ///
+    /// Padding is not useful in terms of representing encoded data -- it makes no difference to
+    /// the decoder if padding is present or not, so if you have some un-padded input to decode, it
+    /// is perfectly fine to use `DecodePaddingMode::Indifferent` to prevent errors from being
+    /// emitted.
+    ///
+    /// However, since in practice
+    /// [people who learned nothing from BER vs DER seem to expect base64 to have one canonical encoding](https://eprint.iacr.org/2022/361),
+    /// the default setting is the stricter `DecodePaddingMode::RequireCanonicalPadding`.
+    ///
+    /// Or, if "canonical" in your circumstance means _no_ padding rather than padding to the
+    /// next multiple of four, there's `DecodePaddingMode::RequireNoPadding`.
+    pub const fn with_decode_padding_mode(self, mode: DecodePaddingMode) -> Self {
+        Self {
+            decode_padding_mode: mode,
             ..self
         }
     }
@@ -297,11 +324,13 @@ impl Config for FastPortableConfig {
     }
 }
 
-/// Include padding bytes when encoding.
+/// Include padding bytes when encoding, and require that they be present when decoding.
 ///
 /// This is the standard per the base64 RFC, but consider using [NO_PAD] instead as padding serves
 /// little purpose in practice.
 pub const PAD: FastPortableConfig = FastPortableConfig::new();
 
-/// Don't add padding when encoding.
-pub const NO_PAD: FastPortableConfig = FastPortableConfig::new().with_encode_padding(false);
+/// Don't add padding when encoding, and require no padding when decoding.
+pub const NO_PAD: FastPortableConfig = FastPortableConfig::new()
+    .with_encode_padding(false)
+    .with_decode_padding_mode(DecodePaddingMode::RequireNone);

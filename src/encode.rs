@@ -123,7 +123,7 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 ///     &base64::engine::DEFAULT_ENGINE);
 ///
 /// // shorten our vec down to just what was written
-/// buf.resize(bytes_written, 0);
+/// buf.truncate(bytes_written);
 ///
 /// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
 /// ```

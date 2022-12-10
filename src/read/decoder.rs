@@ -144,6 +144,7 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
             DecodeError::InvalidLastSymbol(offset, byte) => {
                 DecodeError::InvalidLastSymbol(self.total_b64_decoded + offset, byte)
             }
+            DecodeError::InvalidPadding => DecodeError::InvalidPadding,
         })
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 

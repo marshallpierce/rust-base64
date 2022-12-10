@@ -13,6 +13,7 @@ use std::error;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     /// An invalid byte was found in the input. The offset and offending byte are provided.
+    /// Padding characters (`=`) interspersed in the encoded form will be treated as invalid bytes.
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
     /// A typical cause of this is stray trailing whitespace or other separator bytes.
@@ -22,9 +23,12 @@ pub enum DecodeError {
     InvalidLength,
     /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
     /// This is indicative of corrupted or truncated Base64.
-    /// Unlike InvalidByte, which reports symbols that aren't in the alphabet, this error is for
+    /// Unlike `InvalidByte`, which reports symbols that aren't in the alphabet, this error is for
     /// symbols that are in the alphabet but represent nonsensical encodings.
     InvalidLastSymbol(usize, u8),
+    /// The nature of the padding was not as configured: absent or incorrect when it must be
+    /// canonical, or present when it must be absent, etc.
+    InvalidPadding,
 }
 
 impl fmt::Display for DecodeError {
@@ -35,6 +39,7 @@ impl fmt::Display for DecodeError {
             Self::InvalidLastSymbol(index, byte) => {
                 write!(f, "Invalid last symbol {}, offset {}.", byte, index)
             }
+            Self::InvalidPadding => write!(f, "Invalid padding"),
         }
     }
 }
@@ -46,6 +51,7 @@ impl error::Error for DecodeError {
             Self::InvalidByte(_, _) => "invalid byte",
             Self::InvalidLength => "invalid length",
             Self::InvalidLastSymbol(_, _) => "invalid last symbol",
+            Self::InvalidPadding => "invalid padding",
         }
     }
 
@@ -192,10 +198,12 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{encode::encode_engine_string, tests::assert_encode_sanity};
-
-    use crate::engine::Config;
-    use crate::tests::random_engine;
+    use crate::{
+        alphabet,
+        encode::encode_engine_string,
+        engine::{fast_portable, fast_portable::FastPortable, Config},
+        tests::{assert_encode_sanity, random_engine},
+    };
     use rand::{
         distributions::{Distribution, Uniform},
         Rng, SeedableRng,
@@ -350,12 +358,13 @@ mod tests {
 
     #[test]
     fn decode_engine_estimation_works_for_various_lengths() {
+        let engine = FastPortable::from(&alphabet::STANDARD, fast_portable::NO_PAD);
         for num_prefix_quads in 0..100 {
             for suffix in &["AA", "AAA", "AAAA"] {
                 let mut prefix = "AAAA".repeat(num_prefix_quads);
                 prefix.push_str(suffix);
                 // make sure no overflow (and thus a panic) occurs
-                let res = decode_engine(prefix, &DEFAULT_ENGINE);
+                let res = decode_engine(prefix, &engine);
                 assert!(res.is_ok());
             }
         }
