@@ -687,6 +687,75 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
     }
 }
 
+// https://eprint.iacr.org/2022/361.pdf table 2, test 1
+#[apply(all_engines)]
+fn decode_malleability_test_case_3_byte_suffix_valid<E: EngineWrapper>(engine_wrapper: E) {
+    assert_eq!(
+        b"Hello".as_slice(),
+        &E::standard().decode_ez_str_vec("SGVsbG8=").unwrap()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 2
+#[apply(all_engines)]
+fn decode_malleability_test_case_3_byte_suffix_invalid_trailing_symbol<E: EngineWrapper>(
+    engine_wrapper: E,
+) {
+    assert_eq!(
+        DecodeError::InvalidLastSymbol(6, 0x39),
+        E::standard().decode_ez_str_vec("SGVsbG9=").unwrap_err()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 3
+#[apply(all_engines)]
+fn decode_malleability_test_case_3_byte_suffix_no_padding<E: EngineWrapper>(engine_wrapper: E) {
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().decode_ez_str_vec("SGVsbG9").unwrap_err()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 4
+#[apply(all_engines)]
+fn decode_malleability_test_case_2_byte_suffix_valid_two_padding_symbols<E: EngineWrapper>(
+    engine_wrapper: E,
+) {
+    assert_eq!(
+        b"Hell".as_slice(),
+        &E::standard().decode_ez_str_vec("SGVsbA==").unwrap()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 5
+#[apply(all_engines)]
+fn decode_malleability_test_case_2_byte_suffix_short_padding<E: EngineWrapper>(engine_wrapper: E) {
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().decode_ez_str_vec("SGVsbA=").unwrap_err()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 6
+#[apply(all_engines)]
+fn decode_malleability_test_case_2_byte_suffix_no_padding<E: EngineWrapper>(engine_wrapper: E) {
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().decode_ez_str_vec("SGVsbA").unwrap_err()
+    );
+}
+
+// https://eprint.iacr.org/2022/361.pdf table 2, test 7
+#[apply(all_engines)]
+fn decode_malleability_test_case_2_byte_suffix_too_much_padding<E: EngineWrapper>(
+    engine_wrapper: E,
+) {
+    assert_eq!(
+        DecodeError::InvalidByte(6, PAD_BYTE),
+        E::standard().decode_ez_str_vec("SGVsbA====").unwrap_err()
+    );
+}
+
 /// Requires canonical padding -> accepts 2 + 2, 3 + 1, 4 + 0 final quad configurations
 #[apply(all_engines)]
 fn decode_pad_mode_requires_canonical_accepts_canonical<E: EngineWrapper>(engine_wrapper: E) {
