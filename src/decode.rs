@@ -60,6 +60,40 @@ impl error::Error for DecodeError {
     }
 }
 
+/// A combination of a [DecodeError] and `OutputTooSmall` for [decode_engine_slice_checked].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DecodeSliceError {
+    /// The output _may_ be too small using a conservative estimate.
+    OutputTooSmall,
+    /// A [DecodeError] occurred during decoding.
+    DecodeError(DecodeError)
+}
+
+impl fmt::Display for DecodeSliceError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            &Self::OutputTooSmall => write!(f, "Output buffer may be too small."),
+            &Self::DecodeError(e) => {
+                write!(f, "Decode error {}.", e)
+            }
+        }
+    }
+}
+
+#[cfg(any(feature = "std", test))]
+impl error::Error for DecodeSliceError {
+    fn description(&self) -> &str {
+        match &self {
+            &Self::OutputTooSmall => "output buffer too small",
+            &Self::DecodeError(_) => "decode error",
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn error::Error> {
+        None
+    }
+}
+
 ///Decode base64 using the [default engine](DEFAULT_ENGINE).
 ///Returns a `Result` containing a `Vec<u8>`.
 ///
@@ -172,6 +206,9 @@ pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
 
 /// Decode the input into the provided output slice.
 ///
+/// See [decode_engine_slice_checked] for a version that returns an error rather than panicking if
+/// the output slice is too small.
+///
 /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
 ///
 /// If you don't know ahead of time what the decoded length should be, size your buffer with a
@@ -193,6 +230,24 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
         output,
         engine.decoded_length_estimate(input_bytes.len()),
     )
+}
+
+/// The checked version of [decode_engine_slice]: returns an error instead of panicking if `output`
+/// may be too short.
+///
+/// The length check is conservative, as doing it precisely would incur more overhead.
+pub fn decode_engine_slice_checked<E: Engine, T: AsRef<[u8]>>(
+        input: T,
+        output: &mut [u8],
+        engine: &E,
+        ) -> Result<usize, DecodeError> {
+    let conservative_decode_len = input.as_ref().len().checked_add(3).expect("overflow calculating decoded len") / 4 * 3;
+
+    if output.len() < conservative_decode_len {
+
+    }
+
+    decode_engine_slice(input, output, engine)
 }
 
 #[cfg(test)]

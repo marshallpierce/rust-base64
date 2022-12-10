@@ -112,10 +112,12 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
 /// # Example
 ///
 /// ```rust
+/// use base64::encoded_len;
+///
 /// let s = b"hello internet!";
 /// let mut buf = Vec::new();
 /// // make sure we'll have a slice big enough for base64 + padding
-/// buf.resize(s.len() * 4 / 3 + 4, 0);
+/// buf.resize(encoded_len(s.len(), true).unwrap(), 0);
 ///
 /// let bytes_written = base64::encode_engine_slice(
 ///     s,

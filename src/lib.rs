@@ -119,7 +119,7 @@ pub use crate::encode::{encode_engine_slice, encoded_len};
 mod decode;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
-pub use crate::decode::{decode_engine_slice, DecodeError};
+pub use crate::decode::{decode_engine_slice, decode_engine_slice_checked, DecodeError, DecodeSliceError};
 
 #[cfg(test)]
 mod tests;
