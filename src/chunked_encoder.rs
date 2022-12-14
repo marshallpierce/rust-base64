@@ -113,7 +113,7 @@ pub mod tests {
 
     use crate::alphabet::STANDARD;
     use crate::encode_engine_string;
-    use crate::engine::fast_portable::{FastPortable, FastPortableConfig, PAD};
+    use crate::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, PAD};
     use crate::tests::random_engine;
 
     use super::*;
@@ -199,11 +199,11 @@ pub mod tests {
         }
     }
 
-    fn chunked_encode_str(bytes: &[u8], config: FastPortableConfig) -> String {
+    fn chunked_encode_str(bytes: &[u8], config: GeneralPurposeConfig) -> String {
         let mut s = String::new();
 
         let mut sink = StringSink::from(&mut s);
-        let engine = FastPortable::from(&STANDARD, config);
+        let engine = GeneralPurpose::from(&STANDARD, config);
         let encoder = ChunkedEncoder::from(&engine);
         encoder.encode(bytes, &mut sink).unwrap();
 

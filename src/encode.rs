@@ -27,10 +27,10 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///# Example
 ///
 ///```rust
-///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-///    base64::engine::fast_portable::FastPortable::from(
+///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
+///    base64::engine::GeneralPurpose::from(
 ///        &base64::alphabet::URL_SAFE,
-///        base64::engine::fast_portable::NO_PAD);
+///        base64::engine::general_purpose::NO_PAD);
 ///
 ///    let b64 = base64::encode_engine(
 ///        b"hello world~",
@@ -61,10 +61,10 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
 ///# Example
 ///
 ///```rust
-///const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-///    base64::engine::fast_portable::FastPortable::from(
+///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
+///    base64::engine::GeneralPurpose::from(
 ///        &base64::alphabet::URL_SAFE,
-///        base64::engine::fast_portable::NO_PAD);
+///        base64::engine::general_purpose::NO_PAD);
 ///fn main() {
 ///    let mut buf = String::new();
 ///    base64::encode_engine_string(
@@ -223,21 +223,20 @@ pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        decode::decode_engine_vec,
-        tests::{assert_encode_sanity, random_config},
-    };
 
-    use crate::alphabet::{IMAP_MUTF7, STANDARD, URL_SAFE};
-    use crate::engine::fast_portable::{FastPortable, NO_PAD};
-    use crate::tests::random_engine;
+    use crate::{
+        alphabet::{IMAP_MUTF7, STANDARD, URL_SAFE},
+        decode::decode_engine_vec,
+        engine::general_purpose::{GeneralPurpose, NO_PAD},
+        tests::{assert_encode_sanity, random_config, random_engine},
+    };
     use rand::{
         distributions::{Distribution, Uniform},
         Rng, SeedableRng,
     };
     use std::str;
 
-    const URL_SAFE_NO_PAD_ENGINE: FastPortable = FastPortable::from(&URL_SAFE, NO_PAD);
+    const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::from(&URL_SAFE, NO_PAD);
 
     #[test]
     fn encoded_size_correct_standard() {
@@ -585,8 +584,8 @@ mod tests {
     #[test]
     fn encode_imap() {
         assert_eq!(
-            encode_engine(b"\xFB\xFF", &FastPortable::from(&IMAP_MUTF7, NO_PAD)),
-            encode_engine(b"\xFB\xFF", &FastPortable::from(&STANDARD, NO_PAD)).replace('/', ",")
+            encode_engine(b"\xFB\xFF", &GeneralPurpose::from(&IMAP_MUTF7, NO_PAD)),
+            encode_engine(b"\xFB\xFF", &GeneralPurpose::from(&STANDARD, NO_PAD)).replace('/', ",")
         );
     }
 }

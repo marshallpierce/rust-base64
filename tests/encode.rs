@@ -1,5 +1,5 @@
 use base64::alphabet::URL_SAFE;
-use base64::engine::fast_portable::PAD;
+use base64::engine::general_purpose::PAD;
 use base64::*;
 
 fn compare_encode(expected: &str, target: &[u8]) {
@@ -57,7 +57,7 @@ fn encode_all_bytes_url() {
          8_T19vf4-fr7_P3-_w==",
         encode_engine(
             &bytes,
-            &engine::fast_portable::FastPortable::from(&URL_SAFE, PAD),
+            &engine::GeneralPurpose::from(&URL_SAFE, PAD),
         )
     );
 }

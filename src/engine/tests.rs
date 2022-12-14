@@ -11,7 +11,7 @@ use std::{collections, fmt};
 use crate::{
     alphabet::{Alphabet, STANDARD},
     decode_engine, encode, encode_engine_slice,
-    engine::{fast_portable, naive, Config, DecodePaddingMode, Engine},
+    engine::{general_purpose, naive, Config, DecodePaddingMode, Engine},
     tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, PAD_BYTE,
 };
@@ -19,7 +19,7 @@ use crate::{
 // the case::foo syntax includes the "foo" in the generated test method names
 #[template]
 #[rstest(engine_wrapper,
-case::fast_portable(FastPortableWrapper {}),
+case::general_purpose(GeneralPurposeWrapper {}),
 case::naive(NaiveWrapper {}),
 )]
 fn all_engines<E: EngineWrapper>(engine_wrapper: E) {}
@@ -1199,19 +1199,19 @@ trait EngineWrapper {
     fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine;
 }
 
-struct FastPortableWrapper {}
+struct GeneralPurposeWrapper {}
 
-impl EngineWrapper for FastPortableWrapper {
-    type Engine = fast_portable::FastPortable;
+impl EngineWrapper for GeneralPurposeWrapper {
+    type Engine = general_purpose::GeneralPurpose;
 
     fn standard() -> Self::Engine {
-        fast_portable::FastPortable::from(&STANDARD, fast_portable::PAD)
+        general_purpose::GeneralPurpose::from(&STANDARD, general_purpose::PAD)
     }
 
     fn standard_unpadded() -> Self::Engine {
-        fast_portable::FastPortable::from(
+        general_purpose::GeneralPurpose::from(
             &STANDARD,
-            fast_portable::NO_PAD.with_decode_padding_mode(DecodePaddingMode::RequireNone),
+            general_purpose::NO_PAD.with_decode_padding_mode(DecodePaddingMode::RequireNone),
         )
     }
 
@@ -1219,18 +1219,18 @@ impl EngineWrapper for FastPortableWrapper {
         encode_pad: bool,
         decode_pad_mode: DecodePaddingMode,
     ) -> Self::Engine {
-        fast_portable::FastPortable::from(
+        general_purpose::GeneralPurpose::from(
             &STANDARD,
-            fast_portable::FastPortableConfig::new()
+            general_purpose::GeneralPurposeConfig::new()
                 .with_encode_padding(encode_pad)
                 .with_decode_padding_mode(decode_pad_mode),
         )
     }
 
     fn standard_allow_trailing_bits() -> Self::Engine {
-        fast_portable::FastPortable::from(
+        general_purpose::GeneralPurpose::from(
             &STANDARD,
-            fast_portable::FastPortableConfig::new().with_decode_allow_trailing_bits(true),
+            general_purpose::GeneralPurposeConfig::new().with_decode_allow_trailing_bits(true),
         )
     }
 
@@ -1241,7 +1241,7 @@ impl EngineWrapper for FastPortableWrapper {
     }
 
     fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        fast_portable::FastPortable::from(alphabet, random_config(rng))
+        general_purpose::GeneralPurpose::from(alphabet, random_config(rng))
     }
 }
 

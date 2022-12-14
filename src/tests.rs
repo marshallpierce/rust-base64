@@ -12,7 +12,7 @@ use crate::{
     encode::encoded_len,
     encode_engine_string,
     engine::{
-        fast_portable::{FastPortable, FastPortableConfig},
+        general_purpose::{GeneralPurpose, GeneralPurposeConfig},
         Config, DecodePaddingMode, Engine,
     },
 };
@@ -76,9 +76,9 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
     }
 }
 
-pub fn random_config<R: Rng>(rng: &mut R) -> FastPortableConfig {
+pub fn random_config<R: Rng>(rng: &mut R) -> GeneralPurposeConfig {
     let mode = rng.gen();
-    FastPortableConfig::new()
+    GeneralPurposeConfig::new()
         .with_encode_padding(match mode {
             DecodePaddingMode::Indifferent => rng.gen(),
             DecodePaddingMode::RequireCanonical => true,
@@ -102,10 +102,10 @@ pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {
     ALPHABETS.choose(rng).unwrap()
 }
 
-pub fn random_engine<R: Rng>(rng: &mut R) -> FastPortable {
+pub fn random_engine<R: Rng>(rng: &mut R) -> GeneralPurpose {
     let alphabet = random_alphabet(rng);
     let config = random_config(rng);
-    FastPortable::from(alphabet, config)
+    GeneralPurpose::from(alphabet, config)
 }
 
 const ALPHABETS: &[alphabet::Alphabet] = &[

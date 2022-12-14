@@ -4,11 +4,13 @@ use rand::{Rng, RngCore};
 use std::{cmp, iter};
 
 use super::decoder::{DecoderReader, BUF_SIZE};
-use crate::encode::encode_engine_string;
-use crate::engine::fast_portable::FastPortable;
-use crate::engine::DEFAULT_ENGINE;
-use crate::tests::{random_alphabet, random_config, random_engine};
-use crate::{decode_engine_vec, DecodeError};
+use crate::{
+    decode_engine_vec,
+    encode::encode_engine_string,
+    engine::{GeneralPurpose, DEFAULT_ENGINE},
+    tests::{random_alphabet, random_config, random_engine},
+    DecodeError,
+};
 
 #[test]
 fn simple() {
@@ -211,7 +213,7 @@ fn reports_invalid_last_symbol_correctly() {
         let config = random_config(&mut rng);
         let alphabet = random_alphabet(&mut rng);
         // changing padding will cause invalid padding errors when we twiddle the last byte
-        let engine = FastPortable::from(alphabet, config.with_encode_padding(false));
+        let engine = GeneralPurpose::from(alphabet, config.with_encode_padding(false));
         encode_engine_string(&bytes[..], &mut b64, &engine);
         b64_bytes.extend(b64.bytes());
         assert_eq!(b64_bytes.len(), b64.len());

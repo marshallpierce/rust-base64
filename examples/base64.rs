@@ -61,12 +61,12 @@ fn main() {
     };
 
     let alphabet = opt.alphabet.unwrap_or_default();
-    let engine = engine::fast_portable::FastPortable::from(
+    let engine = engine::GeneralPurpose::from(
         &match alphabet {
             Alphabet::Standard => alphabet::STANDARD,
             Alphabet::UrlSafe => alphabet::URL_SAFE,
         },
-        engine::fast_portable::PAD,
+        engine::general_purpose::PAD,
     );
 
     let stdout = io::stdout();

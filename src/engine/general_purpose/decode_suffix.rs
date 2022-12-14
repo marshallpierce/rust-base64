@@ -1,5 +1,5 @@
 use crate::{
-    engine::{fast_portable::INVALID_VALUE, DecodePaddingMode},
+    engine::{general_purpose::INVALID_VALUE, DecodePaddingMode},
     DecodeError, PAD_BYTE,
 };
 

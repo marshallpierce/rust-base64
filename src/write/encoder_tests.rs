@@ -3,15 +3,17 @@ use std::{cmp, io, str};
 
 use rand::Rng;
 
-use crate::alphabet::{STANDARD, URL_SAFE};
-use crate::engine::fast_portable::{FastPortable, NO_PAD, PAD};
-use crate::tests::random_engine;
-use crate::{encode_engine, encode_engine_string};
+use crate::{
+    alphabet::{STANDARD, URL_SAFE},
+    encode_engine, encode_engine_string,
+    engine::general_purpose::{GeneralPurpose, NO_PAD, PAD},
+    tests::random_engine,
+};
 
 use super::EncoderWriter;
 
-const URL_SAFE_ENGINE: FastPortable = FastPortable::from(&URL_SAFE, PAD);
-const NO_PAD_ENGINE: FastPortable = FastPortable::from(&STANDARD, NO_PAD);
+const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::from(&URL_SAFE, PAD);
+const NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::from(&STANDARD, NO_PAD);
 
 #[test]
 fn encode_three_bytes() {

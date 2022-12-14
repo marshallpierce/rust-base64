@@ -15,9 +15,9 @@ const ALPHABET_SIZE: usize = 64;
 /// ```
 /// let custom = base64::alphabet::Alphabet::from_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
 ///
-/// let engine = base64::engine::fast_portable::FastPortable::from(
+/// let engine = base64::engine::GeneralPurpose::from(
 ///     &custom,
-///     base64::engine::fast_portable::PAD);
+///     base64::engine::general_purpose::PAD);
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alphabet {

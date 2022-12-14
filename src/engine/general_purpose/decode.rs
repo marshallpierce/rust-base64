@@ -1,5 +1,5 @@
 use crate::{
-    engine::{fast_portable::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
+    engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
     DecodeError, PAD_BYTE,
 };
 
@@ -22,12 +22,12 @@ const DECODED_BLOCK_LEN: usize =
     CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
 #[doc(hidden)]
-pub struct FastPortableEstimate {
+pub struct GeneralPurposeEstimate {
     /// Total number of decode chunks, including a possibly partial last chunk
     num_chunks: usize,
 }
 
-impl FastPortableEstimate {
+impl GeneralPurposeEstimate {
     pub(crate) fn from(input_len: usize) -> Self {
         Self {
             num_chunks: num_chunks(input_len),
@@ -35,7 +35,7 @@ impl FastPortableEstimate {
     }
 }
 
-impl DecodeEstimate for FastPortableEstimate {
+impl DecodeEstimate for GeneralPurposeEstimate {
     fn decoded_length_estimate(&self) -> usize {
         self.num_chunks
             .checked_mul(DECODED_CHUNK_LEN)
@@ -51,7 +51,7 @@ impl DecodeEstimate for FastPortableEstimate {
 #[inline]
 pub(crate) fn decode_helper(
     input: &[u8],
-    estimate: FastPortableEstimate,
+    estimate: GeneralPurposeEstimate,
     output: &mut [u8],
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,

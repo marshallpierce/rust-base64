@@ -1,8 +1,7 @@
 //! Provides the [Engine] abstraction and out of the box implementations.
-use crate::engine::fast_portable::FastPortable;
 use crate::{alphabet, DecodeError};
 
-pub mod fast_portable;
+pub mod general_purpose;
 
 #[cfg(test)]
 mod naive;
@@ -10,10 +9,12 @@ mod naive;
 #[cfg(test)]
 mod tests;
 
+pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
 /// Different implementations offer different characteristics. The library currently ships with
-/// a general-purpose [FastPortable] impl that offers good speed and works on any CPU, with more choices
+/// a general-purpose [GeneralPurpose] impl that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
 /// See [DEFAULT_ENGINE] if you just want standard base64. Otherwise, when possible, it's
@@ -97,9 +98,9 @@ pub trait DecodeEstimate {
     fn decoded_length_estimate(&self) -> usize;
 }
 
-/// A [FastPortable] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::fast_portable::PAD] config.
-pub const DEFAULT_ENGINE: FastPortable =
-    FastPortable::from(&alphabet::STANDARD, fast_portable::PAD);
+/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
+pub const DEFAULT_ENGINE: GeneralPurpose =
+    GeneralPurpose::from(&alphabet::STANDARD, general_purpose::PAD);
 
 /// Controls how pad bytes are handled when decoding.
 ///

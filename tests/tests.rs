@@ -4,7 +4,7 @@ use base64::engine::{Engine, DEFAULT_ENGINE};
 use base64::*;
 
 use base64::alphabet::STANDARD;
-use base64::engine::fast_portable::{FastPortable, NO_PAD};
+use base64::engine::general_purpose::{GeneralPurpose, NO_PAD};
 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random<E: Engine>(
@@ -89,7 +89,7 @@ fn roundtrip_random_short_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = FastPortable::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
     for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 10000);
     }
@@ -100,7 +100,7 @@ fn roundtrip_random_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = FastPortable::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
 
     for input_len in 40..100 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 1000);
@@ -120,7 +120,7 @@ fn roundtrip_decode_trailing_10_bytes() {
         let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
-        let engine = FastPortable::from(&STANDARD, NO_PAD);
+        let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
         let decoded = decode_engine(&s, &engine).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 

@@ -3,13 +3,13 @@
 extern crate libfuzzer_sys;
 extern crate base64;
 
-use base64::engine::{self, fast_portable};
+use base64::engine::{self, general_purpose};
 
 fuzz_target!(|data: &[u8]| {
-    let config = fast_portable::FastPortableConfig::new()
+    let config = general_purpose::GeneralPurposeConfig::new()
         .with_encode_padding(false)
         .with_decode_padding_mode(engine::DecodePaddingMode::RequireNone);
-    let engine = fast_portable::FastPortable::from(&base64::alphabet::STANDARD, config);
+    let engine = general_purpose::GeneralPurpose::from(&base64::alphabet::STANDARD, config);
 
     let encoded = base64::encode_engine(data, &engine);
     let decoded = base64::decode_engine(&encoded, &engine).unwrap();

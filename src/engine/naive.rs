@@ -1,7 +1,7 @@
 use crate::{
     alphabet::Alphabet,
     engine::{
-        fast_portable::{self, decode_table, encode_table},
+        general_purpose::{self, decode_table, encode_table},
         Config, DecodeEstimate, DecodePaddingMode, Engine,
     },
     DecodeError, PAD_BYTE,
@@ -31,7 +31,7 @@ impl Naive {
     fn decode_byte_into_u32(&self, offset: usize, byte: u8) -> Result<u32, DecodeError> {
         let decoded = self.decode_table[byte as usize];
 
-        if decoded == fast_portable::INVALID_VALUE {
+        if decoded == general_purpose::INVALID_VALUE {
             return Err(DecodeError::InvalidByte(offset, byte));
         }
 
@@ -117,7 +117,7 @@ impl Engine for Naive {
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
             if let Some(b) = input.last() {
-                if *b != PAD_BYTE && self.decode_table[*b as usize] == fast_portable::INVALID_VALUE
+                if *b != PAD_BYTE && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
                 {
                     return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
@@ -163,7 +163,7 @@ impl Engine for Naive {
             }
         }
 
-        fast_portable::decode_suffix::decode_suffix(
+        general_purpose::decode_suffix::decode_suffix(
             input,
             input_index,
             output,

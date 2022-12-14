@@ -1,4 +1,4 @@
-//! Provides the [FastPortable] engine and associated config types.
+//! Provides the [GeneralPurpose] engine and associated config types.
 use crate::{
     alphabet::Alphabet,
     engine::{Config, DecodePaddingMode},
@@ -8,27 +8,27 @@ use core::convert::TryInto;
 
 mod decode;
 pub(crate) mod decode_suffix;
-pub use decode::FastPortableEstimate;
+pub use decode::GeneralPurposeEstimate;
 
 pub(crate) const INVALID_VALUE: u8 = 255;
 
 /// A general-purpose base64 engine.
 ///
 /// - It uses no vector CPU instructions, so it will work on any system.
-/// - It is reasonably fast (~2GiB/s).
+/// - It is reasonably fast (~2-3GiB/s).
 /// - It is not constant-time, though, so it is vulnerable to timing side-channel attacks. For loading cryptographic keys, etc, it is suggested to use the forthcoming constant-time implementation.
-pub struct FastPortable {
+pub struct GeneralPurpose {
     encode_table: [u8; 64],
     decode_table: [u8; 256],
-    config: FastPortableConfig,
+    config: GeneralPurposeConfig,
 }
 
-impl FastPortable {
-    /// Create a `FastPortable` engine from an [Alphabet].
+impl GeneralPurpose {
+    /// Create a `GeneralPurpose` engine from an [Alphabet].
     ///
     /// While not very expensive to initialize, ideally these should be cached
     /// if the engine will be used repeatedly.
-    pub const fn from(alphabet: &Alphabet, config: FastPortableConfig) -> Self {
+    pub const fn from(alphabet: &Alphabet, config: GeneralPurposeConfig) -> Self {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
@@ -37,9 +37,9 @@ impl FastPortable {
     }
 }
 
-impl super::Engine for FastPortable {
-    type Config = FastPortableConfig;
-    type DecodeEstimate = FastPortableEstimate;
+impl super::Engine for GeneralPurpose {
+    type Config = GeneralPurposeConfig;
+    type DecodeEstimate = GeneralPurposeEstimate;
 
     fn encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         let mut input_index: usize = 0;
@@ -161,7 +161,7 @@ impl super::Engine for FastPortable {
     }
 
     fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        FastPortableEstimate::from(input_len)
+        GeneralPurposeEstimate::from(input_len)
     }
 
     fn decode(
@@ -228,8 +228,8 @@ fn read_u64(s: &[u8]) -> u64 {
 /// Contains configuration parameters for base64 encoding and decoding.
 ///
 /// ```
-/// # use base64::engine::fast_portable::FastPortableConfig;
-/// let config = FastPortableConfig::new()
+/// # use base64::engine::GeneralPurposeConfig;
+/// let config = GeneralPurposeConfig::new()
 ///     .with_encode_padding(false);
 ///     // further customize using `.with_*` methods as needed
 /// ```
@@ -238,13 +238,13 @@ fn read_u64(s: &[u8]) -> u64 {
 ///
 /// To specify the characters used, see [crate::alphabet::Alphabet].
 #[derive(Clone, Copy, Debug)]
-pub struct FastPortableConfig {
+pub struct GeneralPurposeConfig {
     encode_padding: bool,
     decode_allow_trailing_bits: bool,
     decode_padding_mode: DecodePaddingMode,
 }
 
-impl FastPortableConfig {
+impl GeneralPurposeConfig {
     /// Create a new config with `padding` = `true`, `decode_allow_trailing_bits` = `false`, and
     /// `decode_padding_mode = DecodePaddingMode::RequireCanonicalPadding`.
     ///
@@ -311,14 +311,14 @@ impl FastPortableConfig {
     }
 }
 
-impl Default for FastPortableConfig {
-    /// Delegates to [FastPortableConfig::new].
+impl Default for GeneralPurposeConfig {
+    /// Delegates to [GeneralPurposeConfig::new].
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Config for FastPortableConfig {
+impl Config for GeneralPurposeConfig {
     fn encode_padding(&self) -> bool {
         self.encode_padding
     }
@@ -328,9 +328,9 @@ impl Config for FastPortableConfig {
 ///
 /// This is the standard per the base64 RFC, but consider using [NO_PAD] instead as padding serves
 /// little purpose in practice.
-pub const PAD: FastPortableConfig = FastPortableConfig::new();
+pub const PAD: GeneralPurposeConfig = GeneralPurposeConfig::new();
 
 /// Don't add padding when encoding, and require no padding when decoding.
-pub const NO_PAD: FastPortableConfig = FastPortableConfig::new()
+pub const NO_PAD: GeneralPurposeConfig = GeneralPurposeConfig::new()
     .with_encode_padding(false)
     .with_decode_padding_mode(DecodePaddingMode::RequireNone);
