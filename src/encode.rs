@@ -28,7 +28,7 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 ///
 ///```rust
 ///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::from(
+///    base64::engine::GeneralPurpose::new(
 ///        &base64::alphabet::URL_SAFE,
 ///        base64::engine::general_purpose::NO_PAD);
 ///
@@ -62,7 +62,7 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
 ///
 ///```rust
 ///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::from(
+///    base64::engine::GeneralPurpose::new(
 ///        &base64::alphabet::URL_SAFE,
 ///        base64::engine::general_purpose::NO_PAD);
 ///fn main() {
@@ -90,8 +90,8 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
     let input_bytes = input.as_ref();
 
     {
-        let mut sink = chunked_encoder::StringSink::from(output_buf);
-        let encoder = chunked_encoder::ChunkedEncoder::from(engine);
+        let mut sink = chunked_encoder::StringSink::new(output_buf);
+        let encoder = chunked_encoder::ChunkedEncoder::new(engine);
 
         encoder
             .encode(input_bytes, &mut sink)
@@ -236,7 +236,7 @@ mod tests {
     };
     use std::str;
 
-    const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::from(&URL_SAFE, NO_PAD);
+    const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
 
     #[test]
     fn encoded_size_correct_standard() {
@@ -584,8 +584,8 @@ mod tests {
     #[test]
     fn encode_imap() {
         assert_eq!(
-            encode_engine(b"\xFB\xFF", &GeneralPurpose::from(&IMAP_MUTF7, NO_PAD)),
-            encode_engine(b"\xFB\xFF", &GeneralPurpose::from(&STANDARD, NO_PAD)).replace('/', ",")
+            encode_engine(b"\xFB\xFF", &GeneralPurpose::new(&IMAP_MUTF7, NO_PAD)),
+            encode_engine(b"\xFB\xFF", &GeneralPurpose::new(&STANDARD, NO_PAD)).replace('/', ",")
         );
     }
 }

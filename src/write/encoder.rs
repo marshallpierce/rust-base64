@@ -25,7 +25,7 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 /// use std::io::Write;
 ///
 /// // use a vec as the simplest possible `Write` -- in real code this is probably a file, etc.
-/// let mut enc = base64::write::EncoderWriter::from(
+/// let mut enc = base64::write::EncoderWriter::new(
 ///     Vec::new(),
 ///     &base64::engine::DEFAULT_ENGINE);
 ///
@@ -97,7 +97,7 @@ impl<'e, E: Engine, W: io::Write> fmt::Debug for EncoderWriter<'e, E, W> {
 
 impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
     /// Create a new encoder that will write to the provided delegate writer.
-    pub fn from(delegate: W, engine: &'e E) -> EncoderWriter<'e, E, W> {
+    pub fn new(delegate: W, engine: &'e E) -> EncoderWriter<'e, E, W> {
         EncoderWriter {
             engine,
             delegate: Some(delegate),

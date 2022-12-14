@@ -5,7 +5,7 @@
 //! use base64::engine::DEFAULT_ENGINE;
 //!
 //! let data = vec![0x0, 0x1, 0x2, 0x3];
-//! let wrapper = Base64Display::from(&data, &DEFAULT_ENGINE);
+//! let wrapper = Base64Display::new(&data, &DEFAULT_ENGINE);
 //!
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", wrapper));
 //! ```
@@ -23,10 +23,10 @@ pub struct Base64Display<'a, 'e, E: Engine> {
 
 impl<'a, 'e, E: Engine> Base64Display<'a, 'e, E> {
     /// Create a `Base64Display` with the provided engine.
-    pub fn from(bytes: &'a [u8], engine: &'e E) -> Base64Display<'a, 'e, E> {
+    pub fn new(bytes: &'a [u8], engine: &'e E) -> Base64Display<'a, 'e, E> {
         Base64Display {
             bytes,
-            chunked_encoder: ChunkedEncoder::from(engine),
+            chunked_encoder: ChunkedEncoder::new(engine),
         }
     }
 }
@@ -65,11 +65,11 @@ mod tests {
     fn basic_display() {
         assert_eq!(
             "~$Zm9vYmFy#*",
-            format!("~${}#*", Base64Display::from(b"foobar", &DEFAULT_ENGINE))
+            format!("~${}#*", Base64Display::new(b"foobar", &DEFAULT_ENGINE))
         );
         assert_eq!(
             "~$Zm9vYmFyZg==#*",
-            format!("~${}#*", Base64Display::from(b"foobarf", &DEFAULT_ENGINE))
+            format!("~${}#*", Base64Display::new(b"foobarf", &DEFAULT_ENGINE))
         );
     }
 
@@ -83,7 +83,7 @@ mod tests {
 
     impl SinkTestHelper for DisplaySinkTestHelper {
         fn encode_to_string<E: Engine>(&self, engine: &E, bytes: &[u8]) -> String {
-            format!("{}", Base64Display::from(bytes, engine))
+            format!("{}", Base64Display::new(bytes, engine))
         }
     }
 }

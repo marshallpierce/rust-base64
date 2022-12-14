@@ -28,7 +28,7 @@ impl GeneralPurpose {
     ///
     /// While not very expensive to initialize, ideally these should be cached
     /// if the engine will be used repeatedly.
-    pub const fn from(alphabet: &Alphabet, config: GeneralPurposeConfig) -> Self {
+    pub const fn new(alphabet: &Alphabet, config: GeneralPurposeConfig) -> Self {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
@@ -161,7 +161,7 @@ impl super::Engine for GeneralPurpose {
     }
 
     fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        GeneralPurposeEstimate::from(input_len)
+        GeneralPurposeEstimate::new(input_len)
     }
 
     fn decode(

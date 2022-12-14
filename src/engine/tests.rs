@@ -1205,11 +1205,11 @@ impl EngineWrapper for GeneralPurposeWrapper {
     type Engine = general_purpose::GeneralPurpose;
 
     fn standard() -> Self::Engine {
-        general_purpose::GeneralPurpose::from(&STANDARD, general_purpose::PAD)
+        general_purpose::GeneralPurpose::new(&STANDARD, general_purpose::PAD)
     }
 
     fn standard_unpadded() -> Self::Engine {
-        general_purpose::GeneralPurpose::from(
+        general_purpose::GeneralPurpose::new(
             &STANDARD,
             general_purpose::NO_PAD.with_decode_padding_mode(DecodePaddingMode::RequireNone),
         )
@@ -1219,7 +1219,7 @@ impl EngineWrapper for GeneralPurposeWrapper {
         encode_pad: bool,
         decode_pad_mode: DecodePaddingMode,
     ) -> Self::Engine {
-        general_purpose::GeneralPurpose::from(
+        general_purpose::GeneralPurpose::new(
             &STANDARD,
             general_purpose::GeneralPurposeConfig::new()
                 .with_encode_padding(encode_pad)
@@ -1228,7 +1228,7 @@ impl EngineWrapper for GeneralPurposeWrapper {
     }
 
     fn standard_allow_trailing_bits() -> Self::Engine {
-        general_purpose::GeneralPurpose::from(
+        general_purpose::GeneralPurpose::new(
             &STANDARD,
             general_purpose::GeneralPurposeConfig::new().with_decode_allow_trailing_bits(true),
         )
@@ -1241,7 +1241,7 @@ impl EngineWrapper for GeneralPurposeWrapper {
     }
 
     fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        general_purpose::GeneralPurpose::from(alphabet, random_config(rng))
+        general_purpose::GeneralPurpose::new(alphabet, random_config(rng))
     }
 }
 
@@ -1251,7 +1251,7 @@ impl EngineWrapper for NaiveWrapper {
     type Engine = naive::Naive;
 
     fn standard() -> Self::Engine {
-        naive::Naive::from(
+        naive::Naive::new(
             &STANDARD,
             naive::NaiveConfig {
                 encode_padding: true,
@@ -1262,7 +1262,7 @@ impl EngineWrapper for NaiveWrapper {
     }
 
     fn standard_unpadded() -> Self::Engine {
-        naive::Naive::from(
+        naive::Naive::new(
             &STANDARD,
             naive::NaiveConfig {
                 encode_padding: false,
@@ -1276,7 +1276,7 @@ impl EngineWrapper for NaiveWrapper {
         encode_pad: bool,
         decode_pad_mode: DecodePaddingMode,
     ) -> Self::Engine {
-        naive::Naive::from(
+        naive::Naive::new(
             &STANDARD,
             naive::NaiveConfig {
                 encode_padding: false,
@@ -1287,7 +1287,7 @@ impl EngineWrapper for NaiveWrapper {
     }
 
     fn standard_allow_trailing_bits() -> Self::Engine {
-        naive::Naive::from(
+        naive::Naive::new(
             &STANDARD,
             naive::NaiveConfig {
                 encode_padding: true,
@@ -1316,7 +1316,7 @@ impl EngineWrapper for NaiveWrapper {
             decode_padding_mode: mode,
         };
 
-        naive::Naive::from(alphabet, config)
+        naive::Naive::new(alphabet, config)
     }
 }
 

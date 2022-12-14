@@ -100,7 +100,7 @@ pub trait DecodeEstimate {
 
 /// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
 pub const DEFAULT_ENGINE: GeneralPurpose =
-    GeneralPurpose::from(&alphabet::STANDARD, general_purpose::PAD);
+    GeneralPurpose::new(&alphabet::STANDARD, general_purpose::PAD);
 
 /// Controls how pad bytes are handled when decoding.
 ///

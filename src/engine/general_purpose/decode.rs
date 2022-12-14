@@ -28,7 +28,7 @@ pub struct GeneralPurposeEstimate {
 }
 
 impl GeneralPurposeEstimate {
-    pub(crate) fn from(input_len: usize) -> Self {
+    pub(crate) fn new(input_len: usize) -> Self {
         Self {
             num_chunks: num_chunks(input_len),
         }

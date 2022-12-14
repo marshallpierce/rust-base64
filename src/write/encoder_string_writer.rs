@@ -13,7 +13,7 @@ use std::io;
 /// ```
 /// use std::io::Write;
 ///
-/// let mut enc = base64::write::EncoderStringWriter::from(
+/// let mut enc = base64::write::EncoderStringWriter::new(
 ///     &base64::engine::DEFAULT_ENGINE);
 ///
 /// enc.write_all(b"asdf").unwrap();
@@ -60,7 +60,7 @@ impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
     /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
     pub fn from_consumer(str_consumer: S, engine: &'e E) -> Self {
         EncoderStringWriter {
-            encoder: EncoderWriter::from(Utf8SingleCodeUnitWriter { str_consumer }, engine),
+            encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, engine),
         }
     }
 
@@ -78,7 +78,7 @@ impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
 
 impl<'e, E: Engine> EncoderStringWriter<'e, E, String> {
     /// Create a EncoderStringWriter that will encode into a new `String` with the provided config.
-    pub fn from(engine: &'e E) -> Self {
+    pub fn new(engine: &'e E) -> Self {
         EncoderStringWriter::from_consumer(String::new(), engine)
     }
 }
@@ -164,7 +164,7 @@ mod tests {
             let engine = random_engine(&mut rng);
             encode_engine_string(&orig_data, &mut normal_encoded, &engine);
 
-            let mut stream_encoder = EncoderStringWriter::from(&engine);
+            let mut stream_encoder = EncoderStringWriter::new(&engine);
             // Write the first i bytes, then the rest
             stream_encoder.write_all(&orig_data[0..i]).unwrap();
             stream_encoder.write_all(&orig_data[i..]).unwrap();

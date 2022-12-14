@@ -12,14 +12,14 @@ use crate::{
 
 use super::EncoderWriter;
 
-const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::from(&URL_SAFE, PAD);
-const NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::from(&STANDARD, NO_PAD);
+const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, PAD);
+const NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::new(&STANDARD, NO_PAD);
 
 #[test]
 fn encode_three_bytes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         let sz = enc.write(b"abc").unwrap();
         assert_eq!(sz, 3);
@@ -34,7 +34,7 @@ fn encode_three_bytes() {
 fn encode_nine_bytes_two_writes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         let sz = enc.write(b"abcdef").unwrap();
         assert_eq!(sz, 6);
@@ -51,7 +51,7 @@ fn encode_nine_bytes_two_writes() {
 fn encode_one_then_two_bytes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         let sz = enc.write(b"a").unwrap();
         assert_eq!(sz, 1);
@@ -68,7 +68,7 @@ fn encode_one_then_two_bytes() {
 fn encode_one_then_five_bytes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         let sz = enc.write(b"a").unwrap();
         assert_eq!(sz, 1);
@@ -85,7 +85,7 @@ fn encode_one_then_five_bytes() {
 fn encode_1_2_3_bytes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         let sz = enc.write(b"a").unwrap();
         assert_eq!(sz, 1);
@@ -104,7 +104,7 @@ fn encode_1_2_3_bytes() {
 fn encode_with_padding() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         enc.write_all(b"abcd").unwrap();
 
@@ -120,7 +120,7 @@ fn encode_with_padding() {
 fn encode_with_padding_multiple_writes() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         assert_eq!(1, enc.write(b"a").unwrap());
         assert_eq!(2, enc.write(b"bc").unwrap());
@@ -139,7 +139,7 @@ fn encode_with_padding_multiple_writes() {
 fn finish_writes_extra_byte() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &URL_SAFE_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &URL_SAFE_ENGINE);
 
         assert_eq!(6, enc.write(b"abcdef").unwrap());
 
@@ -159,7 +159,7 @@ fn finish_writes_extra_byte() {
 fn write_partial_chunk_encodes_partial_chunk() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         // nothing encoded yet
         assert_eq!(2, enc.write(b"ab").unwrap());
@@ -177,7 +177,7 @@ fn write_partial_chunk_encodes_partial_chunk() {
 fn write_1_chunk_encodes_complete_chunk() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         assert_eq!(3, enc.write(b"abc").unwrap());
         let _ = enc.finish().unwrap();
@@ -193,7 +193,7 @@ fn write_1_chunk_encodes_complete_chunk() {
 fn write_1_chunk_and_partial_encodes_only_complete_chunk() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         // "d" not consumed since it's not a full chunk
         assert_eq!(3, enc.write(b"abcd").unwrap());
@@ -210,7 +210,7 @@ fn write_1_chunk_and_partial_encodes_only_complete_chunk() {
 fn write_2_partials_to_exactly_complete_chunk_encodes_complete_chunk() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         assert_eq!(1, enc.write(b"a").unwrap());
         assert_eq!(2, enc.write(b"bc").unwrap());
@@ -228,7 +228,7 @@ fn write_partial_then_enough_to_complete_chunk_but_not_complete_another_chunk_en
 ) {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         assert_eq!(1, enc.write(b"a").unwrap());
         // doesn't consume "d"
@@ -246,7 +246,7 @@ fn write_partial_then_enough_to_complete_chunk_but_not_complete_another_chunk_en
 fn write_partial_then_enough_to_complete_chunk_and_another_chunk_encodes_complete_chunks() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         assert_eq!(1, enc.write(b"a").unwrap());
         // completes partial chunk, and another chunk
@@ -265,7 +265,7 @@ fn write_partial_then_enough_to_complete_chunk_and_another_chunk_and_another_par
 ) {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
 
         assert_eq!(1, enc.write(b"a").unwrap());
         // completes partial chunk, and another chunk, with one more partial chunk that's not
@@ -284,7 +284,7 @@ fn write_partial_then_enough_to_complete_chunk_and_another_chunk_and_another_par
 fn drop_calls_finish_for_you() {
     let mut c = Cursor::new(Vec::new());
     {
-        let mut enc = EncoderWriter::from(&mut c, &NO_PAD_ENGINE);
+        let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
         assert_eq!(1, enc.write(b"a").unwrap());
     }
     assert_eq!(
@@ -316,7 +316,7 @@ fn every_possible_split_of_input() {
         encode_engine_string(&orig_data, &mut normal_encoded, &engine);
 
         {
-            let mut stream_encoder = EncoderWriter::from(&mut stream_encoded, &engine);
+            let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, &engine);
             // Write the first i bytes, then the rest
             stream_encoder.write_all(&orig_data[0..i]).unwrap();
             stream_encoder.write_all(&orig_data[i..]).unwrap();
@@ -367,7 +367,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
                 fraction: 0.8,
             };
 
-            let mut stream_encoder = EncoderWriter::from(&mut interrupting_writer, &engine);
+            let mut stream_encoder = EncoderWriter::new(&mut interrupting_writer, &engine);
             let mut bytes_consumed = 0;
             while bytes_consumed < orig_len {
                 // use short inputs since we want to use `extra` a lot as that's what needs rollback
@@ -432,7 +432,7 @@ fn writes_that_only_write_part_of_input_and_sometimes_interrupt_produce_correct_
                 no_interrupt_fraction: 0.1,
             };
 
-            let mut stream_encoder = EncoderWriter::from(&mut partial_writer, &engine);
+            let mut stream_encoder = EncoderWriter::new(&mut partial_writer, &engine);
             let mut bytes_consumed = 0;
             while bytes_consumed < orig_len {
                 // use at most medium-length inputs to exercise retry logic more aggressively
@@ -503,7 +503,7 @@ fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
 
         // encode via the stream encoder
         {
-            let mut stream_encoder = EncoderWriter::from(&mut stream_encoded, &engine);
+            let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, &engine);
             let mut bytes_consumed = 0;
             while bytes_consumed < orig_len {
                 let input_len: usize =

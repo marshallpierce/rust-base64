@@ -89,7 +89,7 @@ fn roundtrip_random_short_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
     for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 10000);
     }
@@ -100,7 +100,7 @@ fn roundtrip_random_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
 
     for input_len in 40..100 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 1000);
@@ -120,7 +120,7 @@ fn roundtrip_decode_trailing_10_bytes() {
         let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
-        let engine = GeneralPurpose::from(&STANDARD, NO_PAD);
+        let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
         let decoded = decode_engine(&s, &engine).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
@@ -139,7 +139,7 @@ fn display_wrapper_matches_normal_encode() {
 
     assert_eq!(
         encode(&bytes),
-        format!("{}", display::Base64Display::from(&bytes, &DEFAULT_ENGINE))
+        format!("{}", display::Base64Display::new(&bytes, &DEFAULT_ENGINE))
     );
 }
 

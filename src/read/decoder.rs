@@ -18,7 +18,7 @@ const DECODED_CHUNK_SIZE: usize = 3;
 ///
 /// // use a cursor as the simplest possible `Read` -- in real code this is probably a file, etc.
 /// let mut wrapped_reader = Cursor::new(b"YXNkZg==");
-/// let mut decoder = base64::read::DecoderReader::from(
+/// let mut decoder = base64::read::DecoderReader::new(
 ///     &mut wrapped_reader,
 ///     &base64::engine::DEFAULT_ENGINE);
 ///
@@ -69,7 +69,7 @@ impl<'e, E: Engine, R: io::Read> fmt::Debug for DecoderReader<'e, E, R> {
 
 impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     /// Create a new decoder that will read from the provided reader `r`.
-    pub fn from(reader: R, engine: &'e E) -> Self {
+    pub fn new(reader: R, engine: &'e E) -> Self {
         DecoderReader {
             engine,
             inner: reader,

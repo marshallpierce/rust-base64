@@ -6,6 +6,8 @@
   make its intended usage more
   clear.
 - `GeneralPurpose` and its config are now `pub use`'d in the `engine` module for convenience.
+- Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion with `From::from`, and is a little bit misleading because some of those invocations are not very cheap as one would usually expect from a `from` call.
+
 
 # 0.20.0
 

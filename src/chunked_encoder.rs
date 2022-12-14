@@ -24,7 +24,7 @@ pub struct ChunkedEncoder<'e, E: Engine> {
 }
 
 impl<'e, E: Engine> ChunkedEncoder<'e, E> {
-    pub fn from(engine: &'e E) -> ChunkedEncoder<'e, E> {
+    pub fn new(engine: &'e E) -> ChunkedEncoder<'e, E> {
         ChunkedEncoder {
             engine,
             max_input_chunk_len: max_input_length(BUF_SIZE, engine.config().encode_padding()),
@@ -88,7 +88,7 @@ pub(crate) struct StringSink<'a> {
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
 impl<'a> StringSink<'a> {
-    pub(crate) fn from(s: &mut String) -> StringSink {
+    pub(crate) fn new(s: &mut String) -> StringSink {
         StringSink { string: s }
     }
 }
@@ -202,9 +202,9 @@ pub mod tests {
     fn chunked_encode_str(bytes: &[u8], config: GeneralPurposeConfig) -> String {
         let mut s = String::new();
 
-        let mut sink = StringSink::from(&mut s);
-        let engine = GeneralPurpose::from(&STANDARD, config);
-        let encoder = ChunkedEncoder::from(&engine);
+        let mut sink = StringSink::new(&mut s);
+        let engine = GeneralPurpose::new(&STANDARD, config);
+        let encoder = ChunkedEncoder::new(&engine);
         encoder.encode(bytes, &mut sink).unwrap();
 
         s
@@ -219,9 +219,9 @@ pub mod tests {
 
     impl SinkTestHelper for StringSinkTestHelper {
         fn encode_to_string<E: Engine>(&self, engine: &E, bytes: &[u8]) -> String {
-            let encoder = ChunkedEncoder::from(engine);
+            let encoder = ChunkedEncoder::new(engine);
             let mut s = String::new();
-            let mut sink = StringSink::from(&mut s);
+            let mut sink = StringSink::new(&mut s);
             encoder.encode(bytes, &mut sink).unwrap();
 
             s

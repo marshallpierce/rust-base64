@@ -60,7 +60,7 @@ fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
 
     b.iter(|| {
         let mut cursor = io::Cursor::new(&encoded[..]);
-        let mut decoder = base64::read::DecoderReader::from(&mut cursor, &DEFAULT_ENGINE);
+        let mut decoder = base64::read::DecoderReader::new(&mut cursor, &DEFAULT_ENGINE);
         decoder.read_to_end(&mut buf).unwrap();
         buf.clear();
         black_box(&buf);
@@ -80,7 +80,7 @@ fn do_encode_bench_display(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
     b.iter(|| {
-        let e = format!("{}", display::Base64Display::from(&v, &DEFAULT_ENGINE));
+        let e = format!("{}", display::Base64Display::new(&v, &DEFAULT_ENGINE));
         black_box(&e);
     });
 }
@@ -114,7 +114,7 @@ fn do_encode_bench_stream(b: &mut Bencher, &size: &usize) {
     buf.reserve(size * 2);
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = write::EncoderWriter::from(&mut buf, &DEFAULT_ENGINE);
+        let mut stream_enc = write::EncoderWriter::new(&mut buf, &DEFAULT_ENGINE);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
     });
@@ -125,7 +125,7 @@ fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
 
     b.iter(|| {
-        let mut stream_enc = write::EncoderStringWriter::from(&DEFAULT_ENGINE);
+        let mut stream_enc = write::EncoderStringWriter::new(&DEFAULT_ENGINE);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
         let _ = stream_enc.into_inner();

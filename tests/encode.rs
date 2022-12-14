@@ -55,9 +55,6 @@ fn encode_all_bytes_url() {
          -AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq\
          -wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy\
          8_T19vf4-fr7_P3-_w==",
-        encode_engine(
-            &bytes,
-            &engine::GeneralPurpose::from(&URL_SAFE, PAD),
-        )
+        encode_engine(&bytes, &engine::GeneralPurpose::new(&URL_SAFE, PAD),)
     );
 }

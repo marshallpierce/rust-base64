@@ -89,7 +89,7 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 ///    // custom engine setup
 ///    let bytes_url = base64::decode_engine(
 ///        "aGVsbG8gaW50ZXJuZXR-Cg",
-///        &base64::engine::GeneralPurpose::from(
+///        &base64::engine::GeneralPurpose::new(
 ///            &base64::alphabet::URL_SAFE,
 ///            base64::engine::general_purpose::NO_PAD),
 ///
@@ -120,7 +120,7 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
 ///
 ///```rust
 ///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::from(
+///    base64::engine::GeneralPurpose::new(
 ///        &base64::alphabet::URL_SAFE,
 ///        base64::engine::general_purpose::PAD);
 ///
@@ -201,7 +201,7 @@ mod tests {
     use crate::{
         alphabet,
         encode::encode_engine_string,
-        engine::{general_purpose, GeneralPurpose, Config},
+        engine::{general_purpose, Config, GeneralPurpose},
         tests::{assert_encode_sanity, random_engine},
     };
     use rand::{
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn decode_engine_estimation_works_for_various_lengths() {
-        let engine = GeneralPurpose::from(&alphabet::STANDARD, general_purpose::NO_PAD);
+        let engine = GeneralPurpose::new(&alphabet::STANDARD, general_purpose::NO_PAD);
         for num_prefix_quads in 0..100 {
             for suffix in &["AA", "AAA", "AAAA"] {
                 let mut prefix = "AAAA".repeat(num_prefix_quads);

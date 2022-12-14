@@ -105,7 +105,7 @@ pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {
 pub fn random_engine<R: Rng>(rng: &mut R) -> GeneralPurpose {
     let alphabet = random_alphabet(rng);
     let config = random_config(rng);
-    GeneralPurpose::from(alphabet, config)
+    GeneralPurpose::new(alphabet, config)
 }
 
 const ALPHABETS: &[alphabet::Alphabet] = &[

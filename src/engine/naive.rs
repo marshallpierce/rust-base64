@@ -20,7 +20,7 @@ impl Naive {
     const ENCODE_INPUT_CHUNK_SIZE: usize = 3;
     const DECODE_INPUT_CHUNK_SIZE: usize = 4;
 
-    pub const fn from(alphabet: &Alphabet, config: NaiveConfig) -> Self {
+    pub const fn new(alphabet: &Alphabet, config: NaiveConfig) -> Self {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
@@ -104,7 +104,7 @@ impl Engine for Naive {
     }
 
     fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        NaiveEstimate::from(input_len)
+        NaiveEstimate::new(input_len)
     }
 
     fn decode(
@@ -117,7 +117,8 @@ impl Engine for Naive {
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
             if let Some(b) = input.last() {
-                if *b != PAD_BYTE && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
+                if *b != PAD_BYTE
+                    && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
                 {
                     return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
@@ -187,7 +188,7 @@ pub struct NaiveEstimate {
 }
 
 impl NaiveEstimate {
-    fn from(input_len: usize) -> Self {
+    fn new(input_len: usize) -> Self {
         let rem = input_len % Naive::DECODE_INPUT_CHUNK_SIZE;
         let complete_chunk_len = input_len - rem;
 
