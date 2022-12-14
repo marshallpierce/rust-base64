@@ -28,7 +28,7 @@ fn roundtrip_random<E: Engine>(
             byte_buf.push(r.gen::<u8>());
         }
 
-        encode_engine_string(&byte_buf, str_buf, engine);
+        engine.encode_string(&byte_buf, str_buf);
         decode_engine_vec(&str_buf, &mut decode_buf, engine).unwrap();
 
         assert_eq!(byte_buf, &decode_buf);
@@ -124,7 +124,7 @@ fn roundtrip_decode_trailing_10_bytes() {
         let decoded = decode_engine(&s, &engine).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
-        assert_eq!(s, encode_engine(&decoded, &engine));
+        assert_eq!(s, engine.encode(&decoded));
     }
 }
 
@@ -138,7 +138,7 @@ fn display_wrapper_matches_normal_encode() {
     bytes.push(255);
 
     assert_eq!(
-        encode(&bytes),
+        DEFAULT_ENGINE.encode(&bytes),
         format!("{}", display::Base64Display::new(&bytes, &DEFAULT_ENGINE))
     );
 }
@@ -154,5 +154,5 @@ fn encode_engine_slice_panics_when_buffer_too_small() {
         *elt = rng.gen();
     }
 
-    encode_engine_slice(input, &mut buf, &DEFAULT_ENGINE);
+    DEFAULT_ENGINE.encode_slice(input, &mut buf);
 }

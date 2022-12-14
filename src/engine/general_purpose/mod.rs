@@ -41,7 +41,7 @@ impl super::Engine for GeneralPurpose {
     type Config = GeneralPurposeConfig;
     type DecodeEstimate = GeneralPurposeEstimate;
 
-    fn encode(&self, input: &[u8], output: &mut [u8]) -> usize {
+    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         let mut input_index: usize = 0;
 
         const BLOCKS_PER_FAST_LOOP: usize = 4;

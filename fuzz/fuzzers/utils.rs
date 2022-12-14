@@ -35,5 +35,5 @@ pub fn random_engine(data: &[u8]) -> general_purpose::GeneralPurpose {
         .with_decode_allow_trailing_bits(rng.gen())
         .with_decode_padding_mode(decode_padding);
 
-    general_purpose::GeneralPurpose::from(&alphabet, config)
+    general_purpose::GeneralPurpose::new(&alphabet, config)
 }

@@ -108,12 +108,15 @@ pub mod read;
 pub mod write;
 
 pub mod engine;
+pub use engine::Engine;
 
 pub mod alphabet;
 
 mod encode;
+#[allow(deprecated)]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::encode::{encode, encode_engine, encode_engine_string};
+#[allow(deprecated)]
 pub use crate::encode::{encode_engine_slice, encoded_len};
 
 mod decode;

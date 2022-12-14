@@ -9,8 +9,7 @@ use rand::{Rng as _, RngCore as _};
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
     decode_engine_vec,
-    encode::encode_engine_string,
-    engine::{GeneralPurpose, DEFAULT_ENGINE},
+    engine::{Engine, GeneralPurpose, DEFAULT_ENGINE},
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
 };
@@ -106,7 +105,7 @@ fn handles_short_read_from_delegate() {
         assert_eq!(size, bytes.len());
 
         let engine = random_engine(&mut rng);
-        encode_engine_string(&bytes[..], &mut b64, &engine);
+        engine.encode_string(&bytes[..], &mut b64);
 
         let mut wrapped_reader = io::Cursor::new(b64.as_bytes());
         let mut short_reader = RandomShortRead {
@@ -144,7 +143,7 @@ fn read_in_short_increments() {
 
         let engine = random_engine(&mut rng);
 
-        encode_engine_string(&bytes[..], &mut b64, &engine);
+        engine.encode_string(&bytes[..], &mut b64);
 
         let mut wrapped_reader = io::Cursor::new(&b64[..]);
         let mut decoder = DecoderReader::new(&mut wrapped_reader, &engine);
@@ -175,7 +174,7 @@ fn read_in_short_increments_with_short_delegate_reads() {
 
         let engine = random_engine(&mut rng);
 
-        encode_engine_string(&bytes[..], &mut b64, &engine);
+        engine.encode_string(&bytes[..], &mut b64);
 
         let mut base_reader = io::Cursor::new(&b64[..]);
         let mut decoder = DecoderReader::new(&mut base_reader, &engine);
@@ -217,7 +216,7 @@ fn reports_invalid_last_symbol_correctly() {
         let alphabet = random_alphabet(&mut rng);
         // changing padding will cause invalid padding errors when we twiddle the last byte
         let engine = GeneralPurpose::new(alphabet, config.with_encode_padding(false));
-        encode_engine_string(&bytes[..], &mut b64, &engine);
+        engine.encode_string(&bytes[..], &mut b64);
         b64_bytes.extend(b64.bytes());
         assert_eq!(b64_bytes.len(), b64.len());
 
@@ -263,7 +262,7 @@ fn reports_invalid_byte_correctly() {
 
         let engine = random_engine(&mut rng);
 
-        encode_engine_string(&bytes[..], &mut b64, &engine);
+        engine.encode_string(&bytes[..], &mut b64);
         // replace one byte, somewhere, with '*', which is invalid
         let bad_byte_pos = rng.gen_range(0..b64.len());
         let mut b64_bytes = b64.bytes().collect::<Vec<u8>>();

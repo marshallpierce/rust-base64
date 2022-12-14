@@ -18,12 +18,12 @@ pub trait Sink {
 const BUF_SIZE: usize = 1024;
 
 /// A base64 encoder that emits encoded bytes in chunks without heap allocation.
-pub struct ChunkedEncoder<'e, E: Engine> {
+pub struct ChunkedEncoder<'e, E: Engine + ?Sized> {
     engine: &'e E,
     max_input_chunk_len: usize,
 }
 
-impl<'e, E: Engine> ChunkedEncoder<'e, E> {
+impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
     pub fn new(engine: &'e E) -> ChunkedEncoder<'e, E> {
         ChunkedEncoder {
             engine,
@@ -41,7 +41,7 @@ impl<'e, E: Engine> ChunkedEncoder<'e, E> {
 
             let chunk = &bytes[input_index..(input_index + input_chunk_len)];
 
-            let mut b64_bytes_written = self.engine.encode(chunk, &mut encode_buf);
+            let mut b64_bytes_written = self.engine.inner_encode(chunk, &mut encode_buf);
 
             input_index += input_chunk_len;
             let more_input_left = input_index < bytes.len();
@@ -111,10 +111,11 @@ pub mod tests {
         Rng, SeedableRng,
     };
 
-    use crate::alphabet::STANDARD;
-    use crate::encode_engine_string;
-    use crate::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, PAD};
-    use crate::tests::random_engine;
+    use crate::{
+        alphabet::STANDARD,
+        engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, PAD},
+        tests::random_engine,
+    };
 
     use super::*;
 
@@ -193,7 +194,7 @@ pub mod tests {
             let engine = random_engine(&mut rng);
 
             let chunk_encoded_string = sink_test_helper.encode_to_string(&engine, &input_buf);
-            encode_engine_string(&input_buf, &mut output_buf, &engine);
+            engine.encode_string(&input_buf, &mut output_buf);
 
             assert_eq!(output_buf, chunk_encoded_string, "input len={}", buf_len);
         }

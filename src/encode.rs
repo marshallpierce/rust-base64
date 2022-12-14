@@ -1,149 +1,57 @@
 #[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::chunked_encoder;
+use alloc::string::String;
+
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::engine::DEFAULT_ENGINE;
 use crate::engine::{Config, Engine};
 use crate::PAD_BYTE;
-#[cfg(any(feature = "alloc", feature = "std", test))]
-use alloc::{string::String, vec};
 
-///Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE).
-///Returns a `String`.
+/// Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE).
 ///
-///# Example
-///
-///```rust
-/// let b64 = base64::encode(b"hello world");
-/// println!("{}", b64);
-///```
+/// See [Engine::encode].
+#[allow(unused)]
+#[deprecated(since = "0.21.0", note = "Use Engine::encode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
-    encode_engine(input, &DEFAULT_ENGINE)
+    DEFAULT_ENGINE.encode(input)
 }
 
-///Encode arbitrary octets as base64 using the provided `Engine`.
-///Returns a `String`.
+///Encode arbitrary octets as base64 using the provided `Engine` into a new `String`.
 ///
-///# Example
-///
-///```rust
-///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::new(
-///        &base64::alphabet::URL_SAFE,
-///        base64::engine::general_purpose::NO_PAD);
-///
-///    let b64 = base64::encode_engine(
-///        b"hello world~",
-///        &base64::engine::DEFAULT_ENGINE
-///        );
-///    println!("{}", b64);
-///
-///    let b64_url = base64::encode_engine(
-///        b"hello internet~",
-///        &URL_SAFE_ENGINE
-///        );
-///    println!("{}", b64_url);
-///```
+/// See [Engine::encode].
+#[allow(unused)]
+#[deprecated(since = "0.21.0", note = "Use Engine::encode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String {
-    let encoded_size = encoded_len(input.as_ref().len(), engine.config().encode_padding())
-        .expect("integer overflow when calculating buffer size");
-    let mut buf = vec![0; encoded_size];
-
-    encode_with_padding(input.as_ref(), &mut buf[..], engine, encoded_size);
-
-    String::from_utf8(buf).expect("Invalid UTF8")
+    engine.encode(input)
 }
 
-///Encode arbitrary octets as base64.
-///Writes into the supplied `String`, which may allocate if its internal buffer isn't big enough.
+///Encode arbitrary octets as base64 into a supplied `String`.
 ///
-///# Example
-///
-///```rust
-///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::new(
-///        &base64::alphabet::URL_SAFE,
-///        base64::engine::general_purpose::NO_PAD);
-///fn main() {
-///    let mut buf = String::new();
-///    base64::encode_engine_string(
-///        b"hello world~",
-///        &mut buf,
-///        &base64::engine::DEFAULT_ENGINE);
-///    println!("{}", buf);
-///
-///    buf.clear();
-///    base64::encode_engine_string(
-///        b"hello internet~",
-///        &mut buf,
-///        &URL_SAFE_ENGINE);
-///    println!("{}", buf);
-///}
-///```
+/// See [Engine::encode_string].
+#[allow(unused)]
+#[deprecated(since = "0.21.0", note = "Use Engine::encode_string")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
     input: T,
     output_buf: &mut String,
     engine: &E,
 ) {
-    let input_bytes = input.as_ref();
-
-    {
-        let mut sink = chunked_encoder::StringSink::new(output_buf);
-        let encoder = chunked_encoder::ChunkedEncoder::new(engine);
-
-        encoder
-            .encode(input_bytes, &mut sink)
-            .expect("Writing to a String shouldn't fail");
-    }
+    engine.encode_string(input, output_buf)
 }
 
-/// Encode arbitrary octets as base64.
-/// Writes into the supplied output buffer.
+/// Encode arbitrary octets as base64 into a supplied slice.
 ///
-/// This is useful if you wish to avoid allocation entirely (e.g. encoding into a stack-resident
-/// or statically-allocated buffer).
-///
-/// # Panics
-///
-/// If `output` is too small to hold the encoded version of `input`, a panic will result.
-///
-/// # Example
-///
-/// ```rust
-/// let s = b"hello internet!";
-/// let mut buf = Vec::new();
-/// // make sure we'll have a slice big enough for base64 + padding
-/// buf.resize(s.len() * 4 / 3 + 4, 0);
-///
-/// let bytes_written = base64::encode_engine_slice(
-///     s,
-///     &mut buf,
-///     &base64::engine::DEFAULT_ENGINE);
-///
-/// // shorten our vec down to just what was written
-/// buf.truncate(bytes_written);
-///
-/// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
-/// ```
+/// See [Engine::encode_slice].
+#[allow(unused)]
+#[deprecated(since = "0.21.0", note = "Use Engine::encode_slice")]
 pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
     output_buf: &mut [u8],
     engine: &E,
 ) -> usize {
-    let input_bytes = input.as_ref();
-
-    let encoded_size = encoded_len(input_bytes.len(), engine.config().encode_padding())
-        .expect("usize overflow when calculating buffer size");
-
-    let b64_output = &mut output_buf[0..encoded_size];
-
-    encode_with_padding(input_bytes, b64_output, engine, encoded_size);
-
-    encoded_size
+    engine.encode_slice(input, output_buf)
 }
-
 /// B64-encode and pad (if configured).
 ///
 /// This helper exists to avoid recalculating encoded_size, which is relatively expensive on short
@@ -154,7 +62,7 @@ pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 /// `output` must be of size `encoded_size`.
 ///
 /// All bytes in `output` will be written to since it is exactly the size of the output.
-fn encode_with_padding<E: Engine>(
+pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
     input: &[u8],
     output: &mut [u8],
     engine: &E,
@@ -162,7 +70,7 @@ fn encode_with_padding<E: Engine>(
 ) {
     debug_assert_eq!(expected_encoded_size, output.len());
 
-    let b64_bytes_written = engine.encode(input, output);
+    let b64_bytes_written = engine.inner_encode(input, output);
 
     let padding_bytes = if engine.config().encode_padding() {
         add_padding(input.len(), &mut output[b64_bytes_written..])
@@ -208,7 +116,7 @@ pub fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
 /// `output` is the slice where padding should be written, of length at least 2.
 ///
 /// Returns the number of padding bytes written.
-pub fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
+pub(crate) fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
     // TODO base on encoded len to use cheaper mod by 4 (aka & 7)
     let rem = input_len % 3;
     let mut bytes_written = 0;
@@ -227,7 +135,10 @@ mod tests {
     use crate::{
         alphabet::{IMAP_MUTF7, STANDARD, URL_SAFE},
         decode::decode_engine_vec,
-        engine::general_purpose::{GeneralPurpose, NO_PAD},
+        engine::{
+            general_purpose::{GeneralPurpose, NO_PAD},
+            DEFAULT_ENGINE,
+        },
         tests::{assert_encode_sanity, random_config, random_engine},
     };
     use rand::{
@@ -328,8 +239,8 @@ mod tests {
             encoded_data_with_prefix.push_str(&prefix);
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut encoded_data_no_prefix, &engine);
-            encode_engine_string(&orig_data, &mut encoded_data_with_prefix, &engine);
+            engine.encode_string(&orig_data, &mut encoded_data_no_prefix);
+            engine.encode_string(&orig_data, &mut encoded_data_with_prefix);
 
             assert_eq!(
                 encoded_data_no_prefix.len() + prefix_len,
@@ -392,7 +303,7 @@ mod tests {
 
             assert_eq!(
                 encoded_size,
-                encode_engine_slice(&orig_data, &mut encoded_data, &engine)
+                engine.encode_slice(&orig_data, &mut encoded_data)
             );
 
             assert_encode_sanity(
@@ -440,7 +351,7 @@ mod tests {
 
             assert_eq!(
                 encoded_size,
-                encode_engine_slice(&orig_data, &mut encoded_data, &engine)
+                engine.encode_slice(&orig_data, &mut encoded_data)
             );
 
             assert_encode_sanity(
@@ -484,7 +395,7 @@ mod tests {
 
             let orig_output_buf = output.clone();
 
-            let bytes_written = engine.encode(&input, &mut output);
+            let bytes_written = engine.inner_encode(&input, &mut output);
 
             // make sure the part beyond bytes_written is the same garbage it was before
             assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
@@ -575,7 +486,7 @@ mod tests {
             bytes.push(rng.gen());
         }
 
-        let encoded = encode_engine(&bytes, engine);
+        let encoded = engine.encode(&bytes);
         assert_encode_sanity(&encoded, padded, input_len);
 
         assert_eq!(enc_len, encoded.len());
@@ -584,8 +495,10 @@ mod tests {
     #[test]
     fn encode_imap() {
         assert_eq!(
-            encode_engine(b"\xFB\xFF", &GeneralPurpose::new(&IMAP_MUTF7, NO_PAD)),
-            encode_engine(b"\xFB\xFF", &GeneralPurpose::new(&STANDARD, NO_PAD)).replace('/', ",")
+            &GeneralPurpose::new(&IMAP_MUTF7, NO_PAD).encode(b"\xFB\xFF"),
+            &GeneralPurpose::new(&STANDARD, NO_PAD)
+                .encode(b"\xFB\xFF")
+                .replace('/', ",")
         );
     }
 }

@@ -10,7 +10,9 @@ use std::{collections, fmt};
 
 use crate::{
     alphabet::{Alphabet, STANDARD},
-    decode_engine, encode, encode_engine_slice,
+    decode_engine,
+    encode::add_padding,
+    encoded_len,
     engine::{general_purpose, naive, Config, DecodePaddingMode, Engine},
     tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, PAD_BYTE,
@@ -47,7 +49,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             let mut encode_buf = [0_u8; 8];
             let mut decode_buf = [0_u8; 6];
 
-            let encode_len = engine_no_padding.encode(orig.as_bytes(), &mut encode_buf[..]);
+            let encode_len = engine_no_padding.inner_encode(orig.as_bytes(), &mut encode_buf[..]);
             assert_eq!(
                 &encoded_without_padding,
                 &std::str::from_utf8(&encode_buf[0..encode_len]).unwrap()
@@ -76,13 +78,13 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             let mut encode_buf = [0_u8; 8];
             let mut decode_buf = [0_u8; 6];
 
-            let encode_len = engine.encode(orig.as_bytes(), &mut encode_buf[..]);
+            let encode_len = engine.inner_encode(orig.as_bytes(), &mut encode_buf[..]);
             assert_eq!(
                 // doesn't have padding added yet
                 &encoded_without_padding,
                 &std::str::from_utf8(&encode_buf[0..encode_len]).unwrap()
             );
-            let pad_len = encode::add_padding(orig.len(), &mut encode_buf[encode_len..]);
+            let pad_len = add_padding(orig.len(), &mut encode_buf[encode_len..]);
             assert_eq!(encoded.as_bytes(), &encode_buf[..encode_len + pad_len]);
 
             let decode_len = engine
@@ -168,9 +170,9 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
         fill_rand_len(&mut encode_buf, &mut rng, prefix_len * 2 + orig_len * 2);
         encode_buf_backup.extend_from_slice(&encode_buf[..]);
 
-        let expected_encode_len_no_pad = encode::encoded_len(orig_len, false).unwrap();
+        let expected_encode_len_no_pad = encoded_len(orig_len, false).unwrap();
 
-        let encoded_len_no_pad = engine.encode(&orig_data[..], &mut encode_buf[prefix_len..]);
+        let encoded_len_no_pad = engine.inner_encode(&orig_data[..], &mut encode_buf[prefix_len..]);
         assert_eq!(expected_encode_len_no_pad, encoded_len_no_pad);
 
         // no writes past what it claimed to write
@@ -190,7 +192,7 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
 
         // pad so we can decode it in case our random engine requires padding
         let pad_len = if padded {
-            encode::add_padding(orig_len, &mut encode_buf[prefix_len + encoded_len_no_pad..])
+            add_padding(orig_len, &mut encode_buf[prefix_len + encoded_len_no_pad..])
         } else {
             0
         };
@@ -232,7 +234,7 @@ where
         let orig_len = fill_rand(&mut orig_data, &mut rng, &len_range);
         encode_buf.resize(orig_len * 2 + 100, 0);
 
-        let encoded_len = encode_engine_slice(&orig_data[..], &mut encode_buf[..], &engine);
+        let encoded_len = engine.encode_slice(&orig_data[..], &mut encode_buf[..]);
         encode_buf.truncate(encoded_len);
 
         // oversize decode buffer so we can easily tell if it writes anything more than
@@ -334,8 +336,8 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
 
     for b in 0_u8..=255 {
         let mut b64 = vec![0_u8; 4];
-        assert_eq!(2, engine.encode(&[b], &mut b64[..]));
-        let _ = encode::add_padding(1, &mut b64[2..]);
+        assert_eq!(2, engine.inner_encode(&[b], &mut b64[..]));
+        let _ = add_padding(1, &mut b64[2..]);
 
         assert!(base64_to_bytes.insert(b64, vec![b]).is_none());
     }
@@ -394,8 +396,8 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
         for b2 in 0_u8..=255 {
             bytes[1] = b2;
             let mut b64 = vec![0_u8; 4];
-            assert_eq!(3, engine.encode(&bytes, &mut b64[..]));
-            let _ = encode::add_padding(2, &mut b64[3..]);
+            assert_eq!(3, engine.inner_encode(&bytes, &mut b64[..]));
+            let _ = add_padding(2, &mut b64[3..]);
 
             let mut v = Vec::with_capacity(2);
             v.extend_from_slice(&bytes[..]);
@@ -1125,13 +1127,13 @@ fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distributions::Distr
     let padding: bool = engine.config().encode_padding();
 
     let orig_len = fill_rand(orig_data, rng, length_distribution);
-    let expected_encoded_len = encode::encoded_len(orig_len, padding).unwrap();
+    let expected_encoded_len = encoded_len(orig_len, padding).unwrap();
     encode_buf.resize(expected_encoded_len, 0);
 
-    let base_encoded_len = engine.encode(&orig_data[..], &mut encode_buf[..]);
+    let base_encoded_len = engine.inner_encode(&orig_data[..], &mut encode_buf[..]);
 
     let enc_len_with_padding = if padding {
-        base_encoded_len + encode::add_padding(orig_len, &mut encode_buf[base_encoded_len..])
+        base_encoded_len + add_padding(orig_len, &mut encode_buf[base_encoded_len..])
     } else {
         base_encoded_len
     };

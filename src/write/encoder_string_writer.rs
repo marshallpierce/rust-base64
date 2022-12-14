@@ -139,9 +139,9 @@ impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::encode_engine_string;
-    use crate::tests::random_engine;
-    use crate::write::encoder_string_writer::EncoderStringWriter;
+    use crate::{
+        engine::Engine, tests::random_engine, write::encoder_string_writer::EncoderStringWriter,
+    };
     use rand::Rng;
     use std::io::Write;
 
@@ -162,7 +162,7 @@ mod tests {
             }
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+            engine.encode_string(&orig_data, &mut normal_encoded);
 
             let mut stream_encoder = EncoderStringWriter::new(&engine);
             // Write the first i bytes, then the rest

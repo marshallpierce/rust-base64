@@ -10,7 +10,6 @@ use rand::{
 use crate::{
     alphabet, decode_engine,
     encode::encoded_len,
-    encode_engine_string,
     engine::{
         general_purpose::{GeneralPurpose, GeneralPurposeConfig},
         Config, DecodePaddingMode, Engine,
@@ -68,7 +67,7 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
             input_buf.push(rng.gen());
         }
 
-        encode_engine_string(&input_buf, &mut encoded_buf, &engine);
+        engine.encode_string(&input_buf, &mut encoded_buf);
 
         assert_encode_sanity(&encoded_buf, engine.config().encode_padding(), input_len);
 

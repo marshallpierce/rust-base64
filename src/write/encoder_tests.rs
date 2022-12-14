@@ -5,8 +5,10 @@ use rand::Rng;
 
 use crate::{
     alphabet::{STANDARD, URL_SAFE},
-    encode_engine, encode_engine_string,
-    engine::general_purpose::{GeneralPurpose, NO_PAD, PAD},
+    engine::{
+        general_purpose::{GeneralPurpose, NO_PAD, PAD},
+        Engine,
+    },
     tests::random_engine,
 };
 
@@ -24,10 +26,7 @@ fn encode_three_bytes() {
         let sz = enc.write(b"abc").unwrap();
         assert_eq!(sz, 3);
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &URL_SAFE_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], URL_SAFE_ENGINE.encode("abc").as_bytes());
 }
 
 #[test]
@@ -43,7 +42,7 @@ fn encode_nine_bytes_two_writes() {
     }
     assert_eq!(
         &c.get_ref()[..],
-        encode_engine("abcdefghi", &URL_SAFE_ENGINE).as_bytes()
+        URL_SAFE_ENGINE.encode("abcdefghi").as_bytes()
     );
 }
 
@@ -58,10 +57,7 @@ fn encode_one_then_two_bytes() {
         let sz = enc.write(b"bc").unwrap();
         assert_eq!(sz, 2);
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &URL_SAFE_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], URL_SAFE_ENGINE.encode("abc").as_bytes());
 }
 
 #[test]
@@ -77,7 +73,7 @@ fn encode_one_then_five_bytes() {
     }
     assert_eq!(
         &c.get_ref()[..],
-        encode_engine("abcdef", &URL_SAFE_ENGINE).as_bytes()
+        URL_SAFE_ENGINE.encode("abcdef").as_bytes()
     );
 }
 
@@ -96,7 +92,7 @@ fn encode_1_2_3_bytes() {
     }
     assert_eq!(
         &c.get_ref()[..],
-        encode_engine("abcdef", &URL_SAFE_ENGINE).as_bytes()
+        URL_SAFE_ENGINE.encode("abcdef").as_bytes()
     );
 }
 
@@ -110,10 +106,7 @@ fn encode_with_padding() {
 
         enc.flush().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abcd", &URL_SAFE_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], URL_SAFE_ENGINE.encode("abcd").as_bytes());
 }
 
 #[test]
@@ -131,7 +124,7 @@ fn encode_with_padding_multiple_writes() {
     }
     assert_eq!(
         &c.get_ref()[..],
-        encode_engine("abcdefg", &URL_SAFE_ENGINE).as_bytes()
+        URL_SAFE_ENGINE.encode("abcdefg").as_bytes()
     );
 }
 
@@ -151,7 +144,7 @@ fn finish_writes_extra_byte() {
     }
     assert_eq!(
         &c.get_ref()[..],
-        encode_engine("abcdefg", &URL_SAFE_ENGINE).as_bytes()
+        URL_SAFE_ENGINE.encode("abcdefg").as_bytes()
     );
 }
 
@@ -166,10 +159,7 @@ fn write_partial_chunk_encodes_partial_chunk() {
         // encoded here
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("ab", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("ab").as_bytes());
     assert_eq!(3, c.get_ref().len());
 }
 
@@ -182,10 +172,7 @@ fn write_1_chunk_encodes_complete_chunk() {
         assert_eq!(3, enc.write(b"abc").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abc").as_bytes());
     assert_eq!(4, c.get_ref().len());
 }
 
@@ -199,10 +186,7 @@ fn write_1_chunk_and_partial_encodes_only_complete_chunk() {
         assert_eq!(3, enc.write(b"abcd").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abc").as_bytes());
     assert_eq!(4, c.get_ref().len());
 }
 
@@ -216,10 +200,7 @@ fn write_2_partials_to_exactly_complete_chunk_encodes_complete_chunk() {
         assert_eq!(2, enc.write(b"bc").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abc").as_bytes());
     assert_eq!(4, c.get_ref().len());
 }
 
@@ -235,10 +216,7 @@ fn write_partial_then_enough_to_complete_chunk_but_not_complete_another_chunk_en
         assert_eq!(2, enc.write(b"bcd").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abc", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abc").as_bytes());
     assert_eq!(4, c.get_ref().len());
 }
 
@@ -253,10 +231,7 @@ fn write_partial_then_enough_to_complete_chunk_and_another_chunk_encodes_complet
         assert_eq!(5, enc.write(b"bcdef").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abcdef", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abcdef").as_bytes());
     assert_eq!(8, c.get_ref().len());
 }
 
@@ -273,10 +248,7 @@ fn write_partial_then_enough_to_complete_chunk_and_another_chunk_and_another_par
         assert_eq!(5, enc.write(b"bcdefe").unwrap());
         let _ = enc.finish().unwrap();
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("abcdef", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("abcdef").as_bytes());
     assert_eq!(8, c.get_ref().len());
 }
 
@@ -287,10 +259,7 @@ fn drop_calls_finish_for_you() {
         let mut enc = EncoderWriter::new(&mut c, &NO_PAD_ENGINE);
         assert_eq!(1, enc.write(b"a").unwrap());
     }
-    assert_eq!(
-        &c.get_ref()[..],
-        encode_engine("a", &NO_PAD_ENGINE).as_bytes()
-    );
+    assert_eq!(&c.get_ref()[..], NO_PAD_ENGINE.encode("a").as_bytes());
     assert_eq!(2, c.get_ref().len());
 }
 
@@ -313,7 +282,7 @@ fn every_possible_split_of_input() {
         }
 
         let engine = random_engine(&mut rng);
-        encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+        engine.encode_string(&orig_data, &mut normal_encoded);
 
         {
             let mut stream_encoder = EncoderWriter::new(&mut stream_encoded, &engine);
@@ -356,7 +325,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
 
         // encode the normal way
         let engine = random_engine(&mut rng);
-        encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+        engine.encode_string(&orig_data, &mut normal_encoded);
 
         // encode via the stream encoder
         {
@@ -420,7 +389,7 @@ fn writes_that_only_write_part_of_input_and_sometimes_interrupt_produce_correct_
 
         // encode the normal way
         let engine = random_engine(&mut rng);
-        encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+        engine.encode_string(&orig_data, &mut normal_encoded);
 
         // encode via the stream encoder
         {
@@ -499,7 +468,7 @@ fn do_encode_random_config_matches_normal_encode(max_input_len: usize) {
 
         // encode the normal way
         let engine = random_engine(&mut rng);
-        encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+        engine.encode_string(&orig_data, &mut normal_encoded);
 
         // encode via the stream encoder
         {

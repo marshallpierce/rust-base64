@@ -43,7 +43,7 @@ impl Engine for Naive {
     type Config = NaiveConfig;
     type DecodeEstimate = NaiveEstimate;
 
-    fn encode(&self, input: &[u8], output: &mut [u8]) -> usize {
+    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         // complete chunks first
 
         const LOW_SIX_BITS: u32 = 0x3F;

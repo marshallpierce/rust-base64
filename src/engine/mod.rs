@@ -1,5 +1,10 @@
 //! Provides the [Engine] abstraction and out of the box implementations.
-use crate::{alphabet, DecodeError};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use crate::chunked_encoder;
+use crate::{alphabet, encode::encode_with_padding, encoded_len, DecodeError};
+
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use alloc::{string::String, vec};
 
 pub mod general_purpose;
 
@@ -30,6 +35,8 @@ pub trait Engine: Send + Sync {
     /// The decode estimate used by this engine
     type DecodeEstimate: DecodeEstimate;
 
+    /// This is not meant to be called directly. See the other `encode*` functions on this trait.
+    ///
     /// Encode the `input` bytes into the `output` buffer based on the mapping in `encode_table`.
     ///
     /// `output` will be long enough to hold the encoded data.
@@ -39,7 +46,7 @@ pub trait Engine: Send + Sync {
     /// No padding should be written; that is handled separately.
     ///
     /// Must not write any bytes into the output slice other than the encoded data.
-    fn encode(&self, input: &[u8], output: &mut [u8]) -> usize;
+    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize;
 
     /// As an optimization to prevent the decoded length from being calculated twice, it is
     /// sometimes helpful to have a conservative estimate of the decoded size before doing the
@@ -72,6 +79,106 @@ pub trait Engine: Send + Sync {
 
     /// Returns the config for this engine.
     fn config(&self) -> &Self::Config;
+
+    ///Encode arbitrary octets as base64 using the provided `Engine`.
+    ///Returns a `String`.
+    ///
+    ///# Example
+    ///
+    ///```rust
+    ///use base64::Engine as _;
+    ///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
+    ///    base64::engine::GeneralPurpose::new(
+    ///        &base64::alphabet::URL_SAFE,
+    ///        base64::engine::general_purpose::NO_PAD);
+    ///
+    ///    let b64 = base64::engine::DEFAULT_ENGINE.encode(b"hello world~");
+    ///    println!("{}", b64);
+    ///
+    ///    //////let b64_url = URL_SAFE_ENGINE.encode(b"hello internet~");
+    #[cfg(any(feature = "alloc", feature = "std", test))]
+    fn encode<T: AsRef<[u8]>>(&self, input: T) -> String {
+        let encoded_size = encoded_len(input.as_ref().len(), self.config().encode_padding())
+            .expect("integer overflow when calculating buffer size");
+        let mut buf = vec![0; encoded_size];
+
+        encode_with_padding(input.as_ref(), &mut buf[..], self, encoded_size);
+
+        String::from_utf8(buf).expect("Invalid UTF8")
+    }
+
+    ///Encode arbitrary octets as base64 into a supplied `String`.
+    ///Writes into the supplied `String`, which may allocate if its internal buffer isn't big enough.
+    ///
+    ///# Example
+    ///
+    ///```rust
+    ///use base64::Engine as _;
+    ///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
+    ///    base64::engine::GeneralPurpose::new(
+    ///        &base64::alphabet::URL_SAFE,
+    ///        base64::engine::general_purpose::NO_PAD);
+    ///fn main() {
+    ///    let mut buf = String::new();
+    ///    base64::engine::DEFAULT_ENGINE.encode_string(b"hello world~", &mut buf);
+    ///    println!("{}", buf);
+    ///
+    ///    buf.clear();
+    ///    URL_SAFE_ENGINE.encode_string(b"hello internet~", &mut buf);
+    ///    println!("{}", buf);
+    ///}
+    ///```
+    #[cfg(any(feature = "alloc", feature = "std", test))]
+    fn encode_string<T: AsRef<[u8]>>(&self, input: T, output_buf: &mut String) {
+        let input_bytes = input.as_ref();
+
+        {
+            let mut sink = chunked_encoder::StringSink::new(output_buf);
+
+            chunked_encoder::ChunkedEncoder::new(self)
+                .encode(input_bytes, &mut sink)
+                .expect("Writing to a String shouldn't fail");
+        }
+    }
+
+    /// Encode arbitrary octets as base64 into a supplied slice.
+    /// Writes into the supplied output buffer.
+    ///
+    /// This is useful if you wish to avoid allocation entirely (e.g. encoding into a stack-resident
+    /// or statically-allocated buffer).
+    ///
+    /// # Panics
+    ///
+    /// If `output` is too small to hold the encoded version of `input`, a panic will result.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use base64::Engine as _;
+    /// let s = b"hello internet!";
+    /// let mut buf = Vec::new();
+    /// // make sure we'll have a slice big enough for base64 + padding
+    /// buf.resize(s.len() * 4 / 3 + 4, 0);
+    ///
+    /// let bytes_written = base64::engine::DEFAULT_ENGINE.encode_slice(s, &mut buf);
+    ///
+    /// // shorten our vec down to just what was written
+    /// buf.truncate(bytes_written);
+    ///
+    /// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
+    /// ```
+    fn encode_slice<T: AsRef<[u8]>>(&self, input: T, output_buf: &mut [u8]) -> usize {
+        let input_bytes = input.as_ref();
+
+        let encoded_size = encoded_len(input_bytes.len(), self.config().encode_padding())
+            .expect("usize overflow when calculating buffer size");
+
+        let b64_output = &mut output_buf[0..encoded_size];
+
+        encode_with_padding(input_bytes, b64_output, self, encoded_size);
+
+        encoded_size
+    }
 }
 
 /// The minimal level of configuration that engines must support.

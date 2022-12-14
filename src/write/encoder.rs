@@ -1,4 +1,3 @@
-use crate::encode_engine_slice;
 use crate::engine::Engine;
 use std::{
     cmp, fmt, io,
@@ -150,10 +149,9 @@ impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
         self.write_all_encoded_output()?;
 
         if self.extra_input_occupied_len > 0 {
-            let encoded_len = encode_engine_slice(
+            let encoded_len = self.engine.encode_slice(
                 &self.extra_input[..self.extra_input_occupied_len],
                 &mut self.output[..],
-                self.engine,
             );
 
             self.output_occupied_len = encoded_len;
@@ -314,7 +312,7 @@ impl<'e, E: Engine, W: io::Write> io::Write for EncoderWriter<'e, E, W> {
                 self.extra_input[self.extra_input_occupied_len..MIN_ENCODE_CHUNK_SIZE]
                     .copy_from_slice(&input[0..extra_input_read_len]);
 
-                let len = self.engine.encode(
+                let len = self.engine.inner_encode(
                     &self.extra_input[0..MIN_ENCODE_CHUNK_SIZE],
                     &mut self.output[..],
                 );
@@ -362,7 +360,7 @@ impl<'e, E: Engine, W: io::Write> io::Write for EncoderWriter<'e, E, W> {
         debug_assert_eq!(0, max_input_len % MIN_ENCODE_CHUNK_SIZE);
         debug_assert_eq!(0, input_chunks_to_encode_len % MIN_ENCODE_CHUNK_SIZE);
 
-        encoded_size += self.engine.encode(
+        encoded_size += self.engine.inner_encode(
             &input[..(input_chunks_to_encode_len)],
             &mut self.output[encoded_size..],
         );

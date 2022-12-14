@@ -1,13 +1,11 @@
 #[macro_use]
 extern crate criterion;
 
-use base64::display;
 use base64::{
-    decode, decode_engine_slice, decode_engine_vec, encode, encode_engine_slice,
-    encode_engine_string, write,
+    decode, decode_engine_slice, decode_engine_vec, display,
+    engine::{Engine, DEFAULT_ENGINE},
+    write,
 };
-
-use base64::engine::DEFAULT_ENGINE;
 use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
 use std::io::{self, Read, Write};
@@ -15,7 +13,7 @@ use std::io::{self, Read, Write};
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = DEFAULT_ENGINE.encode(&v);
 
     b.iter(|| {
         let orig = decode(&encoded);
@@ -26,7 +24,7 @@ fn do_decode_bench(b: &mut Bencher, &size: &usize) {
 fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = DEFAULT_ENGINE.encode(&v);
 
     let mut buf = Vec::new();
     b.iter(|| {
@@ -39,7 +37,7 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
 fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = DEFAULT_ENGINE.encode(&v);
 
     let mut buf = Vec::new();
     buf.resize(size, 0);
@@ -52,7 +50,7 @@ fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
 fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
-    let encoded = encode(&v);
+    let encoded = DEFAULT_ENGINE.encode(&v);
 
     let mut buf = Vec::new();
     buf.resize(size, 0);
@@ -71,7 +69,7 @@ fn do_encode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
     b.iter(|| {
-        let e = encode(&v);
+        let e = DEFAULT_ENGINE.encode(&v);
         black_box(&e);
     });
 }
@@ -90,7 +88,7 @@ fn do_encode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
     let mut buf = String::new();
     b.iter(|| {
-        encode_engine_string(&v, &mut buf, &DEFAULT_ENGINE);
+        DEFAULT_ENGINE.encode_string(&v, &mut buf);
         buf.clear();
     });
 }
@@ -102,7 +100,7 @@ fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
     // conservative estimate of encoded size
     buf.resize(v.len() * 2, 0);
     b.iter(|| {
-        encode_engine_slice(&v, &mut buf, &DEFAULT_ENGINE);
+        DEFAULT_ENGINE.encode_slice(&v, &mut buf);
     });
 }
 

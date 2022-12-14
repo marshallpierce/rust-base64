@@ -200,7 +200,6 @@ mod tests {
     use super::*;
     use crate::{
         alphabet,
-        encode::encode_engine_string,
         engine::{general_purpose, Config, GeneralPurpose},
         tests::{assert_encode_sanity, random_engine},
     };
@@ -236,7 +235,7 @@ mod tests {
             }
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut encoded_data, &engine);
+            engine.encode_string(&orig_data, &mut encoded_data);
             assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
 
             let prefix_len = prefix_len_range.sample(&mut rng);
@@ -291,7 +290,7 @@ mod tests {
             }
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut encoded_data, &engine);
+            engine.encode_string(&orig_data, &mut encoded_data);
             assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
 
             // fill the buffer with random garbage, long enough to have some room before and after
@@ -342,7 +341,7 @@ mod tests {
             }
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut encoded_data, &engine);
+            engine.encode_string(&orig_data, &mut encoded_data);
             assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
 
             decode_buf.resize(input_len, 0);
