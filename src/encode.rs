@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn encoded_size_overflow() {
-        assert_eq!(None, encoded_len(std::usize::MAX, true));
+        assert_eq!(None, encoded_len(usize::MAX, true));
     }
 
     #[test]
@@ -396,7 +396,7 @@ mod tests {
             );
 
             assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
                 engine.config().encode_padding(),
                 input_len,
             );
@@ -444,7 +444,7 @@ mod tests {
             );
 
             assert_encode_sanity(
-                std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+                str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
                 engine.config().encode_padding(),
                 input_len,
             );

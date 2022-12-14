@@ -1,7 +1,10 @@
-use std::io::{self, Read};
+use std::{
+    cmp,
+    io::{self, Read as _},
+    iter,
+};
 
-use rand::{Rng, RngCore};
-use std::{cmp, iter};
+use rand::{Rng as _, RngCore as _};
 
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
@@ -295,7 +298,7 @@ fn reports_invalid_byte_correctly() {
     }
 }
 
-fn consume_with_short_reads_and_validate<R: Read>(
+fn consume_with_short_reads_and_validate<R: io::Read>(
     rng: &mut rand::rngs::ThreadRng,
     expected_bytes: &[u8],
     decoded: &mut [u8],

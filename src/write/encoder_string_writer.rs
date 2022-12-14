@@ -1,7 +1,6 @@
 use super::encoder::EncoderWriter;
 use crate::engine::Engine;
 use std::io;
-use std::io::Write;
 
 /// A `Write` implementation that base64-encodes data using the provided config and accumulates the
 /// resulting base64 utf8 `&str` in a [StrConsumer] implementation (typically `String`), which is
@@ -84,7 +83,7 @@ impl<'e, E: Engine> EncoderStringWriter<'e, E, String> {
     }
 }
 
-impl<'e, E: Engine, S: StrConsumer> Write for EncoderStringWriter<'e, E, S> {
+impl<'e, E: Engine, S: StrConsumer> io::Write for EncoderStringWriter<'e, E, S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
