@@ -10,6 +10,6 @@ fuzz_target!(|data: &[u8]| {
     let engine = utils::random_engine(data);
 
     let encoded = engine.encode(data);
-    let decoded = decode_engine(&encoded, &engine).unwrap();
+    let decoded = engine.decode(&encoded).unwrap();
     assert_eq!(data, decoded.as_slice());
 });

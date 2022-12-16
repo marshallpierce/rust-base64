@@ -2,7 +2,7 @@
 extern crate criterion;
 
 use base64::{
-    decode, decode_engine_slice, decode_engine_vec, display,
+    display,
     engine::{Engine, DEFAULT_ENGINE},
     write,
 };
@@ -16,7 +16,7 @@ fn do_decode_bench(b: &mut Bencher, &size: &usize) {
     let encoded = DEFAULT_ENGINE.encode(&v);
 
     b.iter(|| {
-        let orig = decode(&encoded);
+        let orig = DEFAULT_ENGINE.decode(&encoded);
         black_box(&orig);
     });
 }
@@ -28,7 +28,7 @@ fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
 
     let mut buf = Vec::new();
     b.iter(|| {
-        decode_engine_vec(&encoded, &mut buf, &DEFAULT_ENGINE).unwrap();
+        DEFAULT_ENGINE.decode_vec(&encoded, &mut buf).unwrap();
         black_box(&buf);
         buf.clear();
     });
@@ -42,7 +42,7 @@ fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
     let mut buf = Vec::new();
     buf.resize(size, 0);
     b.iter(|| {
-        decode_engine_slice(&encoded, &mut buf, &DEFAULT_ENGINE).unwrap();
+        DEFAULT_ENGINE.decode_slice(&encoded, &mut buf).unwrap();
         black_box(&buf);
     });
 }

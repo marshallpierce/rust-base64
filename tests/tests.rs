@@ -29,7 +29,7 @@ fn roundtrip_random<E: Engine>(
         }
 
         engine.encode_string(&byte_buf, str_buf);
-        decode_engine_vec(&str_buf, &mut decode_buf, engine).unwrap();
+        engine.decode_vec(&str_buf, &mut decode_buf).unwrap();
 
         assert_eq!(byte_buf, &decode_buf);
     }
@@ -121,7 +121,7 @@ fn roundtrip_decode_trailing_10_bytes() {
         s.push_str("EFGHIJKLZg");
 
         let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
-        let decoded = decode_engine(&s, &engine).unwrap();
+        let decoded = engine.decode(&s).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
         assert_eq!(s, engine.encode(&decoded));

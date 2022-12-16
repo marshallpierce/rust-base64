@@ -164,7 +164,7 @@ impl super::Engine for GeneralPurpose {
         GeneralPurposeEstimate::new(input_len)
     }
 
-    fn decode(
+    fn inner_decode(
         &self,
         input: &[u8],
         output: &mut [u8],

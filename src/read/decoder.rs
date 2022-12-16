@@ -1,4 +1,4 @@
-use crate::{decode_engine_slice, engine::Engine, DecodeError};
+use crate::{engine::Engine, DecodeError};
 use std::{cmp, fmt, io};
 
 // This should be large, but it has to fit on the stack.
@@ -131,22 +131,23 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
         debug_assert!(!buf.is_empty());
 
-        let decoded = decode_engine_slice(
-            &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
-            buf,
-            self.engine,
-        )
-        .map_err(|e| match e {
-            DecodeError::InvalidByte(offset, byte) => {
-                DecodeError::InvalidByte(self.total_b64_decoded + offset, byte)
-            }
-            DecodeError::InvalidLength => DecodeError::InvalidLength,
-            DecodeError::InvalidLastSymbol(offset, byte) => {
-                DecodeError::InvalidLastSymbol(self.total_b64_decoded + offset, byte)
-            }
-            DecodeError::InvalidPadding => DecodeError::InvalidPadding,
-        })
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let decoded = self
+            .engine
+            .decode_slice(
+                &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
+                buf,
+            )
+            .map_err(|e| match e {
+                DecodeError::InvalidByte(offset, byte) => {
+                    DecodeError::InvalidByte(self.total_b64_decoded + offset, byte)
+                }
+                DecodeError::InvalidLength => DecodeError::InvalidLength,
+                DecodeError::InvalidLastSymbol(offset, byte) => {
+                    DecodeError::InvalidLastSymbol(self.total_b64_decoded + offset, byte)
+                }
+                DecodeError::InvalidPadding => DecodeError::InvalidPadding,
+            })
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         self.total_b64_decoded += num_bytes;
         self.b64_offset += num_bytes;

@@ -107,7 +107,7 @@ impl Engine for Naive {
         NaiveEstimate::new(input_len)
     }
 
-    fn decode(
+    fn inner_decode(
         &self,
         input: &[u8],
         output: &mut [u8],

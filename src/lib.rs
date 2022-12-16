@@ -120,8 +120,10 @@ pub use crate::encode::{encode, encode_engine, encode_engine_string};
 pub use crate::encode::{encode_engine_slice, encoded_len};
 
 mod decode;
+#[allow(deprecated)]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
+#[allow(deprecated)]
 pub use crate::decode::{decode_engine_slice, DecodeError};
 
 #[cfg(test)]

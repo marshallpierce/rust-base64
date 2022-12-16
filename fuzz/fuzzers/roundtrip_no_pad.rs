@@ -12,6 +12,6 @@ fuzz_target!(|data: &[u8]| {
     let engine = general_purpose::GeneralPurpose::new(&base64::alphabet::STANDARD, config);
 
     let encoded = engine.encode(data);
-    let decoded = base64::decode_engine(&encoded, &engine).unwrap();
+    let decoded = engine.decode(&encoded).unwrap();
     assert_eq!(data, decoded.as_slice());
 });

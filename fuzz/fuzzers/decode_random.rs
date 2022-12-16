@@ -11,5 +11,5 @@ fuzz_target!(|data: &[u8]| {
 
     // The data probably isn't valid base64 input, but as long as it returns an error instead
     // of crashing, that's correct behavior.
-    let _ = decode_engine(data, &engine);
+    let _ = engine.decode(data);
 });

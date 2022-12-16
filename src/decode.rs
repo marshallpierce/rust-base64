@@ -1,5 +1,3 @@
-#[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::engine::DecodeEstimate;
 use crate::engine::Engine;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::engine::DEFAULT_ENGINE;
@@ -61,138 +59,50 @@ impl error::Error for DecodeError {
 }
 
 ///Decode base64 using the [default engine](DEFAULT_ENGINE).
-///Returns a `Result` containing a `Vec<u8>`.
 ///
-///# Example
-///
-///```rust
-/// let bytes = base64::decode("aGVsbG8gd29ybGQ=").unwrap();
-/// println!("{:?}", bytes);
-///```
+/// See [Engine::decode].
+#[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
-    decode_engine(input, &DEFAULT_ENGINE)
+    DEFAULT_ENGINE.decode(input)
 }
 
 ///Decode from string reference as octets using the specified [Engine].
+///
+/// See [Engine::decode].
 ///Returns a `Result` containing a `Vec<u8>`.
-///
-///# Example
-///
-///```rust
-///    let bytes = base64::decode_engine(
-///        "aGVsbG8gd29ybGR+Cg==",
-///        &base64::engine::DEFAULT_ENGINE,
-///    ).unwrap();
-///    println!("{:?}", bytes);
-///
-///    // custom engine setup
-///    let bytes_url = base64::decode_engine(
-///        "aGVsbG8gaW50ZXJuZXR-Cg",
-///        &base64::engine::GeneralPurpose::new(
-///            &base64::alphabet::URL_SAFE,
-///            base64::engine::general_purpose::NO_PAD),
-///
-///    ).unwrap();
-///    println!("{:?}", bytes_url);
-///```
+#[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
     input: T,
     engine: &E,
 ) -> Result<Vec<u8>, DecodeError> {
-    let decoded_length_estimate = (input
-        .as_ref()
-        .len()
-        .checked_add(3)
-        .expect("decoded length calculation overflow"))
-        / 4
-        * 3;
-    let mut buffer = Vec::<u8>::with_capacity(decoded_length_estimate);
-    decode_engine_vec(input, &mut buffer, engine).map(|_| buffer)
+    engine.decode(input)
 }
 
-///Decode from string reference as octets.
-///Writes into the supplied `Vec`, which may allocate if its internal buffer isn't big enough.
-///Returns a `Result` containing an empty tuple, aka `()`.
+/// Decode from string reference as octets.
 ///
-///# Example
-///
-///```rust
-///const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-///    base64::engine::GeneralPurpose::new(
-///        &base64::alphabet::URL_SAFE,
-///        base64::engine::general_purpose::PAD);
-///
-///fn main() {
-///    let mut buffer = Vec::<u8>::new();
-///    // with the default engine
-///    base64::decode_engine_vec(
-///        "aGVsbG8gd29ybGR+Cg==",
-///        &mut buffer,
-///        &base64::engine::DEFAULT_ENGINE
-///    ).unwrap();
-///    println!("{:?}", buffer);
-///
-///    buffer.clear();
-///
-///    // with a custom engine
-///    base64::decode_engine_vec(
-///        "aGVsbG8gaW50ZXJuZXR-Cg==",
-///        &mut buffer,
-///        &URL_SAFE_ENGINE
-///    ).unwrap();
-///    println!("{:?}", buffer);
-///}
-///```
+/// See [Engine::decode_vec].
 #[cfg(any(feature = "alloc", feature = "std", test))]
+#[deprecated(since = "0.21.0", note = "Use Engine::decode_vec")]
 pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
     input: T,
     buffer: &mut Vec<u8>,
     engine: &E,
 ) -> Result<(), DecodeError> {
-    let input_bytes = input.as_ref();
-
-    let starting_output_len = buffer.len();
-
-    let estimate = engine.decoded_length_estimate(input_bytes.len());
-    let total_len_estimate = estimate
-        .decoded_length_estimate()
-        .checked_add(starting_output_len)
-        .expect("Overflow when calculating output buffer length");
-    buffer.resize(total_len_estimate, 0);
-
-    let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-    let bytes_written = engine.decode(input_bytes, buffer_slice, estimate)?;
-
-    buffer.truncate(starting_output_len + bytes_written);
-
-    Ok(())
+    engine.decode_vec(input, buffer)
 }
 
 /// Decode the input into the provided output slice.
 ///
-/// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
-///
-/// If you don't know ahead of time what the decoded length should be, size your buffer with a
-/// conservative estimate for the decoded length of an input: 3 bytes of output for every 4 bytes of
-/// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
-///
-/// # Panics
-///
-/// If the slice is not large enough, this will panic.
+/// See [Engine::decode_slice].
+#[deprecated(since = "0.21.0", note = "Use Engine::decode_slice")]
 pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
     output: &mut [u8],
     engine: &E,
 ) -> Result<usize, DecodeError> {
-    let input_bytes = input.as_ref();
-
-    engine.decode(
-        input_bytes,
-        output,
-        engine.decoded_length_estimate(input_bytes.len()),
-    )
+    engine.decode_slice(input, output)
 }
 
 #[cfg(test)]
@@ -249,9 +159,13 @@ mod tests {
             decoded_with_prefix.copy_from_slice(&prefix);
 
             // decode into the non-empty buf
-            decode_engine_vec(&encoded_data, &mut decoded_with_prefix, &engine).unwrap();
+            engine
+                .decode_vec(&encoded_data, &mut decoded_with_prefix)
+                .unwrap();
             // also decode into the empty buf
-            decode_engine_vec(&encoded_data, &mut decoded_without_prefix, &engine).unwrap();
+            engine
+                .decode_vec(&encoded_data, &mut decoded_without_prefix)
+                .unwrap();
 
             assert_eq!(
                 prefix_len + decoded_without_prefix.len(),
@@ -304,8 +218,9 @@ mod tests {
             let offset = 1000;
 
             // decode into the non-empty buf
-            let decode_bytes_written =
-                decode_engine_slice(&encoded_data, &mut decode_buf[offset..], &engine).unwrap();
+            let decode_bytes_written = engine
+                .decode_slice(&encoded_data, &mut decode_buf[offset..])
+                .unwrap();
 
             assert_eq!(orig_data.len(), decode_bytes_written);
             assert_eq!(
@@ -347,8 +262,9 @@ mod tests {
             decode_buf.resize(input_len, 0);
 
             // decode into the non-empty buf
-            let decode_bytes_written =
-                decode_engine_slice(&encoded_data, &mut decode_buf[..], &engine).unwrap();
+            let decode_bytes_written = engine
+                .decode_slice(&encoded_data, &mut decode_buf[..])
+                .unwrap();
 
             assert_eq!(orig_data.len(), decode_bytes_written);
             assert_eq!(orig_data, decode_buf);
@@ -363,7 +279,7 @@ mod tests {
                 let mut prefix = "AAAA".repeat(num_prefix_quads);
                 prefix.push_str(suffix);
                 // make sure no overflow (and thus a panic) occurs
-                let res = decode_engine(prefix, &engine);
+                let res = engine.decode(prefix);
                 assert!(res.is_ok());
             }
         }

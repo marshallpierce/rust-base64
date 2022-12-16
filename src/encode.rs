@@ -134,7 +134,6 @@ mod tests {
 
     use crate::{
         alphabet::{IMAP_MUTF7, STANDARD, URL_SAFE},
-        decode::decode_engine_vec,
         engine::{
             general_purpose::{GeneralPurpose, NO_PAD},
             DEFAULT_ENGINE,
@@ -262,7 +261,9 @@ mod tests {
 
             assert_eq!(prefix, encoded_data_with_prefix);
 
-            decode_engine_vec(&encoded_data_no_prefix, &mut decoded, &engine).unwrap();
+            engine
+                .decode_vec(&encoded_data_no_prefix, &mut decoded)
+                .unwrap();
             assert_eq!(orig_data, decoded);
         }
     }
@@ -317,7 +318,9 @@ mod tests {
                 &encoded_data_original_state[encoded_size..]
             );
 
-            decode_engine_vec(&encoded_data[0..encoded_size], &mut decoded, &engine).unwrap();
+            engine
+                .decode_vec(&encoded_data[0..encoded_size], &mut decoded)
+                .unwrap();
             assert_eq!(orig_data, decoded);
         }
     }
@@ -360,7 +363,9 @@ mod tests {
                 input_len,
             );
 
-            decode_engine_vec(&encoded_data[0..encoded_size], &mut decoded, &engine).unwrap();
+            engine
+                .decode_vec(&encoded_data[0..encoded_size], &mut decoded)
+                .unwrap();
             assert_eq!(orig_data, decoded);
         }
     }

@@ -8,7 +8,6 @@ use rand::{Rng as _, RngCore as _};
 
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
-    decode_engine_vec,
     engine::{Engine, GeneralPurpose, DEFAULT_ENGINE},
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
@@ -228,7 +227,7 @@ fn reports_invalid_last_symbol_correctly() {
 
             // replace the last
             *b64_bytes.last_mut().unwrap() = s1;
-            let bulk_res = decode_engine_vec(&b64_bytes[..], &mut bulk_decoded, &engine);
+            let bulk_res = engine.decode_vec(&b64_bytes[..], &mut bulk_decoded);
 
             let mut wrapped_reader = io::Cursor::new(&b64_bytes[..]);
             let mut decoder = DecoderReader::new(&mut wrapped_reader, &engine);
@@ -285,7 +284,7 @@ fn reports_invalid_byte_correctly() {
             .and_then(|o| o);
 
         let mut bulk_buf = Vec::new();
-        let bulk_decode_err = decode_engine_vec(&b64_bytes[..], &mut bulk_buf, &engine).err();
+        let bulk_decode_err = engine.decode_vec(&b64_bytes[..], &mut bulk_buf).err();
 
         // it's tricky to predict where the invalid data's offset will be since if it's in the last
         // chunk it will be reported at the first padding location because it's treated as invalid

@@ -6,6 +6,6 @@ use base64::{Engine as _, engine::DEFAULT_ENGINE};
 
 fuzz_target!(|data: &[u8]| {
     let encoded = DEFAULT_ENGINE.encode(data);
-    let decoded = base64::decode_engine(&encoded, &DEFAULT_ENGINE).unwrap();
+    let decoded = DEFAULT_ENGINE.decode(&encoded).unwrap();
     assert_eq!(data, decoded.as_slice());
 });

@@ -8,7 +8,7 @@ use rand::{
 };
 
 use crate::{
-    alphabet, decode_engine,
+    alphabet,
     encode::encoded_len,
     engine::{
         general_purpose::{GeneralPurpose, GeneralPurposeConfig},
@@ -71,7 +71,7 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
 
         assert_encode_sanity(&encoded_buf, engine.config().encode_padding(), input_len);
 
-        assert_eq!(input_buf, decode_engine(&encoded_buf, &engine).unwrap());
+        assert_eq!(input_buf, engine.decode(&encoded_buf).unwrap());
     }
 }
 

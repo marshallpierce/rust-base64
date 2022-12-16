@@ -10,7 +10,6 @@ use std::{collections, fmt};
 
 use crate::{
     alphabet::{Alphabet, STANDARD},
-    decode_engine,
     encode::add_padding,
     encoded_len,
     engine::{general_purpose, naive, Config, DecodePaddingMode, Engine},
@@ -199,11 +198,9 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
 
         assert_eq!(
             orig_data,
-            decode_engine(
-                &encode_buf[prefix_len..(prefix_len + encoded_len_no_pad + pad_len)],
-                &engine,
-            )
-            .unwrap()
+            engine
+                .decode(&encode_buf[prefix_len..(prefix_len + encoded_len_no_pad + pad_len)],)
+                .unwrap()
         );
     }
 }
@@ -313,15 +310,12 @@ fn decode_detect_invalid_last_symbol_when_length_is_also_invalid<E: EngineWrappe
         let mut input = vec![b'A'; len];
 
         // with a valid last char, it's InvalidLength
-        assert_eq!(
-            Err(DecodeError::InvalidLength),
-            decode_engine(&input, &engine)
-        );
+        assert_eq!(Err(DecodeError::InvalidLength), engine.decode(&input));
         // after mangling the last char, it's InvalidByte
         input[len - 1] = b'"';
         assert_eq!(
             Err(DecodeError::InvalidByte(len - 1, b'"')),
-            decode_engine(&input, &engine)
+            engine.decode(&input)
         );
     }
 }
@@ -1327,7 +1321,7 @@ trait EngineExtensions: Engine {
     fn decode_ez(&self, input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
         let estimate = self.decoded_length_estimate(input.len());
 
-        self.decode(input, output, estimate)
+        self.inner_decode(input, output, estimate)
     }
 
     fn decode_ez_vec(&self, input: &[u8]) -> Result<Vec<u8>, DecodeError> {

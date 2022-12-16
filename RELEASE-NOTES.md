@@ -3,10 +3,9 @@
 ### Breaking changes
 
 - `FastPortable` was only meant to be an interim name, and shouldn't have shipped in 0.20. It is now `GeneralPurpose` to
-  make its intended usage more
-  clear.
+  make its intended usage more clear.
 - `GeneralPurpose` and its config are now `pub use`'d in the `engine` module for convenience.
-- Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion with `From::from`, and is a little bit misleading because some of those invocations are not very cheap as one would usually expect from a `from` call.
+- Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion with `From::from`, and is a little misleading because some of those invocations are not very cheap as one would usually expect from a `from` call.
 - `encode*` and `decode*` top level functions are now methods on `Engine`.
 
 # 0.20.0
