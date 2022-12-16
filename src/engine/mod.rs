@@ -23,7 +23,7 @@ pub use general_purpose::{
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
 /// Different implementations offer different characteristics. The library currently ships with
-/// a general-purpose [GeneralPurpose] impl that offers good speed and works on any CPU, with more choices
+/// [GeneralPurpose] that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
 /// See [STANDARD] if you just want standard base64. Otherwise, when possible, it's
