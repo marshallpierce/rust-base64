@@ -1,19 +1,53 @@
 # 0.20.1
 
-### Breaking changes
+## Breaking changes
 
 - `FastPortable` was only meant to be an interim name, and shouldn't have shipped in 0.20. It is now `GeneralPurpose` to
   make its intended usage more clear.
 - `GeneralPurpose` and its config are now `pub use`'d in the `engine` module for convenience.
-- Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion with `From::from`, and is a little misleading because some of those invocations are not very cheap as one would usually expect from a `from` call.
+- Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion
+  with `From::from`, and is a little misleading because some of those invocations are not very cheap as one would
+  usually expect from a `from` call.
 - `encode*` and `decode*` top level functions are now methods on `Engine`.
 - `DEFAULT_ENGINE` was replaced by `engine::general_purpose::STANDARD`
 - Predefined engine consts `engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD}`
-  - These are `pub use`d into `engine` as well
+    - These are `pub use`d into `engine` as well
+
+## Migration
+
+### Functions
+
+| < 0.20 function         | 0.21 equivalent             |
+|-------------------------|-----------------------------|
+| `encode()`              | `engine::STANDARD.encode()` |
+| `encode_config()`       | `engine.encode()`           |
+| `encode_config_buf()`   | `engine.encode_string()`    |
+| `encode_config_slice()` | `engine.encode_slice()`     |
+| `decode()`              | `engine::STANDARD.decode()` |
+| `decode_config()`       | `engine.decode()`           |
+| `decode_config_buf()`   | `engine.decode_vec()`       |
+| `decode_config_slice()` | `engine.decode_slice()`     |
+
+The short-lived 0.20 functions were the 0.13 functions with `config` replaced with `engine`.
+
+### Padding
+
+Where possible, use `engine::STANDARD`, `engine::URL_SAFE`, or `engine::URL_SAFE_NO_PAD`. The first two requires that
+canonical padding is present when decoding, and the last requires that padding is absent.
+
+If you need the < 0.20 behavior that did not care about padding, or want to recreate < 0.20.0's predefined `Config`s
+precisely, see the following table.
+
+| 0.13.1 Config   | 0.20.0+ alphabet | `encode_padding` | `decode_padding_mode` |
+|-----------------|------------------|------------------|-----------------------|
+| STANDARD        | STANDARD         | true             | Indifferent           |
+| STANDARD_NO_PAD | STANDARD         | false            | Indifferent           |
+| URL_SAFE        | URL_SAFE         | true             | Indifferent           |
+| URL_SAFE_NO_PAD | URL_SAFE         | false            | Indifferent           |
 
 # 0.20.0
 
-### Breaking changes
+## Breaking changes
 
 - Update MSRV to 1.57.0
 - Decoding can now either ignore padding, require correct padding, or require no padding. The default is to require
