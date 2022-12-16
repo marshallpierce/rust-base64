@@ -14,7 +14,7 @@ use std::io;
 /// use std::io::Write;
 ///
 /// let mut enc = base64::write::EncoderStringWriter::new(
-///     &base64::engine::DEFAULT_ENGINE);
+///     &base64::engine::STANDARD);
 ///
 /// enc.write_all(b"asdf").unwrap();
 ///
@@ -33,7 +33,7 @@ use std::io;
 ///
 /// let mut enc = base64::write::EncoderStringWriter::from_consumer(
 ///     &mut buf,
-///     &base64::engine::DEFAULT_ENGINE);
+///     &base64::engine::STANDARD);
 ///
 /// enc.write_all(b"asdf").unwrap();
 ///

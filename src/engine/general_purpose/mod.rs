@@ -1,5 +1,6 @@
 //! Provides the [GeneralPurpose] engine and associated config types.
 use crate::{
+    alphabet,
     alphabet::Alphabet,
     engine::{Config, DecodePaddingMode},
     DecodeError,
@@ -323,6 +324,15 @@ impl Config for GeneralPurposeConfig {
         self.encode_padding
     }
 }
+
+/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
+pub const STANDARD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
+/// A [GeneralPurpose] engine using the [crate::alphabet::URL_SAFE] base64 alphabet and [crate::engine::general_purpose::PAD] config.
+pub const URL_SAFE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, PAD);
+
+/// A [GeneralPurpose] engine using the [crate::alphabet::URL_SAFE] base64 alphabet and [crate::engine::general_purpose::NO_PAD] config.
+pub const URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
 
 /// Include padding bytes when encoding, and require that they be present when decoding.
 ///

@@ -26,7 +26,7 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 /// // use a vec as the simplest possible `Write` -- in real code this is probably a file, etc.
 /// let mut enc = base64::write::EncoderWriter::new(
 ///     Vec::new(),
-///     &base64::engine::DEFAULT_ENGINE);
+///     &base64::engine::STANDARD);
 ///
 /// // handle errors as you normally would
 /// enc.write_all(b"asdf").unwrap();

@@ -7,6 +7,9 @@
 - `GeneralPurpose` and its config are now `pub use`'d in the `engine` module for convenience.
 - Change a few `from()` functions to be `new()`. `from()` causes confusing compiler errors because of confusion with `From::from`, and is a little misleading because some of those invocations are not very cheap as one would usually expect from a `from` call.
 - `encode*` and `decode*` top level functions are now methods on `Engine`.
+- `DEFAULT_ENGINE` was replaced by `engine::general_purpose::STANDARD`
+- Predefined engine consts `engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD}`
+  - These are `pub use`d into `engine` as well
 
 # 0.20.0
 

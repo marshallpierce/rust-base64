@@ -1,7 +1,7 @@
 //! Provides the [Engine] abstraction and out of the box implementations.
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::chunked_encoder;
-use crate::{alphabet, encode::encode_with_padding, encoded_len, DecodeError};
+use crate::{encode::encode_with_padding, encoded_len, DecodeError};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
 
@@ -16,7 +16,9 @@ mod naive;
 #[cfg(test)]
 mod tests;
 
-pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+pub use general_purpose::{
+    GeneralPurpose, GeneralPurposeConfig, STANDARD, URL_SAFE, URL_SAFE_NO_PAD,
+};
 
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
@@ -24,7 +26,7 @@ pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 /// a general-purpose [GeneralPurpose] impl that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
-/// See [DEFAULT_ENGINE] if you just want standard base64. Otherwise, when possible, it's
+/// See [STANDARD] if you just want standard base64. Otherwise, when possible, it's
 /// recommended to store the engine in a `const` so that references to it won't pose any lifetime
 /// issues, and to avoid repeating the cost of engine setup.
 // When adding an implementation of Engine, include them in the engine test suite:
@@ -104,7 +106,7 @@ pub trait Engine: Send + Sync {
     ///         &base64::alphabet::URL_SAFE,
     ///         base64::engine::general_purpose::NO_PAD);
     ///
-    /// let b64 = base64::engine::DEFAULT_ENGINE.encode(b"hello world~");
+    /// let b64 = base64::engine::STANDARD.encode(b"hello world~");
     /// println!("{}", b64);
     ///
     /// let b64_url = URL_SAFE_ENGINE.encode(b"hello internet~");
@@ -132,7 +134,7 @@ pub trait Engine: Send + Sync {
     ///         base64::engine::general_purpose::NO_PAD);
     /// fn main() {
     ///     let mut buf = String::new();
-    ///     base64::engine::DEFAULT_ENGINE.encode_string(b"hello world~", &mut buf);
+    ///     base64::engine::STANDARD.encode_string(b"hello world~", &mut buf);
     ///     println!("{}", buf);
     ///
     ///     buf.clear();
@@ -172,7 +174,7 @@ pub trait Engine: Send + Sync {
     /// // make sure we'll have a slice big enough for base64 + padding
     /// buf.resize(s.len() * 4 / 3 + 4, 0);
     ///
-    /// let bytes_written = base64::engine::DEFAULT_ENGINE.encode_slice(s, &mut buf);
+    /// let bytes_written = base64::engine::STANDARD.encode_slice(s, &mut buf);
     ///
     /// // shorten our vec down to just what was written
     /// buf.truncate(bytes_written);
@@ -200,7 +202,7 @@ pub trait Engine: Send + Sync {
     /// ```rust
     ///     use base64::{Engine as _, Engine};
     ///
-    ///     let bytes = base64::engine::DEFAULT_ENGINE.decode("aGVsbG8gd29ybGR+Cg==").unwrap();
+    ///     let bytes = base64::engine::STANDARD.decode("aGVsbG8gd29ybGR+Cg==").unwrap();
     ///     println!("{:?}", bytes);
     ///
     ///     // custom engine setup
@@ -239,7 +241,7 @@ pub trait Engine: Send + Sync {
     ///     use base64::Engine;
     ///     let mut buffer = Vec::<u8>::new();
     ///     // with the default engine
-    ///     base64::engine::DEFAULT_ENGINE.decode_vec(
+    ///     base64::engine::STANDARD.decode_vec(
     ///         "aGVsbG8gd29ybGR+Cg==",
     ///         &mut buffer,
     ///     ).unwrap();
@@ -329,10 +331,6 @@ pub trait DecodeEstimate {
     /// for pre-allocating buffers, etc.
     fn decoded_length_estimate(&self) -> usize;
 }
-
-/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
-pub const DEFAULT_ENGINE: GeneralPurpose =
-    GeneralPurpose::new(&alphabet::STANDARD, general_purpose::PAD);
 
 /// Controls how pad bytes are handled when decoding.
 ///

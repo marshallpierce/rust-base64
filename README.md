@@ -14,20 +14,6 @@ e.g. `decode_engine_slice` decodes into an existing `&mut [u8]` and is pretty fa
 whereas `decode_engine` allocates a new `Vec<u8>` and returns it, which might be more convenient in some cases, but is
 slower (although still fast enough for almost any purpose) at 2.1 GiB/s.
 
-## Example
-
-```rust
-use base64::{encode, decode};
-
-fn main() {
-    let a = b"hello world";
-    let b = "aGVsbG8gd29ybGQ=";
-
-    assert_eq!(encode(a), b);
-    assert_eq!(a, &decode(b).unwrap()[..]);
-}
-```
-
 See the [docs](https://docs.rs/base64) for all the details.
 
 ## FAQ

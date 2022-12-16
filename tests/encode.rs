@@ -1,7 +1,7 @@
-use base64::{alphabet::URL_SAFE, engine::general_purpose::PAD, engine::DEFAULT_ENGINE, *};
+use base64::{alphabet::URL_SAFE, engine::general_purpose::PAD, engine::STANDARD, *};
 
 fn compare_encode(expected: &str, target: &[u8]) {
-    assert_eq!(expected, DEFAULT_ENGINE.encode(target));
+    assert_eq!(expected, STANDARD.encode(target));
 }
 
 #[test]

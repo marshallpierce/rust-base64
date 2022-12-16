@@ -2,10 +2,10 @@
 //!
 //! ```
 //! use base64::display::Base64Display;
-//! use base64::engine::DEFAULT_ENGINE;
+//! use base64::engine::STANDARD;
 //!
 //! let data = vec![0x0, 0x1, 0x2, 0x3];
-//! let wrapper = Base64Display::new(&data, &DEFAULT_ENGINE);
+//! let wrapper = Base64Display::new(&data, &STANDARD);
 //!
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", wrapper));
 //! ```
@@ -59,17 +59,17 @@ mod tests {
         chunked_encode_matches_normal_encode_random, SinkTestHelper,
     };
     use super::*;
-    use crate::engine::DEFAULT_ENGINE;
+    use crate::engine::STANDARD;
 
     #[test]
     fn basic_display() {
         assert_eq!(
             "~$Zm9vYmFy#*",
-            format!("~${}#*", Base64Display::new(b"foobar", &DEFAULT_ENGINE))
+            format!("~${}#*", Base64Display::new(b"foobar", &STANDARD))
         );
         assert_eq!(
             "~$Zm9vYmFyZg==#*",
-            format!("~${}#*", Base64Display::new(b"foobarf", &DEFAULT_ENGINE))
+            format!("~${}#*", Base64Display::new(b"foobarf", &STANDARD))
         );
     }
 

@@ -11,7 +11,7 @@
 //! Once you have an `Alphabet`, you can pick which `Engine` you want. A few parts of the public
 //! API provide a default, but otherwise the user must provide an `Engine` to use.
 //!
-//! See [engine::Engine] for more on what engine to choose, or use [engine::DEFAULT_ENGINE] if you
+//! See [engine::Engine] for more on what engine to choose, or use [engine::STANDARD] if you
 //! just want plain old standard base64 and don't have other requirements.
 //!
 //! ## Config

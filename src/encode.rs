@@ -2,18 +2,18 @@
 use alloc::string::String;
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::engine::DEFAULT_ENGINE;
+use crate::engine::STANDARD;
 use crate::engine::{Config, Engine};
 use crate::PAD_BYTE;
 
-/// Encode arbitrary octets as base64 using the [default engine](DEFAULT_ENGINE).
+/// Encode arbitrary octets as base64 using the [`STANDARD` engine](STANDARD).
 ///
 /// See [Engine::encode].
 #[allow(unused)]
 #[deprecated(since = "0.21.0", note = "Use Engine::encode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
-    DEFAULT_ENGINE.encode(input)
+    STANDARD.encode(input)
 }
 
 ///Encode arbitrary octets as base64 using the provided `Engine` into a new `String`.
@@ -133,10 +133,10 @@ mod tests {
     use super::*;
 
     use crate::{
-        alphabet::{IMAP_MUTF7, STANDARD, URL_SAFE},
+        alphabet,
         engine::{
             general_purpose::{GeneralPurpose, NO_PAD},
-            DEFAULT_ENGINE,
+            STANDARD,
         },
         tests::{assert_encode_sanity, random_config, random_engine},
     };
@@ -146,31 +146,31 @@ mod tests {
     };
     use std::str;
 
-    const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
+    const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
 
     #[test]
     fn encoded_size_correct_standard() {
-        assert_encoded_length(0, 0, &DEFAULT_ENGINE, true);
+        assert_encoded_length(0, 0, &STANDARD, true);
 
-        assert_encoded_length(1, 4, &DEFAULT_ENGINE, true);
-        assert_encoded_length(2, 4, &DEFAULT_ENGINE, true);
-        assert_encoded_length(3, 4, &DEFAULT_ENGINE, true);
+        assert_encoded_length(1, 4, &STANDARD, true);
+        assert_encoded_length(2, 4, &STANDARD, true);
+        assert_encoded_length(3, 4, &STANDARD, true);
 
-        assert_encoded_length(4, 8, &DEFAULT_ENGINE, true);
-        assert_encoded_length(5, 8, &DEFAULT_ENGINE, true);
-        assert_encoded_length(6, 8, &DEFAULT_ENGINE, true);
+        assert_encoded_length(4, 8, &STANDARD, true);
+        assert_encoded_length(5, 8, &STANDARD, true);
+        assert_encoded_length(6, 8, &STANDARD, true);
 
-        assert_encoded_length(7, 12, &DEFAULT_ENGINE, true);
-        assert_encoded_length(8, 12, &DEFAULT_ENGINE, true);
-        assert_encoded_length(9, 12, &DEFAULT_ENGINE, true);
+        assert_encoded_length(7, 12, &STANDARD, true);
+        assert_encoded_length(8, 12, &STANDARD, true);
+        assert_encoded_length(9, 12, &STANDARD, true);
 
-        assert_encoded_length(54, 72, &DEFAULT_ENGINE, true);
+        assert_encoded_length(54, 72, &STANDARD, true);
 
-        assert_encoded_length(55, 76, &DEFAULT_ENGINE, true);
-        assert_encoded_length(56, 76, &DEFAULT_ENGINE, true);
-        assert_encoded_length(57, 76, &DEFAULT_ENGINE, true);
+        assert_encoded_length(55, 76, &STANDARD, true);
+        assert_encoded_length(56, 76, &STANDARD, true);
+        assert_encoded_length(57, 76, &STANDARD, true);
 
-        assert_encoded_length(58, 80, &DEFAULT_ENGINE, true);
+        assert_encoded_length(58, 80, &STANDARD, true);
     }
 
     #[test]
@@ -500,8 +500,8 @@ mod tests {
     #[test]
     fn encode_imap() {
         assert_eq!(
-            &GeneralPurpose::new(&IMAP_MUTF7, NO_PAD).encode(b"\xFB\xFF"),
-            &GeneralPurpose::new(&STANDARD, NO_PAD)
+            &GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD).encode(b"\xFB\xFF"),
+            &GeneralPurpose::new(&alphabet::STANDARD, NO_PAD)
                 .encode(b"\xFB\xFF")
                 .replace('/', ",")
         );

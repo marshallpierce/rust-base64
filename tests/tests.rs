@@ -1,9 +1,8 @@
 use rand::{Rng, SeedableRng};
 
-use base64::engine::{Engine, DEFAULT_ENGINE};
+use base64::engine::{Engine, STANDARD};
 use base64::*;
 
-use base64::alphabet::STANDARD;
 use base64::engine::general_purpose::{GeneralPurpose, NO_PAD};
 
 // generate random contents of the specified length and test encode/decode roundtrip
@@ -56,14 +55,7 @@ fn roundtrip_random_short_standard() {
     let mut str_buf = String::new();
 
     for input_len in 0..40 {
-        roundtrip_random(
-            &mut byte_buf,
-            &mut str_buf,
-            &DEFAULT_ENGINE,
-            input_len,
-            4,
-            10000,
-        );
+        roundtrip_random(&mut byte_buf, &mut str_buf, &STANDARD, input_len, 4, 10000);
     }
 }
 
@@ -73,14 +65,7 @@ fn roundtrip_random_with_fast_loop_standard() {
     let mut str_buf = String::new();
 
     for input_len in 40..100 {
-        roundtrip_random(
-            &mut byte_buf,
-            &mut str_buf,
-            &DEFAULT_ENGINE,
-            input_len,
-            4,
-            1000,
-        );
+        roundtrip_random(&mut byte_buf, &mut str_buf, &STANDARD, input_len, 4, 1000);
     }
 }
 
@@ -89,7 +74,7 @@ fn roundtrip_random_short_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
     for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 10000);
     }
@@ -100,7 +85,7 @@ fn roundtrip_random_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
     for input_len in 40..100 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 1000);
@@ -120,7 +105,7 @@ fn roundtrip_decode_trailing_10_bytes() {
         let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
-        let engine = GeneralPurpose::new(&STANDARD, NO_PAD);
+        let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
         let decoded = engine.decode(&s).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
@@ -138,8 +123,8 @@ fn display_wrapper_matches_normal_encode() {
     bytes.push(255);
 
     assert_eq!(
-        DEFAULT_ENGINE.encode(&bytes),
-        format!("{}", display::Base64Display::new(&bytes, &DEFAULT_ENGINE))
+        STANDARD.encode(&bytes),
+        format!("{}", display::Base64Display::new(&bytes, &STANDARD))
     );
 }
 
@@ -154,5 +139,5 @@ fn encode_engine_slice_panics_when_buffer_too_small() {
         *elt = rng.gen();
     }
 
-    DEFAULT_ENGINE.encode_slice(input, &mut buf);
+    STANDARD.encode_slice(input, &mut buf);
 }

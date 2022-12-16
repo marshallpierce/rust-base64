@@ -1,6 +1,6 @@
 use crate::engine::Engine;
 #[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::engine::DEFAULT_ENGINE;
+use crate::engine::STANDARD;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
 use core::fmt;
@@ -58,16 +58,16 @@ impl error::Error for DecodeError {
     }
 }
 
-///Decode base64 using the [default engine](DEFAULT_ENGINE).
+/// Decode base64 using the [`STANDARD` engine](STANDARD).
 ///
 /// See [Engine::decode].
 #[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
-    DEFAULT_ENGINE.decode(input)
+    STANDARD.decode(input)
 }
 
-///Decode from string reference as octets using the specified [Engine].
+/// Decode from string reference as octets using the specified [Engine].
 ///
 /// See [Engine::decode].
 ///Returns a `Result` containing a `Vec<u8>`.

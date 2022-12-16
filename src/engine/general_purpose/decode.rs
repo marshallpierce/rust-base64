@@ -327,14 +327,14 @@ fn write_u64(output: &mut [u8], value: u64) {
 mod tests {
     use super::*;
 
-    use crate::engine::DEFAULT_ENGINE;
+    use crate::engine::STANDARD;
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
 
-        decode_chunk_precise(&input[..], 0, &DEFAULT_ENGINE.decode_table, &mut output).unwrap();
+        decode_chunk_precise(&input[..], 0, &STANDARD.decode_table, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 6, 7], &output);
     }
 
@@ -343,7 +343,7 @@ mod tests {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
 
-        decode_chunk(&input[..], 0, &DEFAULT_ENGINE.decode_table, &mut output).unwrap();
+        decode_chunk(&input[..], 0, &STANDARD.decode_table, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 0, 0], &output);
     }
 }

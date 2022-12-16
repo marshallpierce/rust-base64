@@ -8,7 +8,7 @@ use rand::{Rng as _, RngCore as _};
 
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
-    engine::{Engine, GeneralPurpose, DEFAULT_ENGINE},
+    engine::{Engine, GeneralPurpose, STANDARD},
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
 };
@@ -32,7 +32,7 @@ fn simple() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
             let mut wrapped_reader = io::Cursor::new(base64data);
-            let mut decoder = DecoderReader::new(&mut wrapped_reader, &DEFAULT_ENGINE);
+            let mut decoder = DecoderReader::new(&mut wrapped_reader, &STANDARD);
 
             // handle errors as you normally would
             let mut text_got = Vec::new();
@@ -64,7 +64,7 @@ fn trailing_junk() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
             let mut wrapped_reader = io::Cursor::new(base64data);
-            let mut decoder = DecoderReader::new(&mut wrapped_reader, &DEFAULT_ENGINE);
+            let mut decoder = DecoderReader::new(&mut wrapped_reader, &STANDARD);
 
             // handle errors as you normally would
             let mut buffer = vec![0u8; n];
