@@ -10,8 +10,16 @@
   usually expect from a `from` call.
 - `encode*` and `decode*` top level functions are now methods on `Engine`.
 - `DEFAULT_ENGINE` was replaced by `engine::general_purpose::STANDARD`
-- Predefined engine consts `engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD}`
+- Predefined engine consts `engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD}`
     - These are `pub use`d into `engine` as well
+- The `*_slice` decode/encode functions now return an error instead of panicking when the output slice is too small
+    - As part of this, there isn't now a public way to decode into a slice _exactly_ the size needed for inputs that
+      aren't multiples of 4 tokens. If adding up to 2 bytes to always be a multiple of 3 bytes for the decode buffer is
+      a problem, file an issue.
+
+## Other changes
+
+- `decoded_len_estimate()` is provided to make it easy to size decode buffers correctly.
 
 ## Migration
 
@@ -32,8 +40,10 @@ The short-lived 0.20 functions were the 0.13 functions with `config` replaced wi
 
 ### Padding
 
-Where possible, use `engine::STANDARD`, `engine::URL_SAFE`, or `engine::URL_SAFE_NO_PAD`. The first two requires that
-canonical padding is present when decoding, and the last requires that padding is absent.
+If applicable, use the preset engines `engine::STANDARD`, `engine::STANDARD_NO_PAD`, `engine::URL_SAFE`,
+or `engine::URL_SAFE_NO_PAD`.
+The `NO_PAD` ones require that padding is absent when decoding, and the others require that
+canonical padding is present .
 
 If you need the < 0.20 behavior that did not care about padding, or want to recreate < 0.20.0's predefined `Config`s
 precisely, see the following table.

@@ -129,15 +129,33 @@ fn display_wrapper_matches_normal_encode() {
 }
 
 #[test]
-#[should_panic(expected = "index 24 out of range for slice of length 22")]
-fn encode_engine_slice_panics_when_buffer_too_small() {
-    let mut buf: [u8; 22] = [0; 22];
-    let mut input: [u8; 16] = [0; 16];
-
-    let mut rng = rand::rngs::SmallRng::from_entropy();
-    for elt in &mut input {
-        *elt = rng.gen();
+fn encode_engine_slice_error_when_buffer_too_small() {
+    for num_triples in 1..100 {
+        let input = "AAA".repeat(num_triples);
+        let mut vec = vec![0; (num_triples - 1) * 4];
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            num_triples * 4,
+            STANDARD.encode_slice(&input, &mut vec).unwrap()
+        );
     }
-
-    STANDARD.encode_slice(input, &mut buf);
 }

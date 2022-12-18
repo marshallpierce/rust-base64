@@ -133,9 +133,10 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
 
         let decoded = self
             .engine
-            .decode_slice(
+            .internal_decode(
                 &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
                 buf,
+                self.engine.internal_decoded_len_estimate(num_bytes),
             )
             .map_err(|e| match e {
                 DecodeError::InvalidByte(offset, byte) => {

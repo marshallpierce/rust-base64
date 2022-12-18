@@ -99,9 +99,7 @@ fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
     let mut buf = Vec::new();
     // conservative estimate of encoded size
     buf.resize(v.len() * 2, 0);
-    b.iter(|| {
-        STANDARD.encode_slice(&v, &mut buf);
-    });
+    b.iter(|| STANDARD.encode_slice(&v, &mut buf).unwrap());
 }
 
 fn do_encode_bench_stream(b: &mut Bencher, &size: &usize) {

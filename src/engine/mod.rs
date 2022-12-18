@@ -1,7 +1,10 @@
 //! Provides the [Engine] abstraction and out of the box implementations.
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::chunked_encoder;
-use crate::{encode::encode_with_padding, encoded_len, DecodeError};
+use crate::{
+    encode::{encode_with_padding, EncodeSliceError},
+    encoded_len, DecodeError, DecodeSliceError,
+};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
 
@@ -17,7 +20,7 @@ mod naive;
 mod tests;
 
 pub use general_purpose::{
-    GeneralPurpose, GeneralPurposeConfig, STANDARD, URL_SAFE, URL_SAFE_NO_PAD,
+    GeneralPurpose, GeneralPurposeConfig, STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD,
 };
 
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
@@ -29,6 +32,8 @@ pub use general_purpose::{
 /// See [STANDARD] if you just want standard base64. Otherwise, when possible, it's
 /// recommended to store the engine in a `const` so that references to it won't pose any lifetime
 /// issues, and to avoid repeating the cost of engine setup.
+///
+/// Since almost nobody will need to implement `Engine`, docs for internal methods are hidden.
 // When adding an implementation of Engine, include them in the engine test suite:
 // - add an implementation of [engine::tests::EngineWrapper]
 // - add the implementation to the `all_engines` macro
@@ -51,21 +56,27 @@ pub trait Engine: Send + Sync {
     /// No padding should be written; that is handled separately.
     ///
     /// Must not write any bytes into the output slice other than the encoded data.
-    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize;
+    #[doc(hidden)]
+    fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize;
 
     /// This is not meant to be called directly; it is only for `Engine` implementors.
     ///
     /// As an optimization to prevent the decoded length from being calculated twice, it is
     /// sometimes helpful to have a conservative estimate of the decoded size before doing the
     /// decoding, so this calculation is done separately and passed to [Engine::decode()] as needed.
-    fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate;
+    ///
+    /// # Panics
+    ///
+    /// Panics if decoded length estimation overflows.
+    #[doc(hidden)]
+    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate;
 
     /// This is not meant to be called directly; it is only for `Engine` implementors.
     /// See the other `decode*` functions on this trait.
     ///
     /// Decode `input` base64 bytes into the `output` buffer.
     ///
-    /// `decode_estimate` is the result of [Engine::decoded_length_estimate()], which is passed in to avoid
+    /// `decode_estimate` is the result of [Engine::internal_decoded_len_estimate()], which is passed in to avoid
     /// calculating it again (expensive on short inputs).`
     ///
     /// Returns the number of bytes written to `output`.
@@ -84,7 +95,8 @@ pub trait Engine: Send + Sync {
     /// # Panics
     ///
     /// Panics if `output` is too small.
-    fn inner_decode(
+    #[doc(hidden)]
+    fn internal_decode(
         &self,
         input: &[u8],
         output: &mut [u8],
@@ -161,37 +173,41 @@ pub trait Engine: Send + Sync {
     /// This is useful if you wish to avoid allocation entirely (e.g. encoding into a stack-resident
     /// or statically-allocated buffer).
     ///
-    /// # Panics
-    ///
-    /// If `output` is too small to hold the encoded version of `input`, a panic will result.
-    ///
     /// # Example
     ///
     /// ```rust
-    /// use base64::Engine as _;
+    /// use base64::{engine, Engine as _};
     /// let s = b"hello internet!";
     /// let mut buf = Vec::new();
     /// // make sure we'll have a slice big enough for base64 + padding
     /// buf.resize(s.len() * 4 / 3 + 4, 0);
     ///
-    /// let bytes_written = base64::engine::STANDARD.encode_slice(s, &mut buf);
+    /// let bytes_written = engine::STANDARD.encode_slice(s, &mut buf).unwrap();
     ///
     /// // shorten our vec down to just what was written
     /// buf.truncate(bytes_written);
     ///
-    /// assert_eq!(s, base64::decode(&buf).unwrap().as_slice());
+    /// assert_eq!(s, engine::STANDARD.decode(&buf).unwrap().as_slice());
     /// ```
-    fn encode_slice<T: AsRef<[u8]>>(&self, input: T, output_buf: &mut [u8]) -> usize {
+    fn encode_slice<T: AsRef<[u8]>>(
+        &self,
+        input: T,
+        output_buf: &mut [u8],
+    ) -> Result<usize, EncodeSliceError> {
         let input_bytes = input.as_ref();
 
         let encoded_size = encoded_len(input_bytes.len(), self.config().encode_padding())
             .expect("usize overflow when calculating buffer size");
 
+        if output_buf.len() < encoded_size {
+            return Err(EncodeSliceError::OutputSliceTooSmall);
+        }
+
         let b64_output = &mut output_buf[0..encoded_size];
 
         encode_with_padding(input_bytes, b64_output, self, encoded_size);
 
-        encoded_size
+        Ok(encoded_size)
     }
 
     /// Decode from string reference as octets using the specified [Engine].
@@ -212,17 +228,22 @@ pub trait Engine: Send + Sync {
     ///         .decode("aGVsbG8gaW50ZXJuZXR-Cg").unwrap();
     ///     println!("{:?}", bytes_url);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if decoded length estimation overflows.
+    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn decode<T: AsRef<[u8]>>(&self, input: T) -> Result<Vec<u8>, DecodeError> {
-        let decoded_length_estimate = (input
-            .as_ref()
-            .len()
-            .checked_add(3)
-            .expect("decoded length calculation overflow"))
-            / 4
-            * 3;
-        let mut buffer = Vec::<u8>::with_capacity(decoded_length_estimate);
-        self.decode_vec(input, &mut buffer).map(|_| buffer)
+        let input_bytes = input.as_ref();
+
+        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
+        let mut buffer = vec![0; estimate.decoded_len_estimate()];
+
+        let bytes_written = self.internal_decode(input_bytes, &mut buffer, estimate)?;
+        buffer.truncate(bytes_written);
+
+        Ok(buffer)
     }
 
     /// Decode from string reference as octets.
@@ -257,6 +278,11 @@ pub trait Engine: Send + Sync {
     ///     println!("{:?}", buffer);
     /// }
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if decoded length estimation overflows.
+    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn decode_vec<T: AsRef<[u8]>>(
         &self,
@@ -267,15 +293,15 @@ pub trait Engine: Send + Sync {
 
         let starting_output_len = buffer.len();
 
-        let estimate = self.decoded_length_estimate(input_bytes.len());
+        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
         let total_len_estimate = estimate
-            .decoded_length_estimate()
+            .decoded_len_estimate()
             .checked_add(starting_output_len)
             .expect("Overflow when calculating output buffer length");
         buffer.resize(total_len_estimate, 0);
 
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        let bytes_written = self.inner_decode(input_bytes, buffer_slice, estimate)?;
+        let bytes_written = self.internal_decode(input_bytes, buffer_slice, estimate)?;
 
         buffer.truncate(starting_output_len + bytes_written);
 
@@ -286,25 +312,26 @@ pub trait Engine: Send + Sync {
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
-    /// If you don't know ahead of time what the decoded length should be, size your buffer with a
-    /// conservative estimate for the decoded length of an input: 3 bytes of output for every 4 bytes of
-    /// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
+    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
     ///
     /// # Panics
     ///
-    /// If the slice is not large enough, this will panic.
+    /// Panics if decoded length estimation overflows.
+    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     fn decode_slice<T: AsRef<[u8]>>(
         &self,
         input: T,
         output: &mut [u8],
-    ) -> Result<usize, DecodeError> {
+    ) -> Result<usize, DecodeSliceError> {
         let input_bytes = input.as_ref();
 
-        self.inner_decode(
-            input_bytes,
-            output,
-            self.decoded_length_estimate(input_bytes.len()),
-        )
+        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
+        if output.len() < estimate.decoded_len_estimate() {
+            return Err(DecodeSliceError::OutputSliceTooSmall);
+        }
+
+        self.internal_decode(input_bytes, output, estimate)
+            .map_err(|e| e.into())
     }
 }
 
@@ -329,7 +356,15 @@ pub trait Config {
 pub trait DecodeEstimate {
     /// Returns a conservative (err on the side of too big) estimate of the decoded length to use
     /// for pre-allocating buffers, etc.
-    fn decoded_length_estimate(&self) -> usize;
+    ///
+    /// The estimate must be no larger than the next largest complete triple of decoded bytes.
+    /// That is, the final quad of tokens to decode may be assumed to be complete with no padding.
+    ///
+    /// # Panics
+    ///
+    /// Panics if decoded length estimation overflows.
+    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
+    fn decoded_len_estimate(&self) -> usize;
 }
 
 /// Controls how pad bytes are handled when decoding.

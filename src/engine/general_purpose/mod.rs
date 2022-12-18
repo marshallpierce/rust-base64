@@ -42,7 +42,7 @@ impl super::Engine for GeneralPurpose {
     type Config = GeneralPurposeConfig;
     type DecodeEstimate = GeneralPurposeEstimate;
 
-    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
+    fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         let mut input_index: usize = 0;
 
         const BLOCKS_PER_FAST_LOOP: usize = 4;
@@ -161,11 +161,11 @@ impl super::Engine for GeneralPurpose {
         output_index
     }
 
-    fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
+    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
         GeneralPurposeEstimate::new(input_len)
     }
 
-    fn inner_decode(
+    fn internal_decode(
         &self,
         input: &[u8],
         output: &mut [u8],
@@ -327,6 +327,9 @@ impl Config for GeneralPurposeConfig {
 
 /// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
 pub const STANDARD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
+/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::NO_PAD] config.
+pub const STANDARD_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
 /// A [GeneralPurpose] engine using the [crate::alphabet::URL_SAFE] base64 alphabet and [crate::engine::general_purpose::PAD] config.
 pub const URL_SAFE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, PAD);

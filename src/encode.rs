@@ -1,5 +1,8 @@
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::string::String;
+use core::fmt;
+#[cfg(any(feature = "std", test))]
+use std::error;
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use crate::engine::STANDARD;
@@ -49,9 +52,10 @@ pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
     output_buf: &mut [u8],
     engine: &E,
-) -> usize {
+) -> Result<usize, EncodeSliceError> {
     engine.encode_slice(input, output_buf)
 }
+
 /// B64-encode and pad (if configured).
 ///
 /// This helper exists to avoid recalculating encoded_size, which is relatively expensive on short
@@ -70,7 +74,7 @@ pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
 ) {
     debug_assert_eq!(expected_encoded_size, output.len());
 
-    let b64_bytes_written = engine.inner_encode(input, output);
+    let b64_bytes_written = engine.internal_encode(input, output);
 
     let padding_bytes = if engine.config().encode_padding() {
         add_padding(input.len(), &mut output[b64_bytes_written..])
@@ -88,7 +92,8 @@ pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
 /// Calculate the base64 encoded length for a given input length, optionally including any
 /// appropriate padding bytes.
 ///
-/// Returns `None` if the encoded length can't be represented in `usize`.
+/// Returns `None` if the encoded length can't be represented in `usize`. This will happen for
+/// input lengths in approximately the top quarter of the range of `usize`.
 pub fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
     let rem = bytes_len % 3;
 
@@ -126,6 +131,28 @@ pub(crate) fn add_padding(input_len: usize, output: &mut [u8]) -> usize {
     }
 
     bytes_written
+}
+
+/// Errors that can occur while encoding into a slice.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EncodeSliceError {
+    /// The provided slice is too small.
+    OutputSliceTooSmall,
+}
+
+impl fmt::Display for EncodeSliceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutputSliceTooSmall => write!(f, "Output slice too small"),
+        }
+    }
+}
+
+#[cfg(any(feature = "std", test))]
+impl error::Error for EncodeSliceError {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -304,7 +331,7 @@ mod tests {
 
             assert_eq!(
                 encoded_size,
-                engine.encode_slice(&orig_data, &mut encoded_data)
+                engine.encode_slice(&orig_data, &mut encoded_data).unwrap()
             );
 
             assert_encode_sanity(
@@ -316,51 +343,6 @@ mod tests {
             assert_eq!(
                 &encoded_data[encoded_size..],
                 &encoded_data_original_state[encoded_size..]
-            );
-
-            engine
-                .decode_vec(&encoded_data[0..encoded_size], &mut decoded)
-                .unwrap();
-            assert_eq!(orig_data, decoded);
-        }
-    }
-
-    #[test]
-    fn encode_engine_slice_fits_into_precisely_sized_slice() {
-        let mut orig_data = Vec::new();
-        let mut encoded_data = Vec::new();
-        let mut decoded = Vec::new();
-
-        let input_len_range = Uniform::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            encoded_data.clear();
-            decoded.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            let engine = random_engine(&mut rng);
-
-            let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
-
-            encoded_data.resize(encoded_size, 0);
-
-            assert_eq!(
-                encoded_size,
-                engine.encode_slice(&orig_data, &mut encoded_data)
-            );
-
-            assert_encode_sanity(
-                str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                engine.config().encode_padding(),
-                input_len,
             );
 
             engine
@@ -400,7 +382,7 @@ mod tests {
 
             let orig_output_buf = output.clone();
 
-            let bytes_written = engine.inner_encode(&input, &mut output);
+            let bytes_written = engine.internal_encode(&input, &mut output);
 
             // make sure the part beyond bytes_written is the same garbage it was before
             assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);

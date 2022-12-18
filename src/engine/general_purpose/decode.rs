@@ -25,21 +25,28 @@ const DECODED_BLOCK_LEN: usize =
 pub struct GeneralPurposeEstimate {
     /// Total number of decode chunks, including a possibly partial last chunk
     num_chunks: usize,
+    decoded_len_estimate: usize,
 }
 
 impl GeneralPurposeEstimate {
-    pub(crate) fn new(input_len: usize) -> Self {
+    pub(crate) fn new(encoded_len: usize) -> Self {
         Self {
-            num_chunks: num_chunks(input_len),
+            num_chunks: encoded_len
+                .checked_add(INPUT_CHUNK_LEN - 1)
+                .expect("Overflow when calculating number of chunks in input")
+                / INPUT_CHUNK_LEN,
+            decoded_len_estimate: encoded_len
+                .checked_add(3)
+                .expect("Overflow when calculating decoded len estimate")
+                / 4
+                * 3,
         }
     }
 }
 
 impl DecodeEstimate for GeneralPurposeEstimate {
-    fn decoded_length_estimate(&self) -> usize {
-        self.num_chunks
-            .checked_mul(DECODED_CHUNK_LEN)
-            .expect("Overflow when calculating decoded length")
+    fn decoded_len_estimate(&self) -> usize {
+        self.decoded_len_estimate
     }
 }
 
@@ -285,14 +292,6 @@ fn decode_chunk(
     write_u64(output, accum);
 
     Ok(())
-}
-
-/// Return the number of input chunks (including a possibly partial final chunk) in the input
-pub(crate) fn num_chunks(input_len: usize) -> usize {
-    input_len
-        .checked_add(INPUT_CHUNK_LEN - 1)
-        .expect("Overflow when calculating number of chunks in input")
-        / INPUT_CHUNK_LEN
 }
 
 /// Decode an 8-byte chunk, but only write the 6 bytes actually decoded instead of including 2

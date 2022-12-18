@@ -1,18 +1,34 @@
-//! # Alphabets
+//! # Getting started
+//!
+//! tl;dr:
+//!
+//! 1. Perhaps one of the already available consts will suit:
+//!     - [engine::STANDARD]
+//!     - [engine::STANDARD_NO_PAD]
+//!     - [engine::URL_SAFE]
+//!     - [engine::URL_SAFE_NO_PAD]
+//! 1. If not, choose which alphabet you want. Most usage will want [alphabet::STANDARD] or [alphabet::URL_SAFE].
+//! 1. Choose which [Engine] you want. For the moment there is only one: [engine::GeneralPurpose].
+//! 1. Configure the engine appropriately using the engine's `Config` type.
+//!     - This is where you'll select whether to add padding (when encoding) or expect it (when
+//!     decoding). If given the choice, prefer no padding.
+//! 1. Build the engine using the selected alphabet and config.
+//!
+//! For more detail, see below.
+//!
+//! ## Alphabets
 //!
 //! An [alphabet::Alphabet] defines what ASCII symbols are used to encode to or decode from.
 //!
 //! Constants in [alphabet] like [alphabet::STANDARD] or [alphabet::URL_SAFE] provide commonly used
-//! alphabets, but you can also build your own custom `Alphabet` if needed.
+//! alphabets, but you can also build your own custom [alphabet::Alphabet] if needed.
 //!
-//! # Engines
+//! ## Engines
 //!
 //! Once you have an `Alphabet`, you can pick which `Engine` you want. A few parts of the public
 //! API provide a default, but otherwise the user must provide an `Engine` to use.
 //!
-//! See [engine::Engine] for more on what engine to choose, or use [engine::STANDARD] if you
-//! just want plain old standard base64 and don't have other requirements. [engine::URL_SAFE] and
-//! [engine::URL_SAFE_NO_PAD] are also available.
+//! See [engine::Engine] for more.
 //!
 //! ## Config
 //!
@@ -20,19 +36,16 @@
 //! `Engine` has a corresponding `Config` implementation since different `Engine`s may offer different
 //! levels of configurability.
 //!
-//! [encode()] and [decode()] use the standard alphabet and default engine in an RFC 4648 standard
-//! setup.
-//!
 //! # Encoding
 //!
 //! Several different encoding methods on [Engine] are available to you depending on your desire for
 //! convenience vs performance.
 //!
-//! | Method           | Output                       | Allocates                      |
-//! | ---------------- | ---------------------------- | ------------------------------ |
-//! | `encode`         | Returns a new `String`       | Always                         |
-//! | `encode_string`  | Appends to provided `String` | Only if `String` needs to grow |
-//! | `encode_slice`   | Writes to provided `&[u8]`   | Never - fastest                |
+//! | Method                   | Output                       | Allocates                      |
+//! | ------------------------ | ---------------------------- | ------------------------------ |
+//! | [Engine::encode]         | Returns a new `String`       | Always                         |
+//! | [Engine::encode_string]  | Appends to provided `String` | Only if `String` needs to grow |
+//! | [Engine::encode_slice]   | Writes to provided `&[u8]`   | Never - fastest                |
 //!
 //! All of the encoding methods will pad as per the engine's config.
 //!
@@ -40,11 +53,11 @@
 //!
 //! Just as for encoding, there are different decoding methods available.
 //!
-//! | Method           | Output                        | Allocates                      |
-//! | ---------------- | ----------------------------- | ------------------------------ |
-//! | `decode`         | Returns a new `Vec<u8>`       | Always                         |
-//! | `decode_vec`     | Appends to provided `Vec<u8>` | Only if `Vec` needs to grow    |
-//! | `decode_slice`   | Writes to provided `&[u8]`    | Never - fastest                |
+//! | Method                   | Output                        | Allocates                      |
+//! | ------------------------ | ----------------------------- | ------------------------------ |
+//! | [Engine::decode]         | Returns a new `Vec<u8>`       | Always                         |
+//! | [Engine::decode_vec]     | Appends to provided `Vec<u8>` | Only if `Vec` needs to grow    |
+//! | [Engine::decode_slice]   | Writes to provided `&[u8]`    | Never - fastest                |
 //!
 //! Unlike encoding, where all possible input is valid, decoding can fail (see [DecodeError]).
 //!
@@ -74,9 +87,10 @@
 //! ```
 //! use base64::{engine, Engine as _};
 //!
-//! let orig = b"some data";
-//! let encoded: String = engine::STANDARD.encode(orig);
-//! assert_eq!(orig.as_slice(), &engine::STANDARD.decode(encoded).unwrap());
+//! let orig = b"data";
+//! let encoded: String = engine::STANDARD_NO_PAD.encode(orig);
+//! assert_eq!("ZGF0YQ", encoded);
+//! assert_eq!(orig.as_slice(), &engine::STANDARD_NO_PAD.decode(encoded).unwrap());
 //!
 //! // or, URL-safe
 //! let encoded_url = engine::URL_SAFE_NO_PAD.encode(orig);
@@ -107,8 +121,6 @@
 //! # Panics
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
-//!
-//! The `_slice` flavors of encode or decode will panic if the provided output slice is too small.
 
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
 #![deny(
@@ -153,14 +165,14 @@ mod encode;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::encode::{encode, encode_engine, encode_engine_string};
 #[allow(deprecated)]
-pub use crate::encode::{encode_engine_slice, encoded_len};
+pub use crate::encode::{encode_engine_slice, encoded_len, EncodeSliceError};
 
 mod decode;
 #[allow(deprecated)]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
 #[allow(deprecated)]
-pub use crate::decode::{decode_engine_slice, DecodeError};
+pub use crate::decode::{decode_engine_slice, decoded_len_estimate, DecodeError, DecodeSliceError};
 
 #[cfg(test)]
 mod tests;

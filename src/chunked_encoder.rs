@@ -41,7 +41,7 @@ impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
 
             let chunk = &bytes[input_index..(input_index + input_chunk_len)];
 
-            let mut b64_bytes_written = self.engine.inner_encode(chunk, &mut encode_buf);
+            let mut b64_bytes_written = self.engine.internal_encode(chunk, &mut encode_buf);
 
             input_index += input_chunk_len;
             let more_input_left = input_index < bytes.len();

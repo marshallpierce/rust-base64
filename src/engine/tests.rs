@@ -2,7 +2,9 @@
 #![allow(unused_variables)]
 
 use rand::{
-    self, distributions, distributions::Distribution as _, rngs, Rng as _, SeedableRng as _,
+    self,
+    distributions::{self, Distribution as _},
+    rngs, Rng as _, SeedableRng as _,
 };
 use rstest::rstest;
 use rstest_reuse::{apply, template};
@@ -12,7 +14,7 @@ use crate::{
     alphabet::{Alphabet, STANDARD},
     encode::add_padding,
     encoded_len,
-    engine::{general_purpose, naive, Config, DecodePaddingMode, Engine},
+    engine::{general_purpose, naive, Config, DecodeEstimate, DecodePaddingMode, Engine},
     tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, PAD_BYTE,
 };
@@ -48,7 +50,8 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             let mut encode_buf = [0_u8; 8];
             let mut decode_buf = [0_u8; 6];
 
-            let encode_len = engine_no_padding.inner_encode(orig.as_bytes(), &mut encode_buf[..]);
+            let encode_len =
+                engine_no_padding.internal_encode(orig.as_bytes(), &mut encode_buf[..]);
             assert_eq!(
                 &encoded_without_padding,
                 &std::str::from_utf8(&encode_buf[0..encode_len]).unwrap()
@@ -77,7 +80,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             let mut encode_buf = [0_u8; 8];
             let mut decode_buf = [0_u8; 6];
 
-            let encode_len = engine.inner_encode(orig.as_bytes(), &mut encode_buf[..]);
+            let encode_len = engine.internal_encode(orig.as_bytes(), &mut encode_buf[..]);
             assert_eq!(
                 // doesn't have padding added yet
                 &encoded_without_padding,
@@ -171,7 +174,8 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
 
         let expected_encode_len_no_pad = encoded_len(orig_len, false).unwrap();
 
-        let encoded_len_no_pad = engine.inner_encode(&orig_data[..], &mut encode_buf[prefix_len..]);
+        let encoded_len_no_pad =
+            engine.internal_encode(&orig_data[..], &mut encode_buf[prefix_len..]);
         assert_eq!(expected_encode_len_no_pad, encoded_len_no_pad);
 
         // no writes past what it claimed to write
@@ -206,6 +210,51 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
 }
 
 #[apply(all_engines)]
+fn encode_engine_slice_fits_into_precisely_sized_slice<E: EngineWrapper>(engine_wrapper: E) {
+    let mut orig_data = Vec::new();
+    let mut encoded_data = Vec::new();
+    let mut decoded = Vec::new();
+
+    let input_len_range = distributions::Uniform::new(0, 1000);
+
+    let mut rng = rngs::SmallRng::from_entropy();
+
+    for _ in 0..10_000 {
+        orig_data.clear();
+        encoded_data.clear();
+        decoded.clear();
+
+        let input_len = input_len_range.sample(&mut rng);
+
+        for _ in 0..input_len {
+            orig_data.push(rng.gen());
+        }
+
+        let engine = E::random(&mut rng);
+
+        let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
+
+        encoded_data.resize(encoded_size, 0);
+
+        assert_eq!(
+            encoded_size,
+            engine.encode_slice(&orig_data, &mut encoded_data).unwrap()
+        );
+
+        assert_encode_sanity(
+            std::str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
+            engine.config().encode_padding(),
+            input_len,
+        );
+
+        engine
+            .decode_vec(&encoded_data[0..encoded_size], &mut decoded)
+            .unwrap();
+        assert_eq!(orig_data, decoded);
+    }
+}
+
+#[apply(all_engines)]
 fn decode_doesnt_write_extra_bytes<E>(engine_wrapper: E)
 where
     E: EngineWrapper,
@@ -231,7 +280,9 @@ where
         let orig_len = fill_rand(&mut orig_data, &mut rng, &len_range);
         encode_buf.resize(orig_len * 2 + 100, 0);
 
-        let encoded_len = engine.encode_slice(&orig_data[..], &mut encode_buf[..]);
+        let encoded_len = engine
+            .encode_slice(&orig_data[..], &mut encode_buf[..])
+            .unwrap();
         encode_buf.truncate(encoded_len);
 
         // oversize decode buffer so we can easily tell if it writes anything more than
@@ -330,7 +381,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
 
     for b in 0_u8..=255 {
         let mut b64 = vec![0_u8; 4];
-        assert_eq!(2, engine.inner_encode(&[b], &mut b64[..]));
+        assert_eq!(2, engine.internal_encode(&[b], &mut b64[..]));
         let _ = add_padding(1, &mut b64[2..]);
 
         assert!(base64_to_bytes.insert(b64, vec![b]).is_none());
@@ -390,7 +441,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
         for b2 in 0_u8..=255 {
             bytes[1] = b2;
             let mut b64 = vec![0_u8; 4];
-            assert_eq!(3, engine.inner_encode(&bytes, &mut b64[..]));
+            assert_eq!(3, engine.internal_encode(&bytes, &mut b64[..]));
             let _ = add_padding(2, &mut b64[3..]);
 
             let mut v = Vec::with_capacity(2);
@@ -1108,6 +1159,65 @@ fn decode_wrong_length_error<E: EngineWrapper>(engine_wrapper: E) {
     }
 }
 
+#[apply(all_engines)]
+fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrapper: E) {
+    let mut orig_data = Vec::new();
+    let mut encoded_data = String::new();
+    let mut decode_buf = Vec::new();
+
+    let input_len_range = distributions::Uniform::new(0, 1000);
+    let mut rng = rngs::SmallRng::from_entropy();
+
+    for _ in 0..10_000 {
+        orig_data.clear();
+        encoded_data.clear();
+        decode_buf.clear();
+
+        let input_len = input_len_range.sample(&mut rng);
+
+        for _ in 0..input_len {
+            orig_data.push(rng.gen());
+        }
+
+        let engine = E::random(&mut rng);
+        engine.encode_string(&orig_data, &mut encoded_data);
+        assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
+
+        decode_buf.resize(input_len, 0);
+
+        // decode into the non-empty buf
+        let decode_bytes_written = engine
+            .decode_ez(encoded_data.as_bytes(), &mut decode_buf[..])
+            .unwrap();
+
+        assert_eq!(orig_data.len(), decode_bytes_written);
+        assert_eq!(orig_data, decode_buf);
+    }
+}
+
+#[apply(all_engines)]
+fn decode_length_estimate_delta<E: EngineWrapper>(engine_wrapper: E) {
+    for engine in [E::standard(), E::standard_unpadded()] {
+        for &padding in &[true, false] {
+            for orig_len in 0..1000 {
+                let encoded_len = encoded_len(orig_len, padding).unwrap();
+
+                let decoded_estimate = engine
+                    .internal_decoded_len_estimate(encoded_len)
+                    .decoded_len_estimate();
+                assert!(decoded_estimate >= orig_len);
+                assert!(
+                    decoded_estimate - orig_len < 3,
+                    "estimate: {}, encoded: {}, orig: {}",
+                    decoded_estimate,
+                    encoded_len,
+                    orig_len
+                );
+            }
+        }
+    }
+}
+
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.
 ///
 /// Vecs provided should be empty.
@@ -1124,7 +1234,7 @@ fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distributions::Distr
     let expected_encoded_len = encoded_len(orig_len, padding).unwrap();
     encode_buf.resize(expected_encoded_len, 0);
 
-    let base_encoded_len = engine.inner_encode(&orig_data[..], &mut encode_buf[..]);
+    let base_encoded_len = engine.internal_encode(&orig_data[..], &mut encode_buf[..]);
 
     let enc_len_with_padding = if padding {
         base_encoded_len + add_padding(orig_len, &mut encode_buf[base_encoded_len..])
@@ -1205,10 +1315,7 @@ impl EngineWrapper for GeneralPurposeWrapper {
     }
 
     fn standard_unpadded() -> Self::Engine {
-        general_purpose::GeneralPurpose::new(
-            &STANDARD,
-            general_purpose::NO_PAD.with_decode_padding_mode(DecodePaddingMode::RequireNone),
-        )
+        general_purpose::GeneralPurpose::new(&STANDARD, general_purpose::NO_PAD)
     }
 
     fn standard_with_pad_mode(
@@ -1319,9 +1426,9 @@ impl EngineWrapper for NaiveWrapper {
 trait EngineExtensions: Engine {
     // a convenience wrapper to avoid the separate estimate call in tests
     fn decode_ez(&self, input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
-        let estimate = self.decoded_length_estimate(input.len());
+        let estimate = self.internal_decoded_len_estimate(input.len());
 
-        self.inner_decode(input, output, estimate)
+        self.internal_decode(input, output, estimate)
     }
 
     fn decode_ez_vec(&self, input: &[u8]) -> Result<Vec<u8>, DecodeError> {

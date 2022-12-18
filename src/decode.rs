@@ -1,6 +1,4 @@
-use crate::engine::Engine;
-#[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::engine::STANDARD;
+use crate::engine::{DecodeEstimate, Engine, STANDARD};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
 use core::fmt;
@@ -44,17 +42,44 @@ impl fmt::Display for DecodeError {
 
 #[cfg(any(feature = "std", test))]
 impl error::Error for DecodeError {
-    fn description(&self) -> &str {
-        match *self {
-            Self::InvalidByte(_, _) => "invalid byte",
-            Self::InvalidLength => "invalid length",
-            Self::InvalidLastSymbol(_, _) => "invalid last symbol",
-            Self::InvalidPadding => "invalid padding",
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         None
+    }
+}
+
+/// Errors that can occur while decoding into a slice.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DecodeSliceError {
+    /// A [DecodeError] occurred
+    DecodeError(DecodeError),
+    /// The provided slice _may_ be too small.
+    ///
+    /// The check is conservative (assumes the last triplet of output bytes will all be needed).
+    OutputSliceTooSmall,
+}
+
+impl fmt::Display for DecodeSliceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DecodeError(e) => write!(f, "DecodeError: {}", e),
+            Self::OutputSliceTooSmall => write!(f, "Output slice too small"),
+        }
+    }
+}
+
+#[cfg(any(feature = "std", test))]
+impl error::Error for DecodeSliceError {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        match self {
+            DecodeSliceError::DecodeError(e) => Some(e),
+            DecodeSliceError::OutputSliceTooSmall => None,
+        }
+    }
+}
+
+impl From<DecodeError> for DecodeSliceError {
+    fn from(e: DecodeError) -> Self {
+        DecodeSliceError::DecodeError(e)
     }
 }
 
@@ -101,8 +126,37 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
     output: &mut [u8],
     engine: &E,
-) -> Result<usize, DecodeError> {
+) -> Result<usize, DecodeSliceError> {
     engine.decode_slice(input, output)
+}
+
+/// Returns a conservative estimate of the decoded size of `encoded_len` base64 symbols (rounded up
+/// to the next group of 3 decoded bytes).
+///
+/// The resulting length will be a safe choice for the size of a decode buffer, but may have up to
+/// 2 trailing bytes that won't end up being needed.
+///
+/// # Examples
+///
+/// ```
+/// use base64::decoded_len_estimate;
+///
+/// assert_eq!(3, decoded_len_estimate(1));
+/// assert_eq!(3, decoded_len_estimate(2));
+/// assert_eq!(3, decoded_len_estimate(3));
+/// assert_eq!(3, decoded_len_estimate(4));
+/// // start of the next quad of encoded symbols
+/// assert_eq!(6, decoded_len_estimate(5));
+/// ```
+///
+/// # Panics
+///
+/// Panics if decoded length estimation overflows.
+/// This would happen for sizes within a few bytes of the maximum value of `usize`.
+pub fn decoded_len_estimate(encoded_len: usize) -> usize {
+    STANDARD
+        .internal_decoded_len_estimate(encoded_len)
+        .decoded_len_estimate()
 }
 
 #[cfg(test)]
@@ -236,42 +290,6 @@ mod tests {
     }
 
     #[test]
-    fn decode_into_slice_fits_in_precisely_sized_slice() {
-        let mut orig_data = Vec::new();
-        let mut encoded_data = String::new();
-        let mut decode_buf = Vec::new();
-
-        let input_len_range = Uniform::new(0, 1000);
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            encoded_data.clear();
-            decode_buf.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            let engine = random_engine(&mut rng);
-            engine.encode_string(&orig_data, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
-
-            decode_buf.resize(input_len, 0);
-
-            // decode into the non-empty buf
-            let decode_bytes_written = engine
-                .decode_slice(&encoded_data, &mut decode_buf[..])
-                .unwrap();
-
-            assert_eq!(orig_data.len(), decode_bytes_written);
-            assert_eq!(orig_data, decode_buf);
-        }
-    }
-
-    #[test]
     fn decode_engine_estimation_works_for_various_lengths() {
         let engine = GeneralPurpose::new(&alphabet::STANDARD, general_purpose::NO_PAD);
         for num_prefix_quads in 0..100 {
@@ -282,6 +300,34 @@ mod tests {
                 let res = engine.decode(prefix);
                 assert!(res.is_ok());
             }
+        }
+    }
+
+    #[test]
+    fn decode_slice_output_length_errors() {
+        for num_quads in 1..100 {
+            let input = "AAAA".repeat(num_quads);
+            let mut vec = vec![0; (num_quads - 1) * 3];
+            assert_eq!(
+                DecodeSliceError::OutputSliceTooSmall,
+                STANDARD.decode_slice(&input, &mut vec).unwrap_err()
+            );
+            vec.push(0);
+            assert_eq!(
+                DecodeSliceError::OutputSliceTooSmall,
+                STANDARD.decode_slice(&input, &mut vec).unwrap_err()
+            );
+            vec.push(0);
+            assert_eq!(
+                DecodeSliceError::OutputSliceTooSmall,
+                STANDARD.decode_slice(&input, &mut vec).unwrap_err()
+            );
+            vec.push(0);
+            // now it works
+            assert_eq!(
+                num_quads * 3,
+                STANDARD.decode_slice(&input, &mut vec).unwrap()
+            );
         }
     }
 }

@@ -43,7 +43,7 @@ impl Engine for Naive {
     type Config = NaiveConfig;
     type DecodeEstimate = NaiveEstimate;
 
-    fn inner_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
+    fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         // complete chunks first
 
         const LOW_SIX_BITS: u32 = 0x3F;
@@ -103,11 +103,11 @@ impl Engine for Naive {
         output_index
     }
 
-    fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
+    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
         NaiveEstimate::new(input_len)
     }
 
-    fn inner_decode(
+    fn internal_decode(
         &self,
         input: &[u8],
         output: &mut [u8],
@@ -183,7 +183,7 @@ impl Engine for Naive {
 pub struct NaiveEstimate {
     /// remainder from dividing input by `Naive::DECODE_CHUNK_SIZE`
     rem: usize,
-    /// Number of complete `Naive::DECODE_CHUNK_SIZE`-length chunks
+    /// Length of input that is in complete `Naive::DECODE_CHUNK_SIZE`-length chunks
     complete_chunk_len: usize,
 }
 
@@ -200,8 +200,8 @@ impl NaiveEstimate {
 }
 
 impl DecodeEstimate for NaiveEstimate {
-    fn decoded_length_estimate(&self) -> usize {
-        (self.complete_chunk_len + 1) * 3
+    fn decoded_len_estimate(&self) -> usize {
+        ((self.complete_chunk_len / 4) + ((self.rem > 0) as usize)) * 3
     }
 }
 
