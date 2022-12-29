@@ -22,11 +22,10 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// ```
 /// use std::io::Write;
+/// use base64::engine::general_purpose;
 ///
 /// // use a vec as the simplest possible `Write` -- in real code this is probably a file, etc.
-/// let mut enc = base64::write::EncoderWriter::new(
-///     Vec::new(),
-///     &base64::engine::STANDARD);
+/// let mut enc = base64::write::EncoderWriter::new(Vec::new(), &general_purpose::STANDARD);
 ///
 /// // handle errors as you normally would
 /// enc.write_all(b"asdf").unwrap();

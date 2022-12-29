@@ -326,7 +326,7 @@ fn write_u64(output: &mut [u8], value: u64) {
 mod tests {
     use super::*;
 
-    use crate::engine::STANDARD;
+    use crate::engine::general_purpose::STANDARD;
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {

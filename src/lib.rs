@@ -1,14 +1,11 @@
 //! # Getting started
 //!
-//! tl;dr:
-//!
-//! 1. Perhaps one of the already available consts will suit:
-//!     - [engine::STANDARD]
-//!     - [engine::STANDARD_NO_PAD]
-//!     - [engine::URL_SAFE]
-//!     - [engine::URL_SAFE_NO_PAD]
+//! 1. Perhaps one of the preconfigured engines in [engine::general_purpose] will suit, e.g.
+//! [engine::general_purpose::STANDARD_NO_PAD].
+//!     - These are re-exported in [prelude] with a `BASE64_` prefix for those who prefer to
+//!       `use ...::prelude::*` or equivalent, e.g. [prelude::BASE64_STANDARD_NO_PAD]
 //! 1. If not, choose which alphabet you want. Most usage will want [alphabet::STANDARD] or [alphabet::URL_SAFE].
-//! 1. Choose which [Engine] you want. For the moment there is only one: [engine::GeneralPurpose].
+//! 1. Choose which [Engine] implementation you want. For the moment there is only one: [engine::GeneralPurpose].
 //! 1. Configure the engine appropriately using the engine's `Config` type.
 //!     - This is where you'll select whether to add padding (when encoding) or expect it (when
 //!     decoding). If given the choice, prefer no padding.
@@ -28,7 +25,7 @@
 //! Once you have an `Alphabet`, you can pick which `Engine` you want. A few parts of the public
 //! API provide a default, but otherwise the user must provide an `Engine` to use.
 //!
-//! See [engine::Engine] for more.
+//! See [Engine] for more.
 //!
 //! ## Config
 //!
@@ -85,15 +82,15 @@
 //! ## Using predefined engines
 //!
 //! ```
-//! use base64::{engine, Engine as _};
+//! use base64::{Engine as _, engine::general_purpose};
 //!
 //! let orig = b"data";
-//! let encoded: String = engine::STANDARD_NO_PAD.encode(orig);
+//! let encoded: String = general_purpose::STANDARD_NO_PAD.encode(orig);
 //! assert_eq!("ZGF0YQ", encoded);
-//! assert_eq!(orig.as_slice(), &engine::STANDARD_NO_PAD.decode(encoded).unwrap());
+//! assert_eq!(orig.as_slice(), &general_purpose::STANDARD_NO_PAD.decode(encoded).unwrap());
 //!
 //! // or, URL-safe
-//! let encoded_url = engine::URL_SAFE_NO_PAD.encode(orig);
+//! let encoded_url = general_purpose::URL_SAFE_NO_PAD.encode(orig);
 //! ```
 //!
 //! ## Custom alphabet, config, and engine
@@ -107,14 +104,14 @@
 //!     .unwrap();
 //!
 //! // a very weird config that encodes with padding but requires no padding when decoding...?
-//! let config = engine::GeneralPurposeConfig::new()
+//! let crazy_config = engine::GeneralPurposeConfig::new()
 //!     .with_decode_allow_trailing_bits(true)
 //!     .with_encode_padding(true)
 //!     .with_decode_padding_mode(engine::DecodePaddingMode::RequireNone);
 //!
-//! let engine = engine::GeneralPurpose::new(&alphabet, config);
+//! let crazy_engine = engine::GeneralPurpose::new(&alphabet, crazy_config);
 //!
-//! let encoded = engine.encode(b"abc 123");
+//! let encoded = crazy_engine.encode(b"abc 123");
 //!
 //! ```
 //!
@@ -173,6 +170,8 @@ mod decode;
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
 #[allow(deprecated)]
 pub use crate::decode::{decode_engine_slice, decoded_len_estimate, DecodeError, DecodeSliceError};
+
+pub mod prelude;
 
 #[cfg(test)]
 mod tests;

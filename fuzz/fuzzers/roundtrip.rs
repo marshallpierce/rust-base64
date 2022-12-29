@@ -2,7 +2,7 @@
 #[macro_use] extern crate libfuzzer_sys;
 extern crate base64;
 
-use base64::{Engine as _, engine::STANDARD};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 fuzz_target!(|data: &[u8]| {
     let encoded = STANDARD.encode(data);

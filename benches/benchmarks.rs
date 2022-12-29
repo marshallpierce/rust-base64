@@ -3,7 +3,7 @@ extern crate criterion;
 
 use base64::{
     display,
-    engine::{Engine, STANDARD},
+    engine::{general_purpose::STANDARD, Engine},
     write,
 };
 use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};

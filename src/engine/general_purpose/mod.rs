@@ -237,7 +237,7 @@ fn read_u64(s: &[u8]) -> u64 {
 ///
 /// The constants [PAD] and [NO_PAD] cover most use cases.
 ///
-/// To specify the characters used, see [crate::alphabet::Alphabet].
+/// To specify the characters used, see [Alphabet].
 #[derive(Clone, Copy, Debug)]
 pub struct GeneralPurposeConfig {
     encode_padding: bool,
@@ -325,16 +325,16 @@ impl Config for GeneralPurposeConfig {
     }
 }
 
-/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::PAD] config.
+/// A [GeneralPurpose] engine using the [alphabet::STANDARD] base64 alphabet and [PAD] config.
 pub const STANDARD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, PAD);
 
-/// A [GeneralPurpose] engine using the [crate::alphabet::STANDARD] base64 alphabet and [crate::engine::general_purpose::NO_PAD] config.
+/// A [GeneralPurpose] engine using the [alphabet::STANDARD] base64 alphabet and [NO_PAD] config.
 pub const STANDARD_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
-/// A [GeneralPurpose] engine using the [crate::alphabet::URL_SAFE] base64 alphabet and [crate::engine::general_purpose::PAD] config.
+/// A [GeneralPurpose] engine using the [alphabet::URL_SAFE] base64 alphabet and [PAD] config.
 pub const URL_SAFE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, PAD);
 
-/// A [GeneralPurpose] engine using the [crate::alphabet::URL_SAFE] base64 alphabet and [crate::engine::general_purpose::NO_PAD] config.
+/// A [GeneralPurpose] engine using the [alphabet::URL_SAFE] base64 alphabet and [NO_PAD] config.
 pub const URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
 
 /// Include padding bytes when encoding, and require that they be present when decoding.

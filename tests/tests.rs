@@ -1,6 +1,6 @@
 use rand::{Rng, SeedableRng};
 
-use base64::engine::{Engine, STANDARD};
+use base64::engine::{general_purpose::STANDARD, Engine};
 use base64::*;
 
 use base64::engine::general_purpose::{GeneralPurpose, NO_PAD};

@@ -8,7 +8,7 @@ use rand::{Rng as _, RngCore as _};
 
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
-    engine::{Engine, GeneralPurpose, STANDARD},
+    engine::{general_purpose::STANDARD, Engine, GeneralPurpose},
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
 };

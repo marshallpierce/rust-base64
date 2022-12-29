@@ -5,7 +5,7 @@ use core::fmt;
 use std::error;
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
-use crate::engine::STANDARD;
+use crate::engine::general_purpose::STANDARD;
 use crate::engine::{Config, Engine};
 use crate::PAD_BYTE;
 
@@ -161,10 +161,7 @@ mod tests {
 
     use crate::{
         alphabet,
-        engine::{
-            general_purpose::{GeneralPurpose, NO_PAD},
-            STANDARD,
-        },
+        engine::general_purpose::{GeneralPurpose, NO_PAD, STANDARD},
         tests::{assert_encode_sanity, random_config, random_engine},
     };
     use rand::{

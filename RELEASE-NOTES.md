@@ -1,3 +1,49 @@
+# 0.21.0
+
+(not yet released)
+
+
+## Migration
+
+### Functions
+
+| < 0.20 function         | 0.21 equivalent                                                                     |
+|-------------------------|-------------------------------------------------------------------------------------|
+| `encode()`              | `engine::general_purpose::STANDARD.encode()` or `prelude::BASE64_STANDARD.encode()` |
+| `encode_config()`       | `engine.encode()`                                                                   |
+| `encode_config_buf()`   | `engine.encode_string()`                                                            |
+| `encode_config_slice()` | `engine.encode_slice()`                                                             |
+| `decode()`              | `engine::general_purpose::STANDARD.decode()` or `prelude::BASE64_STANDARD.decode()` |
+| `decode_config()`       | `engine.decode()`                                                                   |
+| `decode_config_buf()`   | `engine.decode_vec()`                                                               |
+| `decode_config_slice()` | `engine.decode_slice()`                                                             |
+
+The short-lived 0.20 functions were the 0.13 functions with `config` replaced with `engine`.
+
+### Padding
+
+If applicable, use the preset engines `engine::STANDARD`, `engine::STANDARD_NO_PAD`, `engine::URL_SAFE`,
+or `engine::URL_SAFE_NO_PAD`.
+The `NO_PAD` ones require that padding is absent when decoding, and the others require that
+canonical padding is present .
+
+If you need the < 0.20 behavior that did not care about padding, or want to recreate < 0.20.0's predefined `Config`s
+precisely, see the following table.
+
+| 0.13.1 Config   | 0.20.0+ alphabet | `encode_padding` | `decode_padding_mode` |
+|-----------------|------------------|------------------|-----------------------|
+| STANDARD        | STANDARD         | true             | Indifferent           |
+| STANDARD_NO_PAD | STANDARD         | false            | Indifferent           |
+| URL_SAFE        | URL_SAFE         | true             | Indifferent           |
+| URL_SAFE_NO_PAD | URL_SAFE         | false            | Indifferent           |
+
+
+# 0.21.0-beta.2
+
+## Breaking changes
+
+- Re-exports of preconfigured engines in `engine` are removed in favor of `base64::prelude::...` that are better suited to those who wish to `use` the entire path to a name.
+
 # 0.21.0-beta.1
 
 ## Breaking changes
@@ -20,40 +66,6 @@
 ## Other changes
 
 - `decoded_len_estimate()` is provided to make it easy to size decode buffers correctly.
-
-## Migration
-
-### Functions
-
-| < 0.20 function         | 0.21 equivalent             |
-|-------------------------|-----------------------------|
-| `encode()`              | `engine::STANDARD.encode()` |
-| `encode_config()`       | `engine.encode()`           |
-| `encode_config_buf()`   | `engine.encode_string()`    |
-| `encode_config_slice()` | `engine.encode_slice()`     |
-| `decode()`              | `engine::STANDARD.decode()` |
-| `decode_config()`       | `engine.decode()`           |
-| `decode_config_buf()`   | `engine.decode_vec()`       |
-| `decode_config_slice()` | `engine.decode_slice()`     |
-
-The short-lived 0.20 functions were the 0.13 functions with `config` replaced with `engine`.
-
-### Padding
-
-If applicable, use the preset engines `engine::STANDARD`, `engine::STANDARD_NO_PAD`, `engine::URL_SAFE`,
-or `engine::URL_SAFE_NO_PAD`.
-The `NO_PAD` ones require that padding is absent when decoding, and the others require that
-canonical padding is present .
-
-If you need the < 0.20 behavior that did not care about padding, or want to recreate < 0.20.0's predefined `Config`s
-precisely, see the following table.
-
-| 0.13.1 Config   | 0.20.0+ alphabet | `encode_padding` | `decode_padding_mode` |
-|-----------------|------------------|------------------|-----------------------|
-| STANDARD        | STANDARD         | true             | Indifferent           |
-| STANDARD_NO_PAD | STANDARD         | false            | Indifferent           |
-| URL_SAFE        | URL_SAFE         | true             | Indifferent           |
-| URL_SAFE_NO_PAD | URL_SAFE         | false            | Indifferent           |
 
 # 0.20.0
 

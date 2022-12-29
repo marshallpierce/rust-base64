@@ -19,9 +19,7 @@ mod naive;
 #[cfg(test)]
 mod tests;
 
-pub use general_purpose::{
-    GeneralPurpose, GeneralPurposeConfig, STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD,
-};
+pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
@@ -29,7 +27,7 @@ pub use general_purpose::{
 /// [GeneralPurpose] that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
-/// See [STANDARD] if you just want standard base64. Otherwise, when possible, it's
+/// See [general_purpose::STANDARD_NO_PAD] if you just want standard base64. Otherwise, when possible, it's
 /// recommended to store the engine in a `const` so that references to it won't pose any lifetime
 /// issues, and to avoid repeating the cost of engine setup.
 ///
@@ -112,16 +110,15 @@ pub trait Engine: Send + Sync {
     /// # Example
     ///
     /// ```rust
-    /// use base64::Engine as _;
-    /// const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-    ///     base64::engine::GeneralPurpose::new(
-    ///         &base64::alphabet::URL_SAFE,
-    ///         base64::engine::general_purpose::NO_PAD);
+    /// use base64::{Engine as _, engine::{self, general_purpose}, alphabet};
     ///
-    /// let b64 = base64::engine::STANDARD.encode(b"hello world~");
+    /// let b64 = general_purpose::STANDARD.encode(b"hello world~");
     /// println!("{}", b64);
     ///
-    /// let b64_url = URL_SAFE_ENGINE.encode(b"hello internet~");
+    /// const CUSTOM_ENGINE: engine::GeneralPurpose =
+    ///     engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+    ///
+    /// let b64_url = CUSTOM_ENGINE.encode(b"hello internet~");
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn encode<T: AsRef<[u8]>>(&self, input: T) -> String {
         let encoded_size = encoded_len(input.as_ref().len(), self.config().encode_padding())
@@ -139,18 +136,17 @@ pub trait Engine: Send + Sync {
     /// # Example
     ///
     /// ```rust
-    /// use base64::Engine as _;
-    /// const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-    ///     base64::engine::GeneralPurpose::new(
-    ///         &base64::alphabet::URL_SAFE,
-    ///         base64::engine::general_purpose::NO_PAD);
+    /// use base64::{Engine as _, engine::{self, general_purpose}, alphabet};
+    /// const CUSTOM_ENGINE: engine::GeneralPurpose =
+    ///     engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+    ///
     /// fn main() {
     ///     let mut buf = String::new();
-    ///     base64::engine::STANDARD.encode_string(b"hello world~", &mut buf);
+    ///     general_purpose::STANDARD.encode_string(b"hello world~", &mut buf);
     ///     println!("{}", buf);
     ///
     ///     buf.clear();
-    ///     URL_SAFE_ENGINE.encode_string(b"hello internet~", &mut buf);
+    ///     CUSTOM_ENGINE.encode_string(b"hello internet~", &mut buf);
     ///     println!("{}", buf);
     /// }
     /// ```
@@ -176,18 +172,18 @@ pub trait Engine: Send + Sync {
     /// # Example
     ///
     /// ```rust
-    /// use base64::{engine, Engine as _};
+    /// use base64::{Engine as _, engine::general_purpose};
     /// let s = b"hello internet!";
     /// let mut buf = Vec::new();
     /// // make sure we'll have a slice big enough for base64 + padding
     /// buf.resize(s.len() * 4 / 3 + 4, 0);
     ///
-    /// let bytes_written = engine::STANDARD.encode_slice(s, &mut buf).unwrap();
+    /// let bytes_written = general_purpose::STANDARD.encode_slice(s, &mut buf).unwrap();
     ///
     /// // shorten our vec down to just what was written
     /// buf.truncate(bytes_written);
     ///
-    /// assert_eq!(s, engine::STANDARD.decode(&buf).unwrap().as_slice());
+    /// assert_eq!(s, general_purpose::STANDARD.decode(&buf).unwrap().as_slice());
     /// ```
     fn encode_slice<T: AsRef<[u8]>>(
         &self,
@@ -216,17 +212,18 @@ pub trait Engine: Send + Sync {
     /// # Example
     ///
     /// ```rust
-    ///     use base64::{Engine as _, Engine};
+    /// use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
     ///
-    ///     let bytes = base64::engine::STANDARD.decode("aGVsbG8gd29ybGR+Cg==").unwrap();
-    ///     println!("{:?}", bytes);
+    /// let bytes = general_purpose::STANDARD
+    ///     .decode("aGVsbG8gd29ybGR+Cg==").unwrap();
+    /// println!("{:?}", bytes);
     ///
-    ///     // custom engine setup
-    ///     let bytes_url = base64::engine::GeneralPurpose::new(
-    ///                  &base64::alphabet::URL_SAFE,
-    ///                  base64::engine::general_purpose::NO_PAD)
-    ///         .decode("aGVsbG8gaW50ZXJuZXR-Cg").unwrap();
-    ///     println!("{:?}", bytes_url);
+    /// // custom engine setup
+    /// let bytes_url = engine::GeneralPurpose::new(
+    ///              &alphabet::URL_SAFE,
+    ///              general_purpose::NO_PAD)
+    ///     .decode("aGVsbG8gaW50ZXJuZXR-Cg").unwrap();
+    /// println!("{:?}", bytes_url);
     /// ```
     ///
     /// # Panics
@@ -253,25 +250,22 @@ pub trait Engine: Send + Sync {
     /// # Example
     ///
     /// ```rust
-    /// const URL_SAFE_ENGINE: base64::engine::GeneralPurpose =
-    ///     base64::engine::GeneralPurpose::new(
-    ///         &base64::alphabet::URL_SAFE,
-    ///         base64::engine::general_purpose::PAD);
+    /// use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
+    /// const CUSTOM_ENGINE: engine::GeneralPurpose =
+    ///     engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::PAD);
     ///
     /// fn main() {
     ///     use base64::Engine;
     ///     let mut buffer = Vec::<u8>::new();
     ///     // with the default engine
-    ///     base64::engine::STANDARD.decode_vec(
-    ///         "aGVsbG8gd29ybGR+Cg==",
-    ///         &mut buffer,
-    ///     ).unwrap();
+    ///     general_purpose::STANDARD
+    ///         .decode_vec("aGVsbG8gd29ybGR+Cg==", &mut buffer,).unwrap();
     ///     println!("{:?}", buffer);
     ///
     ///     buffer.clear();
     ///
     ///     // with a custom engine
-    ///     URL_SAFE_ENGINE.decode_vec(
+    ///     CUSTOM_ENGINE.decode_vec(
     ///         "aGVsbG8gaW50ZXJuZXR-Cg==",
     ///         &mut buffer,
     ///     ).unwrap();

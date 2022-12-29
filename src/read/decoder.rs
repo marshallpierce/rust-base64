@@ -15,12 +15,13 @@ const DECODED_CHUNK_SIZE: usize = 3;
 /// ```
 /// use std::io::Read;
 /// use std::io::Cursor;
+/// use base64::engine::general_purpose;
 ///
 /// // use a cursor as the simplest possible `Read` -- in real code this is probably a file, etc.
 /// let mut wrapped_reader = Cursor::new(b"YXNkZg==");
 /// let mut decoder = base64::read::DecoderReader::new(
 ///     &mut wrapped_reader,
-///     &base64::engine::STANDARD);
+///     &general_purpose::STANDARD);
 ///
 /// // handle errors as you normally would
 /// let mut result = Vec::new();

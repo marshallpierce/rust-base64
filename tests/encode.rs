@@ -1,4 +1,6 @@
-use base64::{alphabet::URL_SAFE, engine::general_purpose::PAD, engine::STANDARD, *};
+use base64::{
+    alphabet::URL_SAFE, engine::general_purpose::PAD, engine::general_purpose::STANDARD, *,
+};
 
 fn compare_encode(expected: &str, target: &[u8]) {
     assert_eq!(expected, STANDARD.encode(target));
