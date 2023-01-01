@@ -6,10 +6,13 @@
 //! # Examples
 //!
 //! ```
-//! use base64::{Engine as _, prelude::BASE64_STANDARD_NO_PAD};
+//! use base64::prelude::{Engine as _, BASE64_STANDARD_NO_PAD};
 //!
 //! assert_eq!("c29tZSBieXRlcw", &BASE64_STANDARD_NO_PAD.encode(b"some bytes"));
 //! ```
+
+pub use crate::engine::Engine;
+
 pub use crate::engine::general_purpose::STANDARD as BASE64_STANDARD;
 pub use crate::engine::general_purpose::STANDARD_NO_PAD as BASE64_STANDARD_NO_PAD;
 pub use crate::engine::general_purpose::URL_SAFE as BASE64_URL_SAFE;

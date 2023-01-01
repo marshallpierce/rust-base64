@@ -3,7 +3,7 @@
 //! 1. Perhaps one of the preconfigured engines in [engine::general_purpose] will suit, e.g.
 //! [engine::general_purpose::STANDARD_NO_PAD].
 //!     - These are re-exported in [prelude] with a `BASE64_` prefix for those who prefer to
-//!       `use ...::prelude::*` or equivalent, e.g. [prelude::BASE64_STANDARD_NO_PAD]
+//!       `use base64::prelude::*` or equivalent, e.g. [prelude::BASE64_STANDARD_NO_PAD]
 //! 1. If not, choose which alphabet you want. Most usage will want [alphabet::STANDARD] or [alphabet::URL_SAFE].
 //! 1. Choose which [Engine] implementation you want. For the moment there is only one: [engine::GeneralPurpose].
 //! 1. Configure the engine appropriately using the engine's `Config` type.

@@ -40,6 +40,7 @@ precisely, see the following table.
 # 0.21.0-rc.1
 
 - Restore the ability to decode into a slice of precisely the correct length with `Engine.decode_slice_unchecked`.
+- Add `Engine` as a `pub use` in `prelude`.
 
 # 0.21.0-beta.2
 
