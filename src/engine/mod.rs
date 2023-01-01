@@ -304,9 +304,14 @@ pub trait Engine: Send + Sync {
 
     /// Decode the input into the provided output slice.
     ///
+    /// Returns an error if `output` is smaller than the estimated decoded length.
+    ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
     /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    ///
+    /// See [Engine::decode_slice_unchecked] for a version that panics instead of returning an error
+    /// if the output buffer is too small.
     ///
     /// # Panics
     ///
@@ -326,6 +331,35 @@ pub trait Engine: Send + Sync {
 
         self.internal_decode(input_bytes, output, estimate)
             .map_err(|e| e.into())
+    }
+
+    /// Decode the input into the provided output slice.
+    ///
+    /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
+    ///
+    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    ///
+    /// See [Engine::decode_slice] for a version that returns an error instead of panicking if the output
+    /// buffer is too small.
+    ///
+    /// # Panics
+    ///
+    /// Panics if decoded length estimation overflows.
+    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
+    ///
+    /// Panics if the provided output buffer is too small for the decoded data.
+    fn decode_slice_unchecked<T: AsRef<[u8]>>(
+        &self,
+        input: T,
+        output: &mut [u8],
+    ) -> Result<usize, DecodeError> {
+        let input_bytes = input.as_ref();
+
+        self.internal_decode(
+            input_bytes,
+            output,
+            self.internal_decoded_len_estimate(input_bytes.len()),
+        )
     }
 }
 

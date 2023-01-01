@@ -235,58 +235,17 @@ mod tests {
     }
 
     #[test]
-    fn decode_into_slice_doesnt_clobber_existing_prefix_or_suffix() {
-        let mut orig_data = Vec::new();
-        let mut encoded_data = String::new();
-        let mut decode_buf = Vec::new();
-        let mut decode_buf_copy: Vec<u8> = Vec::new();
+    fn decode_slice_doesnt_clobber_existing_prefix_or_suffix() {
+        do_decode_slice_doesnt_clobber_existing_prefix_or_suffix(|e, input, output| {
+            e.decode_slice(input, output).unwrap()
+        })
+    }
 
-        let input_len_range = Uniform::new(0, 1000);
-
-        let mut rng = rand::rngs::SmallRng::from_entropy();
-
-        for _ in 0..10_000 {
-            orig_data.clear();
-            encoded_data.clear();
-            decode_buf.clear();
-            decode_buf_copy.clear();
-
-            let input_len = input_len_range.sample(&mut rng);
-
-            for _ in 0..input_len {
-                orig_data.push(rng.gen());
-            }
-
-            let engine = random_engine(&mut rng);
-            engine.encode_string(&orig_data, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
-
-            // fill the buffer with random garbage, long enough to have some room before and after
-            for _ in 0..5000 {
-                decode_buf.push(rng.gen());
-            }
-
-            // keep a copy for later comparison
-            decode_buf_copy.extend(decode_buf.iter());
-
-            let offset = 1000;
-
-            // decode into the non-empty buf
-            let decode_bytes_written = engine
-                .decode_slice(&encoded_data, &mut decode_buf[offset..])
-                .unwrap();
-
-            assert_eq!(orig_data.len(), decode_bytes_written);
-            assert_eq!(
-                orig_data,
-                &decode_buf[offset..(offset + decode_bytes_written)]
-            );
-            assert_eq!(&decode_buf_copy[0..offset], &decode_buf[0..offset]);
-            assert_eq!(
-                &decode_buf_copy[offset + decode_bytes_written..],
-                &decode_buf[offset + decode_bytes_written..]
-            );
-        }
+    #[test]
+    fn decode_slice_unchecked_doesnt_clobber_existing_prefix_or_suffix() {
+        do_decode_slice_doesnt_clobber_existing_prefix_or_suffix(|e, input, output| {
+            e.decode_slice_unchecked(input, output).unwrap()
+        })
     }
 
     #[test]
@@ -327,6 +286,63 @@ mod tests {
             assert_eq!(
                 num_quads * 3,
                 STANDARD.decode_slice(&input, &mut vec).unwrap()
+            );
+        }
+    }
+
+    fn do_decode_slice_doesnt_clobber_existing_prefix_or_suffix<
+        F: Fn(&GeneralPurpose, &[u8], &mut [u8]) -> usize,
+    >(
+        call_decode: F,
+    ) {
+        let mut orig_data = Vec::new();
+        let mut encoded_data = String::new();
+        let mut decode_buf = Vec::new();
+        let mut decode_buf_copy: Vec<u8> = Vec::new();
+
+        let input_len_range = Uniform::new(0, 1000);
+
+        let mut rng = rand::rngs::SmallRng::from_entropy();
+
+        for _ in 0..10_000 {
+            orig_data.clear();
+            encoded_data.clear();
+            decode_buf.clear();
+            decode_buf_copy.clear();
+
+            let input_len = input_len_range.sample(&mut rng);
+
+            for _ in 0..input_len {
+                orig_data.push(rng.gen());
+            }
+
+            let engine = random_engine(&mut rng);
+            engine.encode_string(&orig_data, &mut encoded_data);
+            assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
+
+            // fill the buffer with random garbage, long enough to have some room before and after
+            for _ in 0..5000 {
+                decode_buf.push(rng.gen());
+            }
+
+            // keep a copy for later comparison
+            decode_buf_copy.extend(decode_buf.iter());
+
+            let offset = 1000;
+
+            // decode into the non-empty buf
+            let decode_bytes_written =
+                call_decode(&engine, encoded_data.as_bytes(), &mut decode_buf[offset..]);
+
+            assert_eq!(orig_data.len(), decode_bytes_written);
+            assert_eq!(
+                orig_data,
+                &decode_buf[offset..(offset + decode_bytes_written)]
+            );
+            assert_eq!(&decode_buf_copy[0..offset], &decode_buf[0..offset]);
+            assert_eq!(
+                &decode_buf_copy[offset + decode_bytes_written..],
+                &decode_buf[offset + decode_bytes_written..]
             );
         }
     }

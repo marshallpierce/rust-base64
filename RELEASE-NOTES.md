@@ -37,6 +37,9 @@ precisely, see the following table.
 | URL_SAFE        | URL_SAFE         | true             | Indifferent           |
 | URL_SAFE_NO_PAD | URL_SAFE         | false            | Indifferent           |
 
+# 0.21.0-rc.1
+
+- Restore the ability to decode into a slice of precisely the correct length with `Engine.decode_slice_unchecked`.
 
 # 0.21.0-beta.2
 
