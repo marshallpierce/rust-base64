@@ -57,7 +57,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 &std::str::from_utf8(&encode_buf[0..encode_len]).unwrap()
             );
             let decode_len = engine_no_padding
-                .decode_ez(encoded_without_padding.as_bytes(), &mut decode_buf[..])
+                .decode_slice_unchecked(encoded_without_padding.as_bytes(), &mut decode_buf[..])
                 .unwrap();
             assert_eq!(orig.len(), decode_len);
 
@@ -70,7 +70,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             if encoded.as_bytes().contains(&PAD_BYTE) {
                 assert_eq!(
                     Err(DecodeError::InvalidPadding),
-                    engine_no_padding.decode_ez_str_vec(encoded)
+                    engine_no_padding.decode(encoded)
                 )
             }
         }
@@ -90,7 +90,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             assert_eq!(encoded.as_bytes(), &encode_buf[..encode_len + pad_len]);
 
             let decode_len = engine
-                .decode_ez(encoded.as_bytes(), &mut decode_buf[..])
+                .decode_slice_unchecked(encoded.as_bytes(), &mut decode_buf[..])
                 .unwrap();
             assert_eq!(orig.len(), decode_len);
 
@@ -103,7 +103,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
             if encoded.as_bytes().contains(&PAD_BYTE) {
                 assert_eq!(
                     Err(DecodeError::InvalidPadding),
-                    engine.decode_ez_str_vec(encoded_without_padding)
+                    engine.decode(encoded_without_padding)
                 )
             }
         }
@@ -139,7 +139,7 @@ fn roundtrip_random<E: EngineWrapper>(engine_wrapper: E) {
         decode_buf.resize(orig_len, 0);
 
         let dec_len = engine
-            .decode_ez(&encode_buf[0..encoded_len], &mut decode_buf[..])
+            .decode_slice_unchecked(&encode_buf[0..encoded_len], &mut decode_buf[..])
             .unwrap();
 
         assert_eq!(orig_len, dec_len);
@@ -293,7 +293,7 @@ where
         decode_buf_backup.extend_from_slice(&decode_buf[..]);
 
         let dec_len = engine
-            .decode_ez(&encode_buf, &mut decode_buf[prefix_len..])
+            .decode_slice_unchecked(&encode_buf, &mut decode_buf[prefix_len..])
             .unwrap();
 
         assert_eq!(orig_len, dec_len);
@@ -314,8 +314,8 @@ fn decode_detect_invalid_last_symbol<E: EngineWrapper>(engine_wrapper: E) {
     // 0xFF -> "/w==", so all letters > w, 0-9, and '+', '/' should get InvalidLastSymbol
     let engine = E::standard();
 
-    assert_eq!(Ok(vec![0x89, 0x85]), engine.decode_ez_str_vec("iYU="));
-    assert_eq!(Ok(vec![0xFF]), engine.decode_ez_str_vec("/w=="));
+    assert_eq!(Ok(vec![0x89, 0x85]), engine.decode("iYU="));
+    assert_eq!(Ok(vec![0xFF]), engine.decode("/w=="));
 
     for (suffix, offset) in vec![
         // suffix, offset of bad byte from start of suffix
@@ -341,7 +341,7 @@ fn decode_detect_invalid_last_symbol<E: EngineWrapper>(engine_wrapper: E) {
                     encoded.len() - 4 + offset,
                     suffix.as_bytes()[offset],
                 )),
-                engine.decode_ez_str_vec(encoded.as_str())
+                engine.decode(encoded.as_str())
             );
         }
     }
@@ -409,7 +409,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
                 match base64_to_bytes.get(&symbols[..]) {
                     Some(bytes) => {
                         let res = engine
-                            .decode_ez_vec(&clone)
+                            .decode(&clone)
                             // remove prefix
                             .map(|decoded| decoded[decoded_prefix_len..].to_vec());
 
@@ -417,7 +417,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
                     }
                     None => assert_eq!(
                         Err(DecodeError::InvalidLastSymbol(1, s2)),
-                        engine.decode_ez_vec(&symbols[..])
+                        engine.decode(&symbols[..])
                     ),
                 }
             }
@@ -474,7 +474,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
                     match base64_to_bytes.get(&symbols[..]) {
                         Some(bytes) => {
                             let res = engine
-                                .decode_ez_vec(&input)
+                                .decode(&input)
                                 // remove prefix
                                 .map(|decoded| decoded[decoded_prefix_len..].to_vec());
 
@@ -482,7 +482,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
                         }
                         None => assert_eq!(
                             Err(DecodeError::InvalidLastSymbol(2, s3)),
-                            engine.decode_ez_vec(&symbols[..])
+                            engine.decode(&symbols[..])
                         ),
                     }
                 }
@@ -505,7 +505,7 @@ fn decode_invalid_trailing_bits_ignored_when_configured<E: EngineWrapper>(engine
         data: &str,
     ) {
         let prefixed = prefixed_data(input, b64_prefix_len, data);
-        let decoded = engine.decode_ez_str_vec(prefixed);
+        let decoded = engine.decode(prefixed);
         // prefix is always complete chunks
         let decoded_prefix_len = b64_prefix_len / 4 * 3;
         assert_eq!(
@@ -520,10 +520,10 @@ fn decode_invalid_trailing_bits_ignored_when_configured<E: EngineWrapper>(engine
 
         // example from https://github.com/marshallpierce/rust-base64/issues/75
         assert!(strict
-            .decode_ez_str_vec(prefixed_data(&mut input, prefix.len(), "/w=="))
+            .decode(prefixed_data(&mut input, prefix.len(), "/w=="))
             .is_ok());
         assert!(strict
-            .decode_ez_str_vec(prefixed_data(&mut input, prefix.len(), "iYU="))
+            .decode(prefixed_data(&mut input, prefix.len(), "iYU="))
             .is_ok());
         // trailing 01
         assert_tolerant_decode(&forgiving, &mut input, prefix.len(), vec![255], "/x==");
@@ -586,7 +586,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
 
         assert_eq!(
             Err(DecodeError::InvalidByte(invalid_index, invalid_byte)),
-            engine.decode_ez(
+            engine.decode_slice_unchecked(
                 &encode_buf[0..encoded_len_with_padding],
                 &mut decode_buf[..],
             )
@@ -634,7 +634,7 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte<E: EngineWrap
 
                 assert_eq!(
                     Err(DecodeError::InvalidByte(padding_start, PAD_BYTE)),
-                    engine.decode_ez_vec(&encoded),
+                    engine.decode(&encoded),
                 );
             }
         }
@@ -672,14 +672,11 @@ fn decode_padding_starts_before_final_chunk_error_invalid_byte<E: EngineWrapper>
             encoded[padding_start..].fill(PAD_BYTE);
 
             if suffix_len == 1 {
-                assert_eq!(
-                    Err(DecodeError::InvalidLength),
-                    engine.decode_ez_vec(&encoded),
-                );
+                assert_eq!(Err(DecodeError::InvalidLength), engine.decode(&encoded),);
             } else {
                 assert_eq!(
                     Err(DecodeError::InvalidByte(padding_start, PAD_BYTE)),
-                    engine.decode_ez_vec(&encoded),
+                    engine.decode(&encoded),
                 );
             }
         }
@@ -713,17 +710,14 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
                 encoded.resize(encoded.len() + padding_len, PAD_BYTE);
 
                 if suffix_data_len + padding_len == 1 {
-                    assert_eq!(
-                        Err(DecodeError::InvalidLength),
-                        engine.decode_ez_vec(&encoded),
-                    );
+                    assert_eq!(Err(DecodeError::InvalidLength), engine.decode(&encoded),);
                 } else {
                     assert_eq!(
                         Err(DecodeError::InvalidByte(
                             prefix_quad_len * 4 + suffix_data_len,
                             PAD_BYTE,
                         )),
-                        engine.decode_ez_vec(&encoded),
+                        engine.decode(&encoded),
                         "suffix data len {} pad len {}",
                         suffix_data_len,
                         padding_len
@@ -739,7 +733,7 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
 fn decode_malleability_test_case_3_byte_suffix_valid<E: EngineWrapper>(engine_wrapper: E) {
     assert_eq!(
         b"Hello".as_slice(),
-        &E::standard().decode_ez_str_vec("SGVsbG8=").unwrap()
+        &E::standard().decode("SGVsbG8=").unwrap()
     );
 }
 
@@ -750,7 +744,7 @@ fn decode_malleability_test_case_3_byte_suffix_invalid_trailing_symbol<E: Engine
 ) {
     assert_eq!(
         DecodeError::InvalidLastSymbol(6, 0x39),
-        E::standard().decode_ez_str_vec("SGVsbG9=").unwrap_err()
+        E::standard().decode("SGVsbG9=").unwrap_err()
     );
 }
 
@@ -759,7 +753,7 @@ fn decode_malleability_test_case_3_byte_suffix_invalid_trailing_symbol<E: Engine
 fn decode_malleability_test_case_3_byte_suffix_no_padding<E: EngineWrapper>(engine_wrapper: E) {
     assert_eq!(
         DecodeError::InvalidPadding,
-        E::standard().decode_ez_str_vec("SGVsbG9").unwrap_err()
+        E::standard().decode("SGVsbG9").unwrap_err()
     );
 }
 
@@ -770,7 +764,7 @@ fn decode_malleability_test_case_2_byte_suffix_valid_two_padding_symbols<E: Engi
 ) {
     assert_eq!(
         b"Hell".as_slice(),
-        &E::standard().decode_ez_str_vec("SGVsbA==").unwrap()
+        &E::standard().decode("SGVsbA==").unwrap()
     );
 }
 
@@ -779,7 +773,7 @@ fn decode_malleability_test_case_2_byte_suffix_valid_two_padding_symbols<E: Engi
 fn decode_malleability_test_case_2_byte_suffix_short_padding<E: EngineWrapper>(engine_wrapper: E) {
     assert_eq!(
         DecodeError::InvalidPadding,
-        E::standard().decode_ez_str_vec("SGVsbA=").unwrap_err()
+        E::standard().decode("SGVsbA=").unwrap_err()
     );
 }
 
@@ -788,7 +782,7 @@ fn decode_malleability_test_case_2_byte_suffix_short_padding<E: EngineWrapper>(e
 fn decode_malleability_test_case_2_byte_suffix_no_padding<E: EngineWrapper>(engine_wrapper: E) {
     assert_eq!(
         DecodeError::InvalidPadding,
-        E::standard().decode_ez_str_vec("SGVsbA").unwrap_err()
+        E::standard().decode("SGVsbA").unwrap_err()
     );
 }
 
@@ -799,7 +793,7 @@ fn decode_malleability_test_case_2_byte_suffix_too_much_padding<E: EngineWrapper
 ) {
     assert_eq!(
         DecodeError::InvalidByte(6, PAD_BYTE),
-        E::standard().decode_ez_str_vec("SGVsbA====").unwrap_err()
+        E::standard().decode("SGVsbA====").unwrap_err()
     );
 }
 
@@ -823,7 +817,7 @@ fn decode_pad_mode_requires_canonical_rejects_non_canonical<E: EngineWrapper>(en
             let mut encoded = "AAAA".repeat(num_prefix_quads);
             encoded.push_str(suffix);
 
-            let res = engine.decode_ez_str_vec(&encoded);
+            let res = engine.decode(&encoded);
 
             assert_eq!(Err(DecodeError::InvalidPadding), res);
         }
@@ -850,7 +844,7 @@ fn decode_pad_mode_requires_no_padding_rejects_any_padding<E: EngineWrapper>(eng
             let mut encoded = "AAAA".repeat(num_prefix_quads);
             encoded.push_str(suffix);
 
-            let res = engine.decode_ez_str_vec(&encoded);
+            let res = engine.decode(&encoded);
 
             assert_eq!(Err(DecodeError::InvalidPadding), res);
         }
@@ -901,7 +895,7 @@ fn decode_pad_byte_in_penultimate_quad_error<E: EngineWrapper>(engine_wrapper: E
                             num_prefix_quads * 4 + num_valid_bytes_penultimate_quad,
                             b'=',
                         ),
-                        engine.decode_ez_str_vec(&s).unwrap_err()
+                        engine.decode(&s).unwrap_err()
                     );
                 }
             }
@@ -935,7 +929,7 @@ fn decode_bytes_after_padding_in_final_quad_error<E: EngineWrapper>(engine_wrapp
                         num_prefix_quads * 4 + (3 - bytes_after_padding),
                         b'='
                     ),
-                    engine.decode_ez_str_vec(&s).unwrap_err()
+                    engine.decode(&s).unwrap_err()
                 );
             }
         }
@@ -955,7 +949,7 @@ fn decode_absurd_pad_error<E: EngineWrapper>(engine_wrapper: E) {
             // first padding byte
             assert_eq!(
                 DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-                engine.decode_ez_str_vec(&s).unwrap_err()
+                engine.decode(&s).unwrap_err()
             );
         }
     }
@@ -975,14 +969,11 @@ fn decode_too_much_padding_returns_error<E: EngineWrapper>(engine_wrapper: E) {
                 s.push_str(&padding);
 
                 if pad_bytes % 4 == 1 {
-                    assert_eq!(
-                        DecodeError::InvalidLength,
-                        engine.decode_ez_str_vec(&s).unwrap_err()
-                    );
+                    assert_eq!(DecodeError::InvalidLength, engine.decode(&s).unwrap_err());
                 } else {
                     assert_eq!(
                         DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-                        engine.decode_ez_str_vec(&s).unwrap_err()
+                        engine.decode(&s).unwrap_err()
                     );
                 }
             }
@@ -1004,14 +995,11 @@ fn decode_padding_followed_by_non_padding_returns_error<E: EngineWrapper>(engine
                 s.push('E');
 
                 if pad_bytes % 4 == 0 {
-                    assert_eq!(
-                        DecodeError::InvalidLength,
-                        engine.decode_ez_str_vec(&s).unwrap_err()
-                    );
+                    assert_eq!(DecodeError::InvalidLength, engine.decode(&s).unwrap_err());
                 } else {
                     assert_eq!(
                         DecodeError::InvalidByte(num_prefix_quads * 4, b'='),
-                        engine.decode_ez_str_vec(&s).unwrap_err()
+                        engine.decode(&s).unwrap_err()
                     );
                 }
             }
@@ -1031,20 +1019,20 @@ fn decode_one_char_in_final_quad_with_padding_error<E: EngineWrapper>(engine_wra
 
             assert_eq!(
                 DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-                engine.decode_ez_str_vec(&s).unwrap_err()
+                engine.decode(&s).unwrap_err()
             );
 
             // more padding doesn't change the error
             s.push('=');
             assert_eq!(
                 DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-                engine.decode_ez_str_vec(&s).unwrap_err()
+                engine.decode(&s).unwrap_err()
             );
 
             s.push('=');
             assert_eq!(
                 DecodeError::InvalidByte(num_prefix_quads * 4 + 1, b'='),
-                engine.decode_ez_str_vec(&s).unwrap_err()
+                engine.decode(&s).unwrap_err()
             );
         }
     }
@@ -1072,10 +1060,7 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
                     match final_quad_symbols + padding_symbols {
                         0 => continue,
                         1 => {
-                            assert_eq!(
-                                DecodeError::InvalidLength,
-                                engine.decode_ez_str_vec(&s).unwrap_err()
-                            );
+                            assert_eq!(DecodeError::InvalidLength, engine.decode(&s).unwrap_err());
                         }
                         _ => {
                             // error reported at first padding byte
@@ -1084,7 +1069,7 @@ fn decode_too_few_symbols_in_final_quad_error<E: EngineWrapper>(engine_wrapper: 
                                     num_prefix_quads * 4 + final_quad_symbols,
                                     b'=',
                                 ),
-                                engine.decode_ez_str_vec(&s).unwrap_err()
+                                engine.decode(&s).unwrap_err()
                             );
                         }
                     }
@@ -1108,15 +1093,12 @@ fn decode_invalid_trailing_bytes<E: EngineWrapper>(engine_wrapper: E) {
             // message.
             assert_eq!(
                 Err(DecodeError::InvalidByte(num_prefix_quads * 4 + 4, b'\n')),
-                engine.decode_ez_str_vec(&s)
+                engine.decode(&s)
             );
 
             // extra padding, however, is still InvalidLength
             let s = s.replace('\n', "=");
-            assert_eq!(
-                Err(DecodeError::InvalidLength),
-                engine.decode_ez_str_vec(&s)
-            );
+            assert_eq!(Err(DecodeError::InvalidLength), engine.decode(s));
         }
     }
 }
@@ -1137,7 +1119,7 @@ fn decode_wrong_length_error<E: EngineWrapper>(engine_wrapper: E) {
                     s.push('=');
                 }
 
-                let res = engine.decode_ez_str_vec(&s);
+                let res = engine.decode(&s);
                 if num_tokens_final_quad >= 2 {
                     assert!(res.is_ok());
                 } else if num_tokens_final_quad == 1 && num_padding > 0 {
@@ -1187,7 +1169,7 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
 
         // decode into the non-empty buf
         let decode_bytes_written = engine
-            .decode_ez(encoded_data.as_bytes(), &mut decode_buf[..])
+            .decode_slice_unchecked(encoded_data.as_bytes(), &mut decode_buf[..])
             .unwrap();
 
         assert_eq!(orig_data.len(), decode_bytes_written);
@@ -1423,39 +1405,6 @@ impl EngineWrapper for NaiveWrapper {
     }
 }
 
-trait EngineExtensions: Engine {
-    // a convenience wrapper to avoid the separate estimate call in tests
-    fn decode_ez(&self, input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
-        let estimate = self.internal_decoded_len_estimate(input.len());
-
-        self.internal_decode(input, output, estimate)
-    }
-
-    fn decode_ez_vec(&self, input: &[u8]) -> Result<Vec<u8>, DecodeError> {
-        let mut output = Vec::new();
-        output.resize((input.len() + 3) / 4 * 3, 0_u8);
-
-        self.decode_ez(input, &mut output[..]).map(|len| {
-            // shrink as needed
-            output.resize(len, 0_u8);
-            output
-        })
-    }
-    fn decode_ez_str_vec(&self, input: &str) -> Result<Vec<u8>, DecodeError> {
-        let mut output = Vec::new();
-        output.resize((input.len() + 3) / 4 * 3, 0_u8);
-
-        self.decode_ez(input.as_bytes(), &mut output[..])
-            .map(|len| {
-                // shrink as needed
-                output.resize(len, 0_u8);
-                output
-            })
-    }
-}
-
-impl<E: Engine> EngineExtensions for E {}
-
 fn seeded_rng() -> impl rand::Rng {
     rngs::SmallRng::from_entropy()
 }
@@ -1474,7 +1423,7 @@ fn assert_all_suffixes_ok<E: Engine>(engine: E, suffixes: Vec<&str>) {
             let mut encoded = "AAAA".repeat(num_prefix_quads);
             encoded.push_str(suffix);
 
-            let res = &engine.decode_ez_str_vec(&encoded);
+            let res = &engine.decode(&encoded);
             assert!(res.is_ok());
         }
     }
