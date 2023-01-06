@@ -1,4 +1,4 @@
-use crate::{decode_engine_slice, engine::Engine, DecodeError};
+use crate::{engine::Engine, DecodeError};
 use std::{cmp, fmt, io};
 
 // This should be large, but it has to fit on the stack.
@@ -15,12 +15,13 @@ const DECODED_CHUNK_SIZE: usize = 3;
 /// ```
 /// use std::io::Read;
 /// use std::io::Cursor;
+/// use base64::engine::general_purpose;
 ///
 /// // use a cursor as the simplest possible `Read` -- in real code this is probably a file, etc.
 /// let mut wrapped_reader = Cursor::new(b"YXNkZg==");
-/// let mut decoder = base64::read::DecoderReader::from(
+/// let mut decoder = base64::read::DecoderReader::new(
 ///     &mut wrapped_reader,
-///     &base64::engine::DEFAULT_ENGINE);
+///     &general_purpose::STANDARD);
 ///
 /// // handle errors as you normally would
 /// let mut result = Vec::new();
@@ -69,7 +70,7 @@ impl<'e, E: Engine, R: io::Read> fmt::Debug for DecoderReader<'e, E, R> {
 
 impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     /// Create a new decoder that will read from the provided reader `r`.
-    pub fn from(reader: R, engine: &'e E) -> Self {
+    pub fn new(reader: R, engine: &'e E) -> Self {
         DecoderReader {
             engine,
             inner: reader,
@@ -131,22 +132,24 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
         debug_assert!(!buf.is_empty());
 
-        let decoded = decode_engine_slice(
-            &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
-            buf,
-            self.engine,
-        )
-        .map_err(|e| match e {
-            DecodeError::InvalidByte(offset, byte) => {
-                DecodeError::InvalidByte(self.total_b64_decoded + offset, byte)
-            }
-            DecodeError::InvalidLength => DecodeError::InvalidLength,
-            DecodeError::InvalidLastSymbol(offset, byte) => {
-                DecodeError::InvalidLastSymbol(self.total_b64_decoded + offset, byte)
-            }
-            DecodeError::InvalidPadding => DecodeError::InvalidPadding,
-        })
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let decoded = self
+            .engine
+            .internal_decode(
+                &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
+                buf,
+                self.engine.internal_decoded_len_estimate(num_bytes),
+            )
+            .map_err(|e| match e {
+                DecodeError::InvalidByte(offset, byte) => {
+                    DecodeError::InvalidByte(self.total_b64_decoded + offset, byte)
+                }
+                DecodeError::InvalidLength => DecodeError::InvalidLength,
+                DecodeError::InvalidLastSymbol(offset, byte) => {
+                    DecodeError::InvalidLastSymbol(self.total_b64_decoded + offset, byte)
+                }
+                DecodeError::InvalidPadding => DecodeError::InvalidPadding,
+            })
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         self.total_b64_decoded += num_bytes;
         self.b64_offset += num_bytes;

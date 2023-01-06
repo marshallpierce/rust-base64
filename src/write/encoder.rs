@@ -1,4 +1,3 @@
-use crate::encode_engine_slice;
 use crate::engine::Engine;
 use std::{
     cmp, fmt, io,
@@ -23,11 +22,10 @@ const MIN_ENCODE_CHUNK_SIZE: usize = 3;
 ///
 /// ```
 /// use std::io::Write;
+/// use base64::engine::general_purpose;
 ///
 /// // use a vec as the simplest possible `Write` -- in real code this is probably a file, etc.
-/// let mut enc = base64::write::EncoderWriter::from(
-///     Vec::new(),
-///     &base64::engine::DEFAULT_ENGINE);
+/// let mut enc = base64::write::EncoderWriter::new(Vec::new(), &general_purpose::STANDARD);
 ///
 /// // handle errors as you normally would
 /// enc.write_all(b"asdf").unwrap();
@@ -97,7 +95,7 @@ impl<'e, E: Engine, W: io::Write> fmt::Debug for EncoderWriter<'e, E, W> {
 
 impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
     /// Create a new encoder that will write to the provided delegate writer.
-    pub fn from(delegate: W, engine: &'e E) -> EncoderWriter<'e, E, W> {
+    pub fn new(delegate: W, engine: &'e E) -> EncoderWriter<'e, E, W> {
         EncoderWriter {
             engine,
             delegate: Some(delegate),
@@ -150,11 +148,13 @@ impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
         self.write_all_encoded_output()?;
 
         if self.extra_input_occupied_len > 0 {
-            let encoded_len = encode_engine_slice(
-                &self.extra_input[..self.extra_input_occupied_len],
-                &mut self.output[..],
-                self.engine,
-            );
+            let encoded_len = self
+                .engine
+                .encode_slice(
+                    &self.extra_input[..self.extra_input_occupied_len],
+                    &mut self.output[..],
+                )
+                .expect("buffer is large enough");
 
             self.output_occupied_len = encoded_len;
 
@@ -314,7 +314,7 @@ impl<'e, E: Engine, W: io::Write> io::Write for EncoderWriter<'e, E, W> {
                 self.extra_input[self.extra_input_occupied_len..MIN_ENCODE_CHUNK_SIZE]
                     .copy_from_slice(&input[0..extra_input_read_len]);
 
-                let len = self.engine.encode(
+                let len = self.engine.internal_encode(
                     &self.extra_input[0..MIN_ENCODE_CHUNK_SIZE],
                     &mut self.output[..],
                 );
@@ -362,7 +362,7 @@ impl<'e, E: Engine, W: io::Write> io::Write for EncoderWriter<'e, E, W> {
         debug_assert_eq!(0, max_input_len % MIN_ENCODE_CHUNK_SIZE);
         debug_assert_eq!(0, input_chunks_to_encode_len % MIN_ENCODE_CHUNK_SIZE);
 
-        encoded_size += self.engine.encode(
+        encoded_size += self.engine.internal_encode(
             &input[..(input_chunks_to_encode_len)],
             &mut self.output[encoded_size..],
         );

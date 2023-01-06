@@ -1,7 +1,7 @@
 use crate::{
     alphabet::Alphabet,
     engine::{
-        fast_portable::{self, decode_table, encode_table},
+        general_purpose::{self, decode_table, encode_table},
         Config, DecodeEstimate, DecodePaddingMode, Engine,
     },
     DecodeError, PAD_BYTE,
@@ -20,7 +20,7 @@ impl Naive {
     const ENCODE_INPUT_CHUNK_SIZE: usize = 3;
     const DECODE_INPUT_CHUNK_SIZE: usize = 4;
 
-    pub const fn from(alphabet: &Alphabet, config: NaiveConfig) -> Self {
+    pub const fn new(alphabet: &Alphabet, config: NaiveConfig) -> Self {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
@@ -31,7 +31,7 @@ impl Naive {
     fn decode_byte_into_u32(&self, offset: usize, byte: u8) -> Result<u32, DecodeError> {
         let decoded = self.decode_table[byte as usize];
 
-        if decoded == fast_portable::INVALID_VALUE {
+        if decoded == general_purpose::INVALID_VALUE {
             return Err(DecodeError::InvalidByte(offset, byte));
         }
 
@@ -43,7 +43,7 @@ impl Engine for Naive {
     type Config = NaiveConfig;
     type DecodeEstimate = NaiveEstimate;
 
-    fn encode(&self, input: &[u8], output: &mut [u8]) -> usize {
+    fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         // complete chunks first
 
         const LOW_SIX_BITS: u32 = 0x3F;
@@ -103,11 +103,11 @@ impl Engine for Naive {
         output_index
     }
 
-    fn decoded_length_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        NaiveEstimate::from(input_len)
+    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
+        NaiveEstimate::new(input_len)
     }
 
-    fn decode(
+    fn internal_decode(
         &self,
         input: &[u8],
         output: &mut [u8],
@@ -117,7 +117,8 @@ impl Engine for Naive {
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
             if let Some(b) = input.last() {
-                if *b != PAD_BYTE && self.decode_table[*b as usize] == fast_portable::INVALID_VALUE
+                if *b != PAD_BYTE
+                    && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
                 {
                     return Err(DecodeError::InvalidByte(input.len() - 1, *b));
                 }
@@ -163,7 +164,7 @@ impl Engine for Naive {
             }
         }
 
-        fast_portable::decode_suffix::decode_suffix(
+        general_purpose::decode_suffix::decode_suffix(
             input,
             input_index,
             output,
@@ -182,12 +183,12 @@ impl Engine for Naive {
 pub struct NaiveEstimate {
     /// remainder from dividing input by `Naive::DECODE_CHUNK_SIZE`
     rem: usize,
-    /// Number of complete `Naive::DECODE_CHUNK_SIZE`-length chunks
+    /// Length of input that is in complete `Naive::DECODE_CHUNK_SIZE`-length chunks
     complete_chunk_len: usize,
 }
 
 impl NaiveEstimate {
-    fn from(input_len: usize) -> Self {
+    fn new(input_len: usize) -> Self {
         let rem = input_len % Naive::DECODE_INPUT_CHUNK_SIZE;
         let complete_chunk_len = input_len - rem;
 
@@ -199,8 +200,8 @@ impl NaiveEstimate {
 }
 
 impl DecodeEstimate for NaiveEstimate {
-    fn decoded_length_estimate(&self) -> usize {
-        (self.complete_chunk_len + 1) * 3
+    fn decoded_len_estimate(&self) -> usize {
+        ((self.complete_chunk_len / 4) + ((self.rem > 0) as usize)) * 3
     }
 }
 

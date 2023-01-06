@@ -18,13 +18,13 @@ pub trait Sink {
 const BUF_SIZE: usize = 1024;
 
 /// A base64 encoder that emits encoded bytes in chunks without heap allocation.
-pub struct ChunkedEncoder<'e, E: Engine> {
+pub struct ChunkedEncoder<'e, E: Engine + ?Sized> {
     engine: &'e E,
     max_input_chunk_len: usize,
 }
 
-impl<'e, E: Engine> ChunkedEncoder<'e, E> {
-    pub fn from(engine: &'e E) -> ChunkedEncoder<'e, E> {
+impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
+    pub fn new(engine: &'e E) -> ChunkedEncoder<'e, E> {
         ChunkedEncoder {
             engine,
             max_input_chunk_len: max_input_length(BUF_SIZE, engine.config().encode_padding()),
@@ -41,7 +41,7 @@ impl<'e, E: Engine> ChunkedEncoder<'e, E> {
 
             let chunk = &bytes[input_index..(input_index + input_chunk_len)];
 
-            let mut b64_bytes_written = self.engine.encode(chunk, &mut encode_buf);
+            let mut b64_bytes_written = self.engine.internal_encode(chunk, &mut encode_buf);
 
             input_index += input_chunk_len;
             let more_input_left = input_index < bytes.len();
@@ -88,7 +88,7 @@ pub(crate) struct StringSink<'a> {
 
 #[cfg(any(feature = "alloc", feature = "std", test))]
 impl<'a> StringSink<'a> {
-    pub(crate) fn from(s: &mut String) -> StringSink {
+    pub(crate) fn new(s: &mut String) -> StringSink {
         StringSink { string: s }
     }
 }
@@ -111,10 +111,11 @@ pub mod tests {
         Rng, SeedableRng,
     };
 
-    use crate::alphabet::STANDARD;
-    use crate::encode_engine_string;
-    use crate::engine::fast_portable::{FastPortable, FastPortableConfig, PAD};
-    use crate::tests::random_engine;
+    use crate::{
+        alphabet::STANDARD,
+        engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, PAD},
+        tests::random_engine,
+    };
 
     use super::*;
 
@@ -193,18 +194,18 @@ pub mod tests {
             let engine = random_engine(&mut rng);
 
             let chunk_encoded_string = sink_test_helper.encode_to_string(&engine, &input_buf);
-            encode_engine_string(&input_buf, &mut output_buf, &engine);
+            engine.encode_string(&input_buf, &mut output_buf);
 
             assert_eq!(output_buf, chunk_encoded_string, "input len={}", buf_len);
         }
     }
 
-    fn chunked_encode_str(bytes: &[u8], config: FastPortableConfig) -> String {
+    fn chunked_encode_str(bytes: &[u8], config: GeneralPurposeConfig) -> String {
         let mut s = String::new();
 
-        let mut sink = StringSink::from(&mut s);
-        let engine = FastPortable::from(&STANDARD, config);
-        let encoder = ChunkedEncoder::from(&engine);
+        let mut sink = StringSink::new(&mut s);
+        let engine = GeneralPurpose::new(&STANDARD, config);
+        let encoder = ChunkedEncoder::new(&engine);
         encoder.encode(bytes, &mut sink).unwrap();
 
         s
@@ -219,9 +220,9 @@ pub mod tests {
 
     impl SinkTestHelper for StringSinkTestHelper {
         fn encode_to_string<E: Engine>(&self, engine: &E, bytes: &[u8]) -> String {
-            let encoder = ChunkedEncoder::from(engine);
+            let encoder = ChunkedEncoder::new(engine);
             let mut s = String::new();
-            let mut sink = StringSink::from(&mut s);
+            let mut sink = StringSink::new(&mut s);
             encoder.encode(bytes, &mut sink).unwrap();
 
             s

@@ -1,5 +1,5 @@
 use crate::{
-    engine::{fast_portable::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
+    engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
     DecodeError, PAD_BYTE,
 };
 
@@ -22,24 +22,31 @@ const DECODED_BLOCK_LEN: usize =
     CHUNKS_PER_FAST_LOOP_BLOCK * DECODED_CHUNK_LEN + DECODED_CHUNK_SUFFIX;
 
 #[doc(hidden)]
-pub struct FastPortableEstimate {
+pub struct GeneralPurposeEstimate {
     /// Total number of decode chunks, including a possibly partial last chunk
     num_chunks: usize,
+    decoded_len_estimate: usize,
 }
 
-impl FastPortableEstimate {
-    pub(crate) fn from(input_len: usize) -> Self {
+impl GeneralPurposeEstimate {
+    pub(crate) fn new(encoded_len: usize) -> Self {
         Self {
-            num_chunks: num_chunks(input_len),
+            num_chunks: encoded_len
+                .checked_add(INPUT_CHUNK_LEN - 1)
+                .expect("Overflow when calculating number of chunks in input")
+                / INPUT_CHUNK_LEN,
+            decoded_len_estimate: encoded_len
+                .checked_add(3)
+                .expect("Overflow when calculating decoded len estimate")
+                / 4
+                * 3,
         }
     }
 }
 
-impl DecodeEstimate for FastPortableEstimate {
-    fn decoded_length_estimate(&self) -> usize {
-        self.num_chunks
-            .checked_mul(DECODED_CHUNK_LEN)
-            .expect("Overflow when calculating decoded length")
+impl DecodeEstimate for GeneralPurposeEstimate {
+    fn decoded_len_estimate(&self) -> usize {
+        self.decoded_len_estimate
     }
 }
 
@@ -51,7 +58,7 @@ impl DecodeEstimate for FastPortableEstimate {
 #[inline]
 pub(crate) fn decode_helper(
     input: &[u8],
-    estimate: FastPortableEstimate,
+    estimate: GeneralPurposeEstimate,
     output: &mut [u8],
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
@@ -287,14 +294,6 @@ fn decode_chunk(
     Ok(())
 }
 
-/// Return the number of input chunks (including a possibly partial final chunk) in the input
-pub(crate) fn num_chunks(input_len: usize) -> usize {
-    input_len
-        .checked_add(INPUT_CHUNK_LEN - 1)
-        .expect("Overflow when calculating number of chunks in input")
-        / INPUT_CHUNK_LEN
-}
-
 /// Decode an 8-byte chunk, but only write the 6 bytes actually decoded instead of including 2
 /// trailing garbage bytes.
 #[inline]
@@ -327,14 +326,14 @@ fn write_u64(output: &mut [u8], value: u64) {
 mod tests {
     use super::*;
 
-    use crate::engine::DEFAULT_ENGINE;
+    use crate::engine::general_purpose::STANDARD;
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
 
-        decode_chunk_precise(&input[..], 0, &DEFAULT_ENGINE.decode_table, &mut output).unwrap();
+        decode_chunk_precise(&input[..], 0, &STANDARD.decode_table, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 6, 7], &output);
     }
 
@@ -343,7 +342,7 @@ mod tests {
         let input = b"Zm9vYmFy"; // "foobar"
         let mut output = [0_u8, 1, 2, 3, 4, 5, 6, 7];
 
-        decode_chunk(&input[..], 0, &DEFAULT_ENGINE.decode_table, &mut output).unwrap();
+        decode_chunk(&input[..], 0, &STANDARD.decode_table, &mut output).unwrap();
         assert_eq!(&vec![b'f', b'o', b'o', b'b', b'a', b'r', 0, 0], &output);
     }
 }

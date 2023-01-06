@@ -8,11 +8,10 @@ use rand::{
 };
 
 use crate::{
-    alphabet, decode_engine,
+    alphabet,
     encode::encoded_len,
-    encode_engine_string,
     engine::{
-        fast_portable::{FastPortable, FastPortableConfig},
+        general_purpose::{GeneralPurpose, GeneralPurposeConfig},
         Config, DecodePaddingMode, Engine,
     },
 };
@@ -68,17 +67,17 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
             input_buf.push(rng.gen());
         }
 
-        encode_engine_string(&input_buf, &mut encoded_buf, &engine);
+        engine.encode_string(&input_buf, &mut encoded_buf);
 
         assert_encode_sanity(&encoded_buf, engine.config().encode_padding(), input_len);
 
-        assert_eq!(input_buf, decode_engine(&encoded_buf, &engine).unwrap());
+        assert_eq!(input_buf, engine.decode(&encoded_buf).unwrap());
     }
 }
 
-pub fn random_config<R: Rng>(rng: &mut R) -> FastPortableConfig {
+pub fn random_config<R: Rng>(rng: &mut R) -> GeneralPurposeConfig {
     let mode = rng.gen();
-    FastPortableConfig::new()
+    GeneralPurposeConfig::new()
         .with_encode_padding(match mode {
             DecodePaddingMode::Indifferent => rng.gen(),
             DecodePaddingMode::RequireCanonical => true,
@@ -102,10 +101,10 @@ pub fn random_alphabet<R: Rng>(rng: &mut R) -> &'static alphabet::Alphabet {
     ALPHABETS.choose(rng).unwrap()
 }
 
-pub fn random_engine<R: Rng>(rng: &mut R) -> FastPortable {
+pub fn random_engine<R: Rng>(rng: &mut R) -> GeneralPurpose {
     let alphabet = random_alphabet(rng);
     let config = random_config(rng);
-    FastPortable::from(alphabet, config)
+    GeneralPurpose::new(alphabet, config)
 }
 
 const ALPHABETS: &[alphabet::Alphabet] = &[

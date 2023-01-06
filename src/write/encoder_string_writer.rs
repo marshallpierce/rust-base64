@@ -1,7 +1,6 @@
 use super::encoder::EncoderWriter;
 use crate::engine::Engine;
 use std::io;
-use std::io::Write;
 
 /// A `Write` implementation that base64-encodes data using the provided config and accumulates the
 /// resulting base64 utf8 `&str` in a [StrConsumer] implementation (typically `String`), which is
@@ -13,9 +12,9 @@ use std::io::Write;
 ///
 /// ```
 /// use std::io::Write;
+/// use base64::engine::general_purpose;
 ///
-/// let mut enc = base64::write::EncoderStringWriter::from(
-///     &base64::engine::DEFAULT_ENGINE);
+/// let mut enc = base64::write::EncoderStringWriter::new(&general_purpose::STANDARD);
 ///
 /// enc.write_all(b"asdf").unwrap();
 ///
@@ -29,12 +28,13 @@ use std::io::Write;
 ///
 /// ```
 /// use std::io::Write;
+/// use base64::engine::general_purpose;
 ///
 /// let mut buf = String::from("base64: ");
 ///
 /// let mut enc = base64::write::EncoderStringWriter::from_consumer(
 ///     &mut buf,
-///     &base64::engine::DEFAULT_ENGINE);
+///     &general_purpose::STANDARD);
 ///
 /// enc.write_all(b"asdf").unwrap();
 ///
@@ -61,7 +61,7 @@ impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
     /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
     pub fn from_consumer(str_consumer: S, engine: &'e E) -> Self {
         EncoderStringWriter {
-            encoder: EncoderWriter::from(Utf8SingleCodeUnitWriter { str_consumer }, engine),
+            encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, engine),
         }
     }
 
@@ -79,12 +79,12 @@ impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
 
 impl<'e, E: Engine> EncoderStringWriter<'e, E, String> {
     /// Create a EncoderStringWriter that will encode into a new `String` with the provided config.
-    pub fn from(engine: &'e E) -> Self {
+    pub fn new(engine: &'e E) -> Self {
         EncoderStringWriter::from_consumer(String::new(), engine)
     }
 }
 
-impl<'e, E: Engine, S: StrConsumer> Write for EncoderStringWriter<'e, E, S> {
+impl<'e, E: Engine, S: StrConsumer> io::Write for EncoderStringWriter<'e, E, S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.encoder.write(buf)
     }
@@ -140,9 +140,9 @@ impl<S: StrConsumer> io::Write for Utf8SingleCodeUnitWriter<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::encode_engine_string;
-    use crate::tests::random_engine;
-    use crate::write::encoder_string_writer::EncoderStringWriter;
+    use crate::{
+        engine::Engine, tests::random_engine, write::encoder_string_writer::EncoderStringWriter,
+    };
     use rand::Rng;
     use std::io::Write;
 
@@ -163,9 +163,9 @@ mod tests {
             }
 
             let engine = random_engine(&mut rng);
-            encode_engine_string(&orig_data, &mut normal_encoded, &engine);
+            engine.encode_string(&orig_data, &mut normal_encoded);
 
-            let mut stream_encoder = EncoderStringWriter::from(&engine);
+            let mut stream_encoder = EncoderStringWriter::new(&engine);
             // Write the first i bytes, then the rest
             stream_encoder.write_all(&orig_data[0..i]).unwrap();
             stream_encoder.write_all(&orig_data[i..]).unwrap();

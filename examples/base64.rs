@@ -61,21 +61,21 @@ fn main() {
     };
 
     let alphabet = opt.alphabet.unwrap_or_default();
-    let engine = engine::fast_portable::FastPortable::from(
+    let engine = engine::GeneralPurpose::new(
         &match alphabet {
             Alphabet::Standard => alphabet::STANDARD,
             Alphabet::UrlSafe => alphabet::URL_SAFE,
         },
-        engine::fast_portable::PAD,
+        engine::general_purpose::PAD,
     );
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     let r = if opt.decode {
-        let mut decoder = read::DecoderReader::from(&mut input, &engine);
+        let mut decoder = read::DecoderReader::new(&mut input, &engine);
         io::copy(&mut decoder, &mut stdout)
     } else {
-        let mut encoder = write::EncoderWriter::from(&mut stdout, &engine);
+        let mut encoder = write::EncoderWriter::new(&mut stdout, &engine);
         io::copy(&mut input, &mut encoder)
     };
     if let Err(e) = r {

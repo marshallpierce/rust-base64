@@ -1,7 +1,7 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
 use crate::PAD_BYTE;
-use core::{convert, fmt};
+use core::fmt;
 #[cfg(any(feature = "std", test))]
 use std::error;
 
@@ -13,11 +13,11 @@ const ALPHABET_SIZE: usize = 64;
 /// can be made via `from_str` or the `TryFrom<str>` implementation.
 ///
 /// ```
-/// let custom = base64::alphabet::Alphabet::from_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
+/// let custom = base64::alphabet::Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
 ///
-/// let engine = base64::engine::fast_portable::FastPortable::from(
+/// let engine = base64::engine::GeneralPurpose::new(
 ///     &custom,
-///     base64::engine::fast_portable::PAD);
+///     base64::engine::general_purpose::PAD);
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alphabet {
@@ -44,7 +44,7 @@ impl Alphabet {
     /// Create an `Alphabet` from a string of 64 unique printable ASCII bytes.
     ///
     /// The `=` byte is not allowed as it is used for padding.
-    pub const fn from_str(alphabet: &str) -> Result<Self, ParseAlphabetError> {
+    pub const fn new(alphabet: &str) -> Result<Self, ParseAlphabetError> {
         let bytes = alphabet.as_bytes();
         if bytes.len() != ALPHABET_SIZE {
             return Err(ParseAlphabetError::InvalidLength);
@@ -93,11 +93,11 @@ impl Alphabet {
     }
 }
 
-impl convert::TryFrom<&str> for Alphabet {
+impl TryFrom<&str> for Alphabet {
     type Error = ParseAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
+        Self::new(value)
     }
 }
 
@@ -177,7 +177,7 @@ mod tests {
     fn detects_duplicate_start() {
         assert_eq!(
             ParseAlphabetError::DuplicatedByte(b'A'),
-            Alphabet::from_str("AACDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+            Alphabet::new("AACDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
                 .unwrap_err()
         );
     }
@@ -186,7 +186,7 @@ mod tests {
     fn detects_duplicate_end() {
         assert_eq!(
             ParseAlphabetError::DuplicatedByte(b'/'),
-            Alphabet::from_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789//")
+            Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789//")
                 .unwrap_err()
         );
     }
@@ -195,7 +195,7 @@ mod tests {
     fn detects_duplicate_middle() {
         assert_eq!(
             ParseAlphabetError::DuplicatedByte(b'Z'),
-            Alphabet::from_str("ABCDEFGHIJKLMNOPQRSTUVWXYZZbcdefghijklmnopqrstuvwxyz0123456789+/")
+            Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZZbcdefghijklmnopqrstuvwxyz0123456789+/")
                 .unwrap_err()
         );
     }
@@ -204,7 +204,7 @@ mod tests {
     fn detects_length() {
         assert_eq!(
             ParseAlphabetError::InvalidLength,
-            Alphabet::from_str(
+            Alphabet::new(
                 "xxxxxxxxxABCDEFGHIJKLMNOPQRSTUVWXYZZbcdefghijklmnopqrstuvwxyz0123456789+/",
             )
             .unwrap_err()
@@ -215,7 +215,7 @@ mod tests {
     fn detects_padding() {
         assert_eq!(
             ParseAlphabetError::ReservedByte(b'='),
-            Alphabet::from_str("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+=")
+            Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+=")
                 .unwrap_err()
         );
     }
@@ -225,10 +225,8 @@ mod tests {
         // form feed
         assert_eq!(
             ParseAlphabetError::UnprintableByte(0xc),
-            Alphabet::from_str(
-                "\x0cBCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            )
-            .unwrap_err()
+            Alphabet::new("\x0cBCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+                .unwrap_err()
         );
     }
 

@@ -1,10 +1,9 @@
 use rand::{Rng, SeedableRng};
 
-use base64::engine::{Engine, DEFAULT_ENGINE};
+use base64::engine::{general_purpose::STANDARD, Engine};
 use base64::*;
 
-use base64::alphabet::STANDARD;
-use base64::engine::fast_portable::{FastPortable, NO_PAD};
+use base64::engine::general_purpose::{GeneralPurpose, NO_PAD};
 
 // generate random contents of the specified length and test encode/decode roundtrip
 fn roundtrip_random<E: Engine>(
@@ -28,8 +27,8 @@ fn roundtrip_random<E: Engine>(
             byte_buf.push(r.gen::<u8>());
         }
 
-        encode_engine_string(&byte_buf, str_buf, engine);
-        decode_engine_vec(&str_buf, &mut decode_buf, engine).unwrap();
+        engine.encode_string(&byte_buf, str_buf);
+        engine.decode_vec(&str_buf, &mut decode_buf).unwrap();
 
         assert_eq!(byte_buf, &decode_buf);
     }
@@ -56,14 +55,7 @@ fn roundtrip_random_short_standard() {
     let mut str_buf = String::new();
 
     for input_len in 0..40 {
-        roundtrip_random(
-            &mut byte_buf,
-            &mut str_buf,
-            &DEFAULT_ENGINE,
-            input_len,
-            4,
-            10000,
-        );
+        roundtrip_random(&mut byte_buf, &mut str_buf, &STANDARD, input_len, 4, 10000);
     }
 }
 
@@ -73,14 +65,7 @@ fn roundtrip_random_with_fast_loop_standard() {
     let mut str_buf = String::new();
 
     for input_len in 40..100 {
-        roundtrip_random(
-            &mut byte_buf,
-            &mut str_buf,
-            &DEFAULT_ENGINE,
-            input_len,
-            4,
-            1000,
-        );
+        roundtrip_random(&mut byte_buf, &mut str_buf, &STANDARD, input_len, 4, 1000);
     }
 }
 
@@ -89,7 +74,7 @@ fn roundtrip_random_short_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = FastPortable::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
     for input_len in 0..40 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 10000);
     }
@@ -100,7 +85,7 @@ fn roundtrip_random_no_padding() {
     let mut byte_buf: Vec<u8> = Vec::new();
     let mut str_buf = String::new();
 
-    let engine = FastPortable::from(&STANDARD, NO_PAD);
+    let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
     for input_len in 40..100 {
         roundtrip_random(&mut byte_buf, &mut str_buf, &engine, input_len, 4, 1000);
@@ -120,11 +105,11 @@ fn roundtrip_decode_trailing_10_bytes() {
         let mut s: String = "ABCD".repeat(num_quads);
         s.push_str("EFGHIJKLZg");
 
-        let engine = FastPortable::from(&STANDARD, NO_PAD);
-        let decoded = decode_engine(&s, &engine).unwrap();
+        let engine = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
+        let decoded = engine.decode(&s).unwrap();
         assert_eq!(num_quads * 3 + 7, decoded.len());
 
-        assert_eq!(s, encode_engine(&decoded, &engine));
+        assert_eq!(s, engine.encode(&decoded));
     }
 }
 
@@ -138,21 +123,39 @@ fn display_wrapper_matches_normal_encode() {
     bytes.push(255);
 
     assert_eq!(
-        encode(&bytes),
-        format!("{}", display::Base64Display::from(&bytes, &DEFAULT_ENGINE))
+        STANDARD.encode(&bytes),
+        format!("{}", display::Base64Display::new(&bytes, &STANDARD))
     );
 }
 
 #[test]
-#[should_panic(expected = "index 24 out of range for slice of length 22")]
-fn encode_engine_slice_panics_when_buffer_too_small() {
-    let mut buf: [u8; 22] = [0; 22];
-    let mut input: [u8; 16] = [0; 16];
-
-    let mut rng = rand::rngs::SmallRng::from_entropy();
-    for elt in &mut input {
-        *elt = rng.gen();
+fn encode_engine_slice_error_when_buffer_too_small() {
+    for num_triples in 1..100 {
+        let input = "AAA".repeat(num_triples);
+        let mut vec = vec![0; (num_triples - 1) * 4];
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            EncodeSliceError::OutputSliceTooSmall,
+            STANDARD.encode_slice(&input, &mut vec).unwrap_err()
+        );
+        vec.push(0);
+        assert_eq!(
+            num_triples * 4,
+            STANDARD.encode_slice(&input, &mut vec).unwrap()
+        );
     }
-
-    encode_engine_slice(input, &mut buf, &DEFAULT_ENGINE);
 }
