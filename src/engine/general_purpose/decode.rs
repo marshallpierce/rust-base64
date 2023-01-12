@@ -30,16 +30,24 @@ pub struct GeneralPurposeEstimate {
 
 impl GeneralPurposeEstimate {
     pub(crate) fn new(encoded_len: usize) -> Self {
+        // The following calculations never panic， even for `usize::MAX`.
+        // Make sure `INPUT_CHUNK_LEN > 1`.
+
+        let num_chunks = if encoded_len % INPUT_CHUNK_LEN == 0 {
+            encoded_len / INPUT_CHUNK_LEN
+        } else {
+            encoded_len / INPUT_CHUNK_LEN + 1
+        };
+
+        let decoded_len_estimate = if encoded_len % 4 == 0 {
+            encoded_len / 4 * 3
+        } else {
+            (encoded_len / 4 + 1) * 3
+        };
+
         Self {
-            num_chunks: encoded_len
-                .checked_add(INPUT_CHUNK_LEN - 1)
-                .expect("Overflow when calculating number of chunks in input")
-                / INPUT_CHUNK_LEN,
-            decoded_len_estimate: encoded_len
-                .checked_add(3)
-                .expect("Overflow when calculating decoded len estimate")
-                / 4
-                * 3,
+            num_chunks,
+            decoded_len_estimate,
         }
     }
 }
