@@ -1200,6 +1200,32 @@ fn decode_length_estimate_delta<E: EngineWrapper>(engine_wrapper: E) {
     }
 }
 
+#[apply(all_engines)]
+fn estimate_via_u128_inflation<E: EngineWrapper>(engine_wrapper: E) {
+    // cover both ends of usize
+    (0..1000)
+        .chain(usize::MAX - 1000..=usize::MAX)
+        .for_each(|encoded_len| {
+            // inflate to 128 bit type to be able to safely use the easy formulas
+            let len_128 = encoded_len as u128;
+
+            let estimate = E::standard()
+                .internal_decoded_len_estimate(encoded_len)
+                .decoded_len_estimate();
+
+            // This check is a little too strict: it requires using the (len + 3) / 4 * 3 formula
+            // or equivalent, but until other engines come along that use a different formula
+            // requiring that we think more carefully about what the allowable criteria are, this
+            // will do.
+            assert_eq!(
+                ((len_128 + 3) / 4 * 3) as usize,
+                estimate,
+                "enc len {}",
+                encoded_len
+            );
+        })
+}
+
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.
 ///
 /// Vecs provided should be empty.

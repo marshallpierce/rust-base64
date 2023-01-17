@@ -26,10 +26,9 @@ fn encode_all_ascii() {
 fn encode_all_bytes() {
     let mut bytes = Vec::<u8>::with_capacity(256);
 
-    for i in 0..255 {
+    for i in 0..=255 {
         bytes.push(i);
     }
-    bytes.push(255); //bug with "overflowing" ranges?
 
     compare_encode(
         "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7P\
@@ -44,10 +43,9 @@ fn encode_all_bytes() {
 fn encode_all_bytes_url() {
     let mut bytes = Vec::<u8>::with_capacity(256);
 
-    for i in 0..255 {
+    for i in 0..=255 {
         bytes.push(i);
     }
-    bytes.push(255); //bug with "overflowing" ranges?
 
     assert_eq!(
         "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0\
