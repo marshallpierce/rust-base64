@@ -31,8 +31,7 @@ fn simple() {
     for (text_expected, base64data) in tests.iter() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
-            let mut wrapped_reader = io::Cursor::new(base64data);
-            let mut decoder = DecoderReader::new(&mut wrapped_reader, &STANDARD);
+            let mut decoder = DecoderReader::new(*base64data, &STANDARD);
 
             // handle errors as you normally would
             let mut text_got = Vec::new();
@@ -63,8 +62,7 @@ fn trailing_junk() {
     for base64data in tests.iter() {
         // Read n bytes at a time.
         for n in 1..base64data.len() + 1 {
-            let mut wrapped_reader = io::Cursor::new(base64data);
-            let mut decoder = DecoderReader::new(&mut wrapped_reader, &STANDARD);
+            let mut decoder = DecoderReader::new(*base64data, &STANDARD);
 
             // handle errors as you normally would
             let mut buffer = vec![0u8; n];
@@ -106,9 +104,8 @@ fn handles_short_read_from_delegate() {
         let engine = random_engine(&mut rng);
         engine.encode_string(&bytes[..], &mut b64);
 
-        let mut wrapped_reader = io::Cursor::new(b64.as_bytes());
         let mut short_reader = RandomShortRead {
-            delegate: &mut wrapped_reader,
+            delegate: b64.as_bytes(),
             rng: &mut rng,
         };
 
@@ -144,8 +141,7 @@ fn read_in_short_increments() {
 
         engine.encode_string(&bytes[..], &mut b64);
 
-        let mut wrapped_reader = io::Cursor::new(&b64[..]);
-        let mut decoder = DecoderReader::new(&mut wrapped_reader, &engine);
+        let mut decoder = DecoderReader::new(b64.as_bytes(), &engine);
 
         consume_with_short_reads_and_validate(&mut rng, &bytes[..], &mut decoded, &mut decoder);
     }
@@ -175,8 +171,7 @@ fn read_in_short_increments_with_short_delegate_reads() {
 
         engine.encode_string(&bytes[..], &mut b64);
 
-        let mut base_reader = io::Cursor::new(&b64[..]);
-        let mut decoder = DecoderReader::new(&mut base_reader, &engine);
+        let mut decoder = DecoderReader::new(b64.as_bytes(), &engine);
         let mut short_reader = RandomShortRead {
             delegate: &mut decoder,
             rng: &mut rand::thread_rng(),
@@ -229,8 +224,7 @@ fn reports_invalid_last_symbol_correctly() {
             *b64_bytes.last_mut().unwrap() = s1;
             let bulk_res = engine.decode_vec(&b64_bytes[..], &mut bulk_decoded);
 
-            let mut wrapped_reader = io::Cursor::new(&b64_bytes[..]);
-            let mut decoder = DecoderReader::new(&mut wrapped_reader, &engine);
+            let mut decoder = DecoderReader::new(b64_bytes.as_slice(), &engine);
 
             let stream_res = decoder.read_to_end(&mut decoded).map(|_| ()).map_err(|e| {
                 e.into_inner()
@@ -267,8 +261,7 @@ fn reports_invalid_byte_correctly() {
         let mut b64_bytes = b64.bytes().collect::<Vec<u8>>();
         b64_bytes[bad_byte_pos] = b'*';
 
-        let mut wrapped_reader = io::Cursor::new(b64_bytes.clone());
-        let mut decoder = DecoderReader::new(&mut wrapped_reader, &engine);
+        let mut decoder = DecoderReader::new(b64_bytes.as_slice(), &engine);
 
         // some gymnastics to avoid double-moving the io::Error, which is not Copy
         let read_decode_err = decoder
@@ -284,7 +277,7 @@ fn reports_invalid_byte_correctly() {
             .and_then(|o| o);
 
         let mut bulk_buf = Vec::new();
-        let bulk_decode_err = engine.decode_vec(&b64_bytes[..], &mut bulk_buf).err();
+        let bulk_decode_err = engine.decode_vec(b64_bytes.as_slice(), &mut bulk_buf).err();
 
         // it's tricky to predict where the invalid data's offset will be since if it's in the last
         // chunk it will be reported at the first padding location because it's treated as invalid
@@ -331,12 +324,12 @@ fn consume_with_short_reads_and_validate<R: io::Read>(
 /// Limits how many bytes a reader will provide in each read call.
 /// Useful for shaking out code that may work fine only with typical input sources that always fill
 /// the buffer.
-struct RandomShortRead<'a, 'b, R: io::Read, N: rand::Rng> {
-    delegate: &'b mut R,
+struct RandomShortRead<'a, R: io::Read, N: rand::Rng> {
+    delegate: R,
     rng: &'a mut N,
 }
 
-impl<'a, 'b, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, 'b, R, N> {
+impl<'a, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, R, N> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         // avoid 0 since it means EOF for non-empty buffers
         let effective_len = cmp::min(self.rng.gen_range(1..20), buf.len());

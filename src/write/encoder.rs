@@ -185,16 +185,12 @@ impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
         self.panicked = false;
 
         res.map(|consumed| {
-            debug_assert!(consumed <= current_output_len);
-
-            if consumed < current_output_len {
-                self.output_occupied_len = current_output_len.checked_sub(consumed).unwrap();
+            self.output_occupied_len = current_output_len.checked_sub(consumed).unwrap();
+            if self.output_occupied_len > 0 {
                 // If we're blocking on I/O, the minor inefficiency of copying bytes to the
                 // start of the buffer is the least of our concerns...
-                // TODO Rotate moves more than we need to; copy_within now stable.
-                self.output.rotate_left(consumed);
-            } else {
-                self.output_occupied_len = 0;
+                self.output
+                    .copy_within(consumed..consumed + self.output_occupied_len, 0)
             }
         })
     }

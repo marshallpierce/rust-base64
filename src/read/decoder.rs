@@ -14,13 +14,12 @@ const DECODED_CHUNK_SIZE: usize = 3;
 ///
 /// ```
 /// use std::io::Read;
-/// use std::io::Cursor;
 /// use base64::engine::general_purpose;
 ///
-/// // use a cursor as the simplest possible `Read` -- in real code this is probably a file, etc.
-/// let mut wrapped_reader = Cursor::new(b"YXNkZg==");
+/// // Use a slice as the simplest possible `Read` -- in real code this is probably a file, etc.
+/// let mut encoded = b"YXNkZg==";
 /// let mut decoder = base64::read::DecoderReader::new(
-///     &mut wrapped_reader,
+///     &encoded[..],
 ///     &general_purpose::STANDARD);
 ///
 /// // handle errors as you normally would
@@ -217,14 +216,8 @@ impl<'e, E: Engine, R: io::Read> io::Read for DecoderReader<'e, E, R> {
         } else {
             let mut at_eof = false;
             while self.b64_len < BASE64_CHUNK_SIZE {
-                // Work around lack of copy_within, which is only present in 1.37
-                // Copy any bytes we have to the start of the buffer.
-                // We know we have < 1 chunk, so we can use a tiny tmp buffer.
-                let mut memmove_buf = [0_u8; BASE64_CHUNK_SIZE];
-                memmove_buf[..self.b64_len].copy_from_slice(
-                    &self.b64_buffer[self.b64_offset..self.b64_offset + self.b64_len],
-                );
-                self.b64_buffer[0..self.b64_len].copy_from_slice(&memmove_buf[..self.b64_len]);
+                self.b64_buffer
+                    .copy_within(self.b64_offset..self.b64_offset + self.b64_len, 0);
                 self.b64_offset = 0;
 
                 // then fill in more data

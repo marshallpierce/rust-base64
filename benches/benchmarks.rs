@@ -8,7 +8,7 @@ use base64::{
 };
 use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
@@ -57,8 +57,7 @@ fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
     buf.truncate(0);
 
     b.iter(|| {
-        let mut cursor = io::Cursor::new(&encoded[..]);
-        let mut decoder = base64::read::DecoderReader::new(&mut cursor, &STANDARD);
+        let mut decoder = base64::read::DecoderReader::new(encoded.as_bytes(), &STANDARD);
         decoder.read_to_end(&mut buf).unwrap();
         buf.clear();
         black_box(&buf);
