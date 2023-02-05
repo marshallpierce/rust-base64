@@ -62,10 +62,6 @@ pub trait Engine: Send + Sync {
     /// As an optimization to prevent the decoded length from being calculated twice, it is
     /// sometimes helpful to have a conservative estimate of the decoded size before doing the
     /// decoding, so this calculation is done separately and passed to [Engine::decode()] as needed.
-    ///
-    /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
     #[doc(hidden)]
     fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate;
 
@@ -225,11 +221,6 @@ pub trait Engine: Send + Sync {
     ///     .decode("aGVsbG8gaW50ZXJuZXR-Cg").unwrap();
     /// println!("{:?}", bytes_url);
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
-    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn decode<T: AsRef<[u8]>>(&self, input: T) -> Result<Vec<u8>, DecodeError> {
         let input_bytes = input.as_ref();
@@ -272,11 +263,6 @@ pub trait Engine: Send + Sync {
     ///     println!("{:?}", buffer);
     /// }
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
-    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn decode_vec<T: AsRef<[u8]>>(
         &self,
@@ -312,11 +298,6 @@ pub trait Engine: Send + Sync {
     ///
     /// See [Engine::decode_slice_unchecked] for a version that panics instead of returning an error
     /// if the output buffer is too small.
-    ///
-    /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
-    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     fn decode_slice<T: AsRef<[u8]>>(
         &self,
         input: T,
@@ -343,9 +324,6 @@ pub trait Engine: Send + Sync {
     /// buffer is too small.
     ///
     /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
-    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     ///
     /// Panics if the provided output buffer is too small for the decoded data.
     fn decode_slice_unchecked<T: AsRef<[u8]>>(
@@ -387,11 +365,6 @@ pub trait DecodeEstimate {
     ///
     /// The estimate must be no larger than the next largest complete triple of decoded bytes.
     /// That is, the final quad of tokens to decode may be assumed to be complete with no padding.
-    ///
-    /// # Panics
-    ///
-    /// Panics if decoded length estimation overflows.
-    /// This would happen for sizes within a few bytes of the maximum value of `usize`.
     fn decoded_len_estimate(&self) -> usize;
 }
 
