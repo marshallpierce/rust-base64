@@ -86,7 +86,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 &encoded_without_padding,
                 &std::str::from_utf8(&encode_buf[0..encode_len]).unwrap()
             );
-            let pad_len = add_padding(orig.len(), &mut encode_buf[encode_len..]);
+            let pad_len = add_padding(encode_len, &mut encode_buf[encode_len..]);
             assert_eq!(encoded.as_bytes(), &encode_buf[..encode_len + pad_len]);
 
             let decode_len = engine
@@ -195,7 +195,10 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
 
         // pad so we can decode it in case our random engine requires padding
         let pad_len = if padded {
-            add_padding(orig_len, &mut encode_buf[prefix_len + encoded_len_no_pad..])
+            add_padding(
+                encoded_len_no_pad,
+                &mut encode_buf[prefix_len + encoded_len_no_pad..],
+            )
         } else {
             0
         };
@@ -382,7 +385,7 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
     for b in 0_u8..=255 {
         let mut b64 = vec![0_u8; 4];
         assert_eq!(2, engine.internal_encode(&[b], &mut b64[..]));
-        let _ = add_padding(1, &mut b64[2..]);
+        let _ = add_padding(2, &mut b64[2..]);
 
         assert!(base64_to_bytes.insert(b64, vec![b]).is_none());
     }
@@ -442,7 +445,7 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
             bytes[1] = b2;
             let mut b64 = vec![0_u8; 4];
             assert_eq!(3, engine.internal_encode(&bytes, &mut b64[..]));
-            let _ = add_padding(2, &mut b64[3..]);
+            let _ = add_padding(3, &mut b64[3..]);
 
             let mut v = Vec::with_capacity(2);
             v.extend_from_slice(&bytes[..]);
@@ -1245,7 +1248,7 @@ fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distributions::Distr
     let base_encoded_len = engine.internal_encode(&orig_data[..], &mut encode_buf[..]);
 
     let enc_len_with_padding = if padding {
-        base_encoded_len + add_padding(orig_len, &mut encode_buf[base_encoded_len..])
+        base_encoded_len + add_padding(base_encoded_len, &mut encode_buf[base_encoded_len..])
     } else {
         base_encoded_len
     };
