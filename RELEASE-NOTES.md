@@ -1,3 +1,7 @@
+# 0.21.1
+
+- Remove the possibility of panicking during decoded length calculations
+
 # 0.21.0
 
 ## Migration
