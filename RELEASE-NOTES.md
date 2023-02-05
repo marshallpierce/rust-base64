@@ -1,6 +1,7 @@
 # 0.21.1
 
 - Remove the possibility of panicking during decoded length calculations
+- Slightly faster encoding for short inputs
 
 # 0.21.0
 
