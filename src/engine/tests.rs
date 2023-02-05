@@ -1275,11 +1275,7 @@ fn fill_rand_len<R: rand::Rng>(vec: &mut Vec<u8>, rng: &mut R, len: usize) {
     }
 }
 
-fn prefixed_data<'i, 'd>(
-    input_with_prefix: &'i mut String,
-    prefix_len: usize,
-    data: &'d str,
-) -> &'i str {
+fn prefixed_data<'i>(input_with_prefix: &'i mut String, prefix_len: usize, data: &str) -> &'i str {
     input_with_prefix.truncate(prefix_len);
     input_with_prefix.push_str(data);
     input_with_prefix.as_str()

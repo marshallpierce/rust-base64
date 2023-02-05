@@ -1,8 +1,5 @@
 # 0.21.0
 
-(not yet released)
-
-
 ## Migration
 
 ### Functions
