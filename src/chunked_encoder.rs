@@ -1,9 +1,11 @@
+use crate::{
+    encode::add_padding,
+    engine::{Config, Engine},
+};
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::string::String;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use core::str;
-
-use crate::engine::{Config, Engine};
 
 /// The output mechanism for ChunkedEncoder's encoded bytes.
 pub trait Sink {
@@ -31,13 +33,9 @@ impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
         for chunk in bytes.chunks(CHUNK_SIZE) {
             let mut len = self.engine.internal_encode(chunk, &mut buf);
             if chunk.len() != CHUNK_SIZE && self.engine.config().encode_padding() {
-                // Final, potentially partial, chunk.  Pad output to multiple of
-                // four bytes if required by config.
-                let padding = 4 - (len % 4);
-                if padding != 4 {
-                    buf[len..(len + padding)].fill(crate::PAD_BYTE);
-                    len += padding;
-                }
+                // Final, potentially partial, chunk.
+                // Pad output to multiple of four bytes if required by config.
+                len += add_padding(len, &mut buf[len..]);
             }
             sink.write_encoded_bytes(&buf[..len])?;
         }
