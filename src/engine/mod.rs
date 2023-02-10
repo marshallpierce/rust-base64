@@ -39,8 +39,6 @@ pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 pub trait Engine: Send + Sync {
     /// The config type used by this engine
     type Config: Config;
-    /// The decode estimate used by this engine
-    type DecodeEstimate: DecodeEstimate;
 
     /// This is not meant to be called directly; it is only for `Engine` implementors.
     /// See the other `encode*` functions on this trait.
@@ -58,30 +56,16 @@ pub trait Engine: Send + Sync {
     fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize;
 
     /// This is not meant to be called directly; it is only for `Engine` implementors.
-    ///
-    /// As an optimization to prevent the decoded length from being calculated twice, it is
-    /// sometimes helpful to have a conservative estimate of the decoded size before doing the
-    /// decoding, so this calculation is done separately and passed to [Engine::decode()] as needed.
-    #[doc(hidden)]
-    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate;
-
-    /// This is not meant to be called directly; it is only for `Engine` implementors.
     /// See the other `decode*` functions on this trait.
     ///
-    /// Decode `input` base64 bytes into the `output` buffer.
-    ///
-    /// `decode_estimate` is the result of [Engine::internal_decoded_len_estimate()], which is passed in to avoid
-    /// calculating it again (expensive on short inputs).`
-    ///
-    /// Returns the number of bytes written to `output`.
+    /// Decode `input` base64 bytes into the `output` buffer.  `output` will
+    /// have the exact amount of space to fit the decoded encoded value.
     ///
     /// Each complete 4-byte chunk of encoded data decodes to 3 bytes of decoded data, but this
     /// function must also handle the final possibly partial chunk.
     /// If the input length is not a multiple of 4, or uses padding bytes to reach a multiple of 4,
     /// the trailing 2 or 3 bytes must decode to 1 or 2 bytes, respectively, as per the
     /// [RFC](https://tools.ietf.org/html/rfc4648#section-3.5).
-    ///
-    /// Decoding must not write any bytes into the output slice other than the decoded data.
     ///
     /// Non-canonical trailing bits in the final tokens or non-canonical padding must be reported as
     /// errors unless the engine is configured otherwise.
@@ -90,12 +74,7 @@ pub trait Engine: Send + Sync {
     ///
     /// Panics if `output` is too small.
     #[doc(hidden)]
-    fn internal_decode(
-        &self,
-        input: &[u8],
-        output: &mut [u8],
-        decode_estimate: Self::DecodeEstimate,
-    ) -> Result<usize, DecodeError>;
+    fn internal_decode(&self, input: &[u8], output: &mut [u8]) -> Result<(), DecodeError>;
 
     /// Returns the config for this engine.
     fn config(&self) -> &Self::Config;
@@ -224,13 +203,8 @@ pub trait Engine: Send + Sync {
     #[cfg(any(feature = "alloc", feature = "std", test))]
     fn decode<T: AsRef<[u8]>>(&self, input: T) -> Result<Vec<u8>, DecodeError> {
         let input_bytes = input.as_ref();
-
-        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
-        let mut buffer = vec![0; estimate.decoded_len_estimate()];
-
-        let bytes_written = self.internal_decode(input_bytes, &mut buffer, estimate)?;
-        buffer.truncate(bytes_written);
-
+        let mut buffer = vec![0; crate::decoded_len(input_bytes)];
+        self.internal_decode(input_bytes, &mut buffer)?;
         Ok(buffer)
     }
 
@@ -273,28 +247,25 @@ pub trait Engine: Send + Sync {
 
         let starting_output_len = buffer.len();
 
-        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
-        let total_len_estimate = estimate
-            .decoded_len_estimate()
+        let decoded_len = crate::decoded_len(input_bytes);
+        let total_len = decoded_len
             .checked_add(starting_output_len)
             .expect("Overflow when calculating output buffer length");
-        buffer.resize(total_len_estimate, 0);
+        buffer.resize(total_len, 0);
 
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        let bytes_written = self.internal_decode(input_bytes, buffer_slice, estimate)?;
-
-        buffer.truncate(starting_output_len + bytes_written);
+        self.internal_decode(input_bytes, buffer_slice)?;
 
         Ok(())
     }
 
     /// Decode the input into the provided output slice.
     ///
-    /// Returns an error if `output` is smaller than the estimated decoded length.
+    /// Returns an error if `output` is smaller than the decoded length.
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
-    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    /// See [crate::decoded_len] for calculating buffer sizes.
     ///
     /// See [Engine::decode_slice_unchecked] for a version that panics instead of returning an error
     /// if the output buffer is too small.
@@ -305,20 +276,20 @@ pub trait Engine: Send + Sync {
     ) -> Result<usize, DecodeSliceError> {
         let input_bytes = input.as_ref();
 
-        let estimate = self.internal_decoded_len_estimate(input_bytes.len());
-        if output.len() < estimate.decoded_len_estimate() {
+        let decoded_len = crate::decoded_len(input_bytes);
+        if output.len() < decoded_len {
             return Err(DecodeSliceError::OutputSliceTooSmall);
         }
 
-        self.internal_decode(input_bytes, output, estimate)
-            .map_err(|e| e.into())
+        self.internal_decode(input_bytes, &mut output[..decoded_len])?;
+        Ok(decoded_len)
     }
 
     /// Decode the input into the provided output slice.
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
-    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    /// See [crate::decoded_len] for calculating buffer sizes.
     ///
     /// See [Engine::decode_slice] for a version that returns an error instead of panicking if the output
     /// buffer is too small.
@@ -333,11 +304,9 @@ pub trait Engine: Send + Sync {
     ) -> Result<usize, DecodeError> {
         let input_bytes = input.as_ref();
 
-        self.internal_decode(
-            input_bytes,
-            output,
-            self.internal_decoded_len_estimate(input_bytes.len()),
-        )
+        let decoded_len = crate::decoded_len(input_bytes);
+        self.internal_decode(input_bytes, &mut output[..decoded_len])?;
+        Ok(decoded_len)
     }
 }
 
@@ -359,13 +328,11 @@ pub trait Config {
 ///
 /// Implementors may store relevant data here when constructing this to avoid having to calculate
 /// them again during actual decoding.
-pub trait DecodeEstimate {
-    /// Returns a conservative (err on the side of too big) estimate of the decoded length to use
-    /// for pre-allocating buffers, etc.
+pub trait DecodedLength {
+    /// Returns the decoded length to use for pre-allocating buffers, etc.
     ///
-    /// The estimate must be no larger than the next largest complete triple of decoded bytes.
-    /// That is, the final quad of tokens to decode may be assumed to be complete with no padding.
-    fn decoded_len_estimate(&self) -> usize;
+    /// The value must be exactly equal the length of the decoded value.
+    fn decoded_len(&self) -> usize;
 }
 
 /// Controls how pad bytes are handled when decoding.

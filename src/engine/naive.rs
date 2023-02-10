@@ -2,7 +2,7 @@ use crate::{
     alphabet::Alphabet,
     engine::{
         general_purpose::{self, decode_table, encode_table},
-        Config, DecodeEstimate, DecodePaddingMode, Engine,
+        Config, DecodePaddingMode, Engine,
     },
     DecodeError, PAD_BYTE,
 };
@@ -41,7 +41,6 @@ impl Naive {
 
 impl Engine for Naive {
     type Config = NaiveConfig;
-    type DecodeEstimate = NaiveEstimate;
 
     fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         // complete chunks first
@@ -103,70 +102,51 @@ impl Engine for Naive {
         output_index
     }
 
-    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        NaiveEstimate::new(input_len)
-    }
-
-    fn internal_decode(
-        &self,
-        input: &[u8],
-        output: &mut [u8],
-        estimate: Self::DecodeEstimate,
-    ) -> Result<usize, DecodeError> {
-        if estimate.rem == 1 {
-            // trailing whitespace is so common that it's worth it to check the last byte to
-            // possibly return a better error message
-            if let Some(b) = input.last() {
-                if *b != PAD_BYTE
-                    && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
-                {
-                    return Err(DecodeError::InvalidByte(input.len() - 1, *b));
+    fn internal_decode(&self, input: &[u8], output: &mut [u8]) -> Result<(), DecodeError> {
+        let full_chunks = match input.len() % 4 {
+            0 => {
+                if input.is_empty() {
+                    debug_assert!(output.is_empty());
+                    return Ok(());
+                } else {
+                    input.len() / Self::DECODE_INPUT_CHUNK_SIZE - 1
                 }
             }
-
-            return Err(DecodeError::InvalidLength);
-        }
-
-        let mut input_index = 0_usize;
+            1 => {
+                // Trailing whitespace is so common that it's worth it to check
+                // the last byte to possibly return a better error message
+                let last = input[input.len() - 1];
+                let value = self.decode_table[last as usize];
+                if last != PAD_BYTE && value == general_purpose::INVALID_VALUE {
+                    return Err(DecodeError::InvalidByte(input.len() - 1, last));
+                } else {
+                    return Err(DecodeError::InvalidLength);
+                }
+            }
+            _ => input.len() / Self::DECODE_INPUT_CHUNK_SIZE,
+        };
+        let full_bytes = full_chunks * Self::DECODE_INPUT_CHUNK_SIZE;
         let mut output_index = 0_usize;
         const BOTTOM_BYTE: u32 = 0xFF;
 
-        // can only use the main loop on non-trailing chunks
-        if input.len() > Self::DECODE_INPUT_CHUNK_SIZE {
-            // skip the last chunk, whether it's partial or full, since it might
-            // have padding, and start at the beginning of the chunk before that
-            let last_complete_chunk_start_index = estimate.complete_chunk_len
-                - if estimate.rem == 0 {
-                    // Trailing chunk is also full chunk, so there must be at least 2 chunks, and
-                    // this won't underflow
-                    Self::DECODE_INPUT_CHUNK_SIZE * 2
-                } else {
-                    // Trailing chunk is partial, so it's already excluded in
-                    // complete_chunk_len
-                    Self::DECODE_INPUT_CHUNK_SIZE
-                };
+        for input_index in (0..full_bytes).step_by(Self::DECODE_INPUT_CHUNK_SIZE) {
+            let chunk = &input[input_index..input_index + Self::DECODE_INPUT_CHUNK_SIZE];
+            let decoded_int: u32 = self.decode_byte_into_u32(input_index, chunk[0])?.shl(18)
+                | self
+                    .decode_byte_into_u32(input_index + 1, chunk[1])?
+                    .shl(12)
+                | self.decode_byte_into_u32(input_index + 2, chunk[2])?.shl(6)
+                | self.decode_byte_into_u32(input_index + 3, chunk[3])?;
 
-            while input_index <= last_complete_chunk_start_index {
-                let chunk = &input[input_index..input_index + Self::DECODE_INPUT_CHUNK_SIZE];
-                let decoded_int: u32 = self.decode_byte_into_u32(input_index, chunk[0])?.shl(18)
-                    | self
-                        .decode_byte_into_u32(input_index + 1, chunk[1])?
-                        .shl(12)
-                    | self.decode_byte_into_u32(input_index + 2, chunk[2])?.shl(6)
-                    | self.decode_byte_into_u32(input_index + 3, chunk[3])?;
-
-                output[output_index] = decoded_int.shr(16_u8).bitand(BOTTOM_BYTE) as u8;
-                output[output_index + 1] = decoded_int.shr(8_u8).bitand(BOTTOM_BYTE) as u8;
-                output[output_index + 2] = decoded_int.bitand(BOTTOM_BYTE) as u8;
-
-                input_index += Self::DECODE_INPUT_CHUNK_SIZE;
-                output_index += 3;
-            }
+            output[output_index] = decoded_int.shr(16_u8).bitand(BOTTOM_BYTE) as u8;
+            output[output_index + 1] = decoded_int.shr(8_u8).bitand(BOTTOM_BYTE) as u8;
+            output[output_index + 2] = decoded_int.bitand(BOTTOM_BYTE) as u8;
+            output_index += 3;
         }
 
         general_purpose::decode_suffix::decode_suffix(
             input,
-            input_index,
+            full_bytes,
             output,
             output_index,
             &self.decode_table,
@@ -177,31 +157,6 @@ impl Engine for Naive {
 
     fn config(&self) -> &Self::Config {
         &self.config
-    }
-}
-
-pub struct NaiveEstimate {
-    /// remainder from dividing input by `Naive::DECODE_CHUNK_SIZE`
-    rem: usize,
-    /// Length of input that is in complete `Naive::DECODE_CHUNK_SIZE`-length chunks
-    complete_chunk_len: usize,
-}
-
-impl NaiveEstimate {
-    fn new(input_len: usize) -> Self {
-        let rem = input_len % Naive::DECODE_INPUT_CHUNK_SIZE;
-        let complete_chunk_len = input_len - rem;
-
-        Self {
-            rem,
-            complete_chunk_len,
-        }
-    }
-}
-
-impl DecodeEstimate for NaiveEstimate {
-    fn decoded_len_estimate(&self) -> usize {
-        ((self.complete_chunk_len / 4) + ((self.rem > 0) as usize)) * 3
     }
 }
 

@@ -169,7 +169,9 @@ mod decode;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
 #[allow(deprecated)]
-pub use crate::decode::{decode_engine_slice, decoded_len_estimate, DecodeError, DecodeSliceError};
+pub use crate::decode::{
+    decode_engine_slice, decoded_len, decoded_len_estimate, DecodeError, DecodeSliceError,
+};
 
 pub mod prelude;
 

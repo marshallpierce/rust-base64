@@ -6,8 +6,9 @@ use crate::{
 /// Decode the last 1-8 bytes, checking for trailing set bits and padding per the provided
 /// parameters.
 ///
-/// Returns the total number of bytes decoded, including the ones indicated as already written by
-/// `output_index`.
+/// Expects output to be large enough to fit decoded data exactly without any
+/// unused space.  In debug builds panics if final output length (`output_index`
+/// plus any bytes written by this function) doesn’t equal length of the output.
 pub(crate) fn decode_suffix(
     input: &[u8],
     input_index: usize,
@@ -16,7 +17,7 @@ pub(crate) fn decode_suffix(
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
-) -> Result<usize, DecodeError> {
+) -> Result<(), DecodeError> {
     // Decode any leftovers that aren't a complete input block of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
     let mut leftover_bits: u64 = 0;
@@ -157,5 +158,6 @@ pub(crate) fn decode_suffix(
         leftover_bits_appended_to_buf += 8;
     }
 
-    Ok(output_index)
+    debug_assert_eq!(output.len(), output_index);
+    Ok(())
 }

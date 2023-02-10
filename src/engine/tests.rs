@@ -14,7 +14,7 @@ use crate::{
     alphabet::{Alphabet, STANDARD},
     encode::add_padding,
     encoded_len,
-    engine::{general_purpose, naive, Config, DecodeEstimate, DecodePaddingMode, Engine},
+    engine::{general_purpose, naive, Config, DecodePaddingMode, Engine},
     tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, PAD_BYTE,
 };
@@ -1154,79 +1154,30 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
     let mut rng = rngs::SmallRng::from_entropy();
 
     for _ in 0..10_000 {
-        orig_data.clear();
-        encoded_data.clear();
-        decode_buf.clear();
-
-        let input_len = input_len_range.sample(&mut rng);
-
-        for _ in 0..input_len {
-            orig_data.push(rng.gen());
-        }
+        orig_data.resize(input_len_range.sample(&mut rng), 0);
+        rng.fill(&mut orig_data[..]);
 
         let engine = E::random(&mut rng);
+        encoded_data.clear();
         engine.encode_string(&orig_data, &mut encoded_data);
-        assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
+        assert_encode_sanity(
+            &encoded_data,
+            engine.config().encode_padding(),
+            orig_data.len(),
+        );
 
-        decode_buf.resize(input_len, 0);
+        decode_buf.clear();
+        decode_buf.resize(orig_data.len(), 0);
+        let res = engine.decode_slice(encoded_data.as_bytes(), &mut decode_buf[..]);
+        assert_eq!(Ok(orig_data.len()), res);
+        assert_eq!(orig_data, decode_buf);
 
-        // decode into the non-empty buf
-        let decode_bytes_written = engine
-            .decode_slice_unchecked(encoded_data.as_bytes(), &mut decode_buf[..])
-            .unwrap();
-
-        assert_eq!(orig_data.len(), decode_bytes_written);
+        decode_buf.clear();
+        decode_buf.resize(orig_data.len(), 0);
+        let res = engine.decode_slice_unchecked(encoded_data.as_bytes(), &mut decode_buf[..]);
+        assert_eq!(Ok(orig_data.len()), res);
         assert_eq!(orig_data, decode_buf);
     }
-}
-
-#[apply(all_engines)]
-fn decode_length_estimate_delta<E: EngineWrapper>(engine_wrapper: E) {
-    for engine in [E::standard(), E::standard_unpadded()] {
-        for &padding in &[true, false] {
-            for orig_len in 0..1000 {
-                let encoded_len = encoded_len(orig_len, padding).unwrap();
-
-                let decoded_estimate = engine
-                    .internal_decoded_len_estimate(encoded_len)
-                    .decoded_len_estimate();
-                assert!(decoded_estimate >= orig_len);
-                assert!(
-                    decoded_estimate - orig_len < 3,
-                    "estimate: {}, encoded: {}, orig: {}",
-                    decoded_estimate,
-                    encoded_len,
-                    orig_len
-                );
-            }
-        }
-    }
-}
-
-#[apply(all_engines)]
-fn estimate_via_u128_inflation<E: EngineWrapper>(engine_wrapper: E) {
-    // cover both ends of usize
-    (0..1000)
-        .chain(usize::MAX - 1000..=usize::MAX)
-        .for_each(|encoded_len| {
-            // inflate to 128 bit type to be able to safely use the easy formulas
-            let len_128 = encoded_len as u128;
-
-            let estimate = E::standard()
-                .internal_decoded_len_estimate(encoded_len)
-                .decoded_len_estimate();
-
-            // This check is a little too strict: it requires using the (len + 3) / 4 * 3 formula
-            // or equivalent, but until other engines come along that use a different formula
-            // requiring that we think more carefully about what the allowable criteria are, this
-            // will do.
-            assert_eq!(
-                ((len_128 + 3) / 4 * 3) as usize,
-                estimate,
-                "enc len {}",
-                encoded_len
-            );
-        })
 }
 
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.

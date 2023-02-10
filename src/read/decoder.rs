@@ -132,13 +132,10 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
         debug_assert!(!buf.is_empty());
 
-        let decoded = self
-            .engine
-            .internal_decode(
-                &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes],
-                buf,
-                self.engine.internal_decoded_len_estimate(num_bytes),
-            )
+        let input_bytes = &self.b64_buffer[self.b64_offset..self.b64_offset + num_bytes];
+        let decoded = crate::decoded_len(input_bytes);
+        self.engine
+            .internal_decode(input_bytes, &mut buf[..decoded])
             .map_err(|e| match e {
                 DecodeError::InvalidByte(offset, byte) => {
                     DecodeError::InvalidByte(self.total_b64_decoded + offset, byte)
