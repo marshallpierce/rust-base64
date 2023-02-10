@@ -9,7 +9,6 @@ use core::convert::TryInto;
 
 mod decode;
 pub(crate) mod decode_suffix;
-pub use decode::GeneralPurposeEstimate;
 
 pub(crate) const INVALID_VALUE: u8 = 255;
 
@@ -40,7 +39,6 @@ impl GeneralPurpose {
 
 impl super::Engine for GeneralPurpose {
     type Config = GeneralPurposeConfig;
-    type DecodeEstimate = GeneralPurposeEstimate;
 
     fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         let mut input_index: usize = 0;
@@ -161,19 +159,9 @@ impl super::Engine for GeneralPurpose {
         output_index
     }
 
-    fn internal_decoded_len_estimate(&self, input_len: usize) -> Self::DecodeEstimate {
-        GeneralPurposeEstimate::new(input_len)
-    }
-
-    fn internal_decode(
-        &self,
-        input: &[u8],
-        output: &mut [u8],
-        estimate: Self::DecodeEstimate,
-    ) -> Result<usize, DecodeError> {
+    fn internal_decode(&self, input: &[u8], output: &mut [u8]) -> Result<(), DecodeError> {
         decode::decode_helper(
             input,
-            estimate,
             output,
             &self.decode_table,
             self.config.decode_allow_trailing_bits,

@@ -1,4 +1,4 @@
-use crate::engine::{general_purpose::STANDARD, DecodeEstimate, Engine};
+use crate::engine::Engine;
 #[cfg(any(feature = "alloc", feature = "std", test))]
 use alloc::vec::Vec;
 use core::fmt;
@@ -89,7 +89,7 @@ impl From<DecodeError> for DecodeSliceError {
 #[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", feature = "std", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
-    STANDARD.decode(input)
+    crate::engine::general_purpose::STANDARD.decode(input)
 }
 
 /// Decode from string reference as octets using the specified [Engine].
@@ -130,6 +130,73 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     engine.decode_slice(input, output)
 }
 
+/// Returns the decoded size of the `encoded` input assuming the input is valid
+/// base64 string.
+///
+/// Assumes input is a valid base64-encoded string.  Result is unspecified if it
+/// isn’t.
+///
+/// If you don’t need a precise length of the decoded string, you can use
+/// [`decoded_len_estimate`] function instead.  It’s faster and provides an
+/// estimate which is only at most two bytes off from the real length.
+///
+/// # Examples
+///
+/// ```
+/// use base64::decoded_len;
+///
+/// assert_eq!(0, decoded_len(b""));
+/// assert_eq!(1, decoded_len(b"AA"));
+/// assert_eq!(2, decoded_len(b"AAA"));
+/// assert_eq!(3, decoded_len(b"AAAA"));
+/// assert_eq!(1, decoded_len(b"AA=="));
+/// assert_eq!(2, decoded_len(b"AAA="));
+/// ```
+pub fn decoded_len(encoded: impl AsRef<[u8]>) -> usize {
+    let encoded = encoded.as_ref();
+    if encoded.len() < 2 {
+        return 0;
+    }
+    let is_pad = |idx| (encoded[encoded.len() - idx] == b'=') as usize;
+    let len = encoded.len() - is_pad(1) - is_pad(2);
+    match len % 4 {
+        0 => len / 4 * 3,
+        remainder => len / 4 * 3 + remainder - 1,
+    }
+}
+
+#[test]
+fn test_decoded_len() {
+    for chunks in 0..25 {
+        let mut input = vec![b'A'; chunks * 4 + 4];
+        assert_eq!(chunks * 3 + 0, decoded_len(&input[..chunks * 4]));
+        assert_eq!(chunks * 3 + 1, decoded_len(&input[..chunks * 4 + 2]));
+        assert_eq!(chunks * 3 + 2, decoded_len(&input[..chunks * 4 + 3]));
+        assert_eq!(chunks * 3 + 3, decoded_len(&input[..chunks * 4 + 4]));
+
+        input[chunks * 4 + 3] = b'=';
+        assert_eq!(chunks * 3 + 1, decoded_len(&input[..chunks * 4 + 2]));
+        assert_eq!(chunks * 3 + 2, decoded_len(&input[..chunks * 4 + 3]));
+        assert_eq!(chunks * 3 + 2, decoded_len(&input[..chunks * 4 + 4]));
+        input[chunks * 4 + 2] = b'=';
+        assert_eq!(chunks * 3 + 1, decoded_len(&input[..chunks * 4 + 2]));
+        assert_eq!(chunks * 3 + 1, decoded_len(&input[..chunks * 4 + 3]));
+        assert_eq!(chunks * 3 + 1, decoded_len(&input[..chunks * 4 + 4]));
+    }
+
+    // Mustn’t panic or overflow if given bogus input.
+    for len in 1..100 {
+        let mut input = vec![b'A'; len];
+        let got = decoded_len(&input);
+        debug_assert!(got <= len);
+        for padding in 1..=len.min(10) {
+            input[len - padding] = b'=';
+            let got = decoded_len(&input);
+            debug_assert!(got <= len);
+        }
+    }
+}
+
 /// Returns a conservative estimate of the decoded size of `encoded_len` base64 symbols (rounded up
 /// to the next group of 3 decoded bytes).
 ///
@@ -141,6 +208,7 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 /// ```
 /// use base64::decoded_len_estimate;
 ///
+/// assert_eq!(0, decoded_len_estimate(0));
 /// assert_eq!(3, decoded_len_estimate(1));
 /// assert_eq!(3, decoded_len_estimate(2));
 /// assert_eq!(3, decoded_len_estimate(3));
@@ -149,17 +217,27 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 /// assert_eq!(6, decoded_len_estimate(5));
 /// ```
 pub fn decoded_len_estimate(encoded_len: usize) -> usize {
-    STANDARD
-        .internal_decoded_len_estimate(encoded_len)
-        .decoded_len_estimate()
+    (encoded_len / 4 + (encoded_len % 4 > 0) as usize) * 3
+}
+
+#[test]
+fn test_decode_len_estimate() {
+    for chunks in 0..250 {
+        assert_eq!(chunks * 3, decoded_len_estimate(chunks * 4));
+        assert_eq!(chunks * 3 + 3, decoded_len_estimate(chunks * 4 + 1));
+        assert_eq!(chunks * 3 + 3, decoded_len_estimate(chunks * 4 + 2));
+        assert_eq!(chunks * 3 + 3, decoded_len_estimate(chunks * 4 + 3));
+    }
+    // Mustn’t panic or overflow.
+    assert_eq!(usize::MAX / 4 * 3 + 3, decoded_len_estimate(usize::MAX));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        alphabet,
-        engine::{general_purpose, Config, GeneralPurpose},
+        engine::general_purpose::{NO_PAD, STANDARD},
+        engine::{Config, GeneralPurpose},
         tests::{assert_encode_sanity, random_engine},
     };
     use rand::{
@@ -245,7 +323,7 @@ mod tests {
 
     #[test]
     fn decode_engine_estimation_works_for_various_lengths() {
-        let engine = GeneralPurpose::new(&alphabet::STANDARD, general_purpose::NO_PAD);
+        let engine = GeneralPurpose::new(&crate::alphabet::STANDARD, NO_PAD);
         for num_prefix_quads in 0..100 {
             for suffix in &["AA", "AAA", "AAAA"] {
                 let mut prefix = "AAAA".repeat(num_prefix_quads);

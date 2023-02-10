@@ -96,24 +96,15 @@ pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
 /// input lengths in approximately the top quarter of the range of `usize`.
 pub fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
     let rem = bytes_len % 3;
-
-    let complete_input_chunks = bytes_len / 3;
-    let complete_chunk_output = complete_input_chunks.checked_mul(4);
-
-    if rem > 0 {
-        if padding {
-            complete_chunk_output.and_then(|c| c.checked_add(4))
-        } else {
-            let encoded_rem = match rem {
-                1 => 2,
-                2 => 3,
-                _ => unreachable!("Impossible remainder"),
-            };
-            complete_chunk_output.and_then(|c| c.checked_add(encoded_rem))
-        }
+    let chunks = bytes_len / 3 + (rem > 0 && padding) as usize;
+    let encoded_len = chunks.checked_mul(4)?;
+    Some(if !padding && rem > 0 {
+        // This doesn’t overflow.  encoded_len is divisible by four thus it’s at
+        // most usize::MAX - 3.  rem ≤ 2 so we’re adding at most three.
+        encoded_len + rem + 1
     } else {
-        complete_chunk_output
-    }
+        encoded_len
+    })
 }
 
 /// Write padding characters.
