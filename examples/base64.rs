@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
@@ -48,7 +48,7 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
     let stdin;
-    let mut input: Box<dyn Read> = match opt.file {
+    let mut input: Box<dyn BufRead> = match opt.file {
         None => {
             stdin = io::stdin();
             Box::new(stdin.lock())
@@ -57,7 +57,7 @@ fn main() {
             stdin = io::stdin();
             Box::new(stdin.lock())
         }
-        Some(f) => Box::new(File::open(f).unwrap()),
+        Some(f) => Box::new(File::open(f).map(BufReader::new).unwrap()),
     };
 
     let alphabet = opt.alphabet.unwrap_or_default();
