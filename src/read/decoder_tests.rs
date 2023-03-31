@@ -6,12 +6,14 @@ use std::{
 
 use rand::{Rng as _, RngCore as _};
 
-use super::decoder::{DecoderReader, BUF_SIZE};
+use super::decoder::DecoderReader;
 use crate::{
     engine::{general_purpose::STANDARD, Engine, GeneralPurpose},
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
 };
+
+const BUF_SIZE: usize = 1024;
 
 #[test]
 fn simple() {
@@ -113,7 +115,6 @@ fn handles_short_read_from_delegate() {
         };
 
         let mut decoder = DecoderReader::new(&mut short_reader, &engine);
-
         let decoded_len = decoder.read_to_end(&mut decoded).unwrap();
         assert_eq!(size, decoded_len);
         assert_eq!(&bytes[..], &decoded[..]);
@@ -341,6 +342,21 @@ impl<'a, 'b, R: io::Read, N: rand::Rng> io::Read for RandomShortRead<'a, 'b, R, 
         // avoid 0 since it means EOF for non-empty buffers
         let effective_len = cmp::min(self.rng.gen_range(1..20), buf.len());
 
-        self.delegate.read(&mut buf[..effective_len])
+        self.delegate.read(&mut buf [..effective_len])
+    }
+}
+
+impl<'a, 'b, R: io::BufRead, N: rand::Rng> io::BufRead for RandomShortRead<'a, 'b, R, N> {
+    fn fill_buf(&mut self) -> Result<&[u8], io::Error> {
+        self.delegate.fill_buf().map(|buf| {
+            // avoid 0 since it means EOF for non-empty buffers
+            let effective_len = cmp::min(self.rng.gen_range(1..20), buf.len());
+
+            &buf[..effective_len]
+        })
+    }
+
+    fn consume(&mut self, amount: usize) {
+        self.delegate.consume(amount)
     }
 }
