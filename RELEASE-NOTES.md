@@ -1,6 +1,13 @@
 # 0.21.1
 
 - Remove the possibility of panicking during decoded length calculations
+- `DecoderReader` no longer sometimes erroneously ignores padding  [#226](https://github.com/marshallpierce/rust-base64/issues/226)
+
+## Breaking changes
+
+- `Engine.internal_decode` return type changed
+- Update MSRV to 1.60.0
+
 
 # 0.21.0
 

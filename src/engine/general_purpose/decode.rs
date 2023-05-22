@@ -1,5 +1,5 @@
 use crate::{
-    engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodePaddingMode},
+    engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodeMetadata, DecodePaddingMode},
     DecodeError, PAD_BYTE,
 };
 
@@ -46,7 +46,7 @@ impl DecodeEstimate for GeneralPurposeEstimate {
 }
 
 /// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.
-/// Returns the number of bytes written, or an error.
+/// Returns the decode metadata, or an error.
 // We're on the fragile edge of compiler heuristics here. If this is not inlined, slow. If this is
 // inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
 // but this is fragile and the best setting changes with only minor code modifications.
@@ -58,7 +58,7 @@ pub(crate) fn decode_helper(
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
-) -> Result<usize, DecodeError> {
+) -> Result<DecodeMetadata, DecodeError> {
     let remainder_len = input.len() % INPUT_CHUNK_LEN;
 
     // Because the fast decode loop writes in groups of 8 bytes (unrolled to

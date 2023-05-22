@@ -63,7 +63,7 @@ optionally may allow other behaviors.
 
 ## Rust version compatibility
 
-The minimum supported Rust version is 1.57.0.
+The minimum supported Rust version is 1.60.0.
 
 # Contributing
 

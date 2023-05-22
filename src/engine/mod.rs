@@ -73,8 +73,6 @@ pub trait Engine: Send + Sync {
     /// `decode_estimate` is the result of [Engine::internal_decoded_len_estimate()], which is passed in to avoid
     /// calculating it again (expensive on short inputs).`
     ///
-    /// Returns the number of bytes written to `output`.
-    ///
     /// Each complete 4-byte chunk of encoded data decodes to 3 bytes of decoded data, but this
     /// function must also handle the final possibly partial chunk.
     /// If the input length is not a multiple of 4, or uses padding bytes to reach a multiple of 4,
@@ -95,7 +93,7 @@ pub trait Engine: Send + Sync {
         input: &[u8],
         output: &mut [u8],
         decode_estimate: Self::DecodeEstimate,
-    ) -> Result<usize, DecodeError>;
+    ) -> Result<DecodeMetadata, DecodeError>;
 
     /// Returns the config for this engine.
     fn config(&self) -> &Self::Config;
@@ -202,8 +200,7 @@ pub trait Engine: Send + Sync {
         Ok(encoded_size)
     }
 
-    /// Decode from string reference as octets using the specified [Engine].
-    /// Returns a `Result` containing a `Vec<u8>`.
+    /// Decode the input into a new `Vec`.
     ///
     /// # Example
     ///
@@ -228,13 +225,16 @@ pub trait Engine: Send + Sync {
         let estimate = self.internal_decoded_len_estimate(input_bytes.len());
         let mut buffer = vec![0; estimate.decoded_len_estimate()];
 
-        let bytes_written = self.internal_decode(input_bytes, &mut buffer, estimate)?;
+        let bytes_written = self
+            .internal_decode(input_bytes, &mut buffer, estimate)?
+            .decoded_len;
         buffer.truncate(bytes_written);
 
         Ok(buffer)
     }
 
-    /// Decode from string reference as octets.
+    /// Decode the `input` into the supplied `buffer`.
+    ///
     /// Writes into the supplied `Vec`, which may allocate if its internal buffer isn't big enough.
     /// Returns a `Result` containing an empty tuple, aka `()`.
     ///
@@ -281,7 +281,9 @@ pub trait Engine: Send + Sync {
         buffer.resize(total_len_estimate, 0);
 
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        let bytes_written = self.internal_decode(input_bytes, buffer_slice, estimate)?;
+        let bytes_written = self
+            .internal_decode(input_bytes, buffer_slice, estimate)?
+            .decoded_len;
 
         buffer.truncate(starting_output_len + bytes_written);
 
@@ -290,7 +292,8 @@ pub trait Engine: Send + Sync {
 
     /// Decode the input into the provided output slice.
     ///
-    /// Returns an error if `output` is smaller than the estimated decoded length.
+    /// Returns the number of bytes written to the slice, or an error if `output` is smaller than
+    /// the estimated decoded length.
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
@@ -312,9 +315,12 @@ pub trait Engine: Send + Sync {
 
         self.internal_decode(input_bytes, output, estimate)
             .map_err(|e| e.into())
+            .map(|dm| dm.decoded_len)
     }
 
     /// Decode the input into the provided output slice.
+    ///
+    /// Returns the number of bytes written to the slice.
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
@@ -338,6 +344,7 @@ pub trait Engine: Send + Sync {
             output,
             self.internal_decoded_len_estimate(input_bytes.len()),
         )
+        .map(|dm| dm.decoded_len)
     }
 }
 
@@ -380,4 +387,22 @@ pub enum DecodePaddingMode {
     RequireCanonical,
     /// Padding must be absent -- for when you want predictable padding, without any wasted bytes.
     RequireNone,
+}
+
+/// Metadata about the result of a decode operation
+#[derive(PartialEq, Eq, Debug)]
+pub struct DecodeMetadata {
+    /// Number of decoded bytes output
+    pub(crate) decoded_len: usize,
+    /// Offset of the first padding byte in the input, if any
+    pub(crate) padding_offset: Option<usize>,
+}
+
+impl DecodeMetadata {
+    pub(crate) fn new(decoded_bytes: usize, padding_index: Option<usize>) -> Self {
+        Self {
+            decoded_len: decoded_bytes,
+            padding_offset: padding_index,
+        }
+    }
 }
