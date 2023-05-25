@@ -1,3 +1,7 @@
+# 0.21.2
+
+- Rollback MSRV to 1.57.0 -- only dev dependencies need 1.60, not the main code
+
 # 0.21.1
 
 - Remove the possibility of panicking during decoded length calculations
