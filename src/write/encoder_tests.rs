@@ -352,16 +352,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
                 bytes_consumed += input_len;
             }
 
-            loop {
-                let res = stream_encoder.finish();
-                match res {
-                    Ok(_) => break,
-                    Err(e) => match e.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        _ => Err(e).unwrap(), // bail
-                    },
-                }
-            }
+            let _ = stream_encoder.finish().unwrap();
 
             assert_eq!(orig_len, bytes_consumed);
         }
@@ -412,13 +403,12 @@ fn writes_that_only_write_part_of_input_and_sometimes_interrupt_produce_correct_
 
                 // retry on interrupt
                 match res {
-                    Ok(len) => bytes_consumed += len,
-                    Err(e) => match e.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        _ => {
-                            panic!("should not see other errors");
-                        }
-                    },
+                    Ok(0) => assert_eq!(0, input_len),
+                    Ok(len) => {
+                        assert!(len <= input_len);
+                        bytes_consumed += len;
+                    }
+                    Err(e) => assert_eq!(io::ErrorKind::Interrupted, e.kind()),
                 }
             }
 
@@ -506,7 +496,7 @@ struct InterruptingWriter<'a, W: 'a + Write, R: 'a + Rng> {
 
 impl<'a, W: Write, R: Rng> Write for InterruptingWriter<'a, W, R> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.rng.gen_range(0.0..1.0) <= self.fraction {
+        if self.rng.gen_bool(self.fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
@@ -514,7 +504,7 @@ impl<'a, W: Write, R: Rng> Write for InterruptingWriter<'a, W, R> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        if self.rng.gen_range(0.0..1.0) <= self.fraction {
+        if self.rng.gen_bool(self.fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
@@ -534,17 +524,21 @@ struct PartialInterruptingWriter<'a, W: 'a + Write, R: 'a + Rng> {
 
 impl<'a, W: Write, R: Rng> Write for PartialInterruptingWriter<'a, W, R> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.rng.gen_range(0.0..1.0) > self.no_interrupt_fraction {
+        if !self.rng.gen_bool(self.no_interrupt_fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
-        if self.rng.gen_range(0.0..1.0) <= self.full_input_fraction || buf.is_empty() {
+        if buf.len() <= 1 || self.rng.gen_bool(self.full_input_fraction) {
             // pass through the buf untouched
             self.w.write(buf)
         } else {
             // only use a prefix of it
-            self.w
-                .write(&buf[0..(self.rng.gen_range(0..(buf.len() - 1)))])
+            let end = if buf.len() == 2 {
+                1
+            } else {
+                self.rng.gen_range(1..(buf.len() - 1))
+            };
+            self.w.write(&buf[..end])
         }
     }
 
