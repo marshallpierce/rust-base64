@@ -41,11 +41,7 @@ impl fmt::Display for DecodeError {
 }
 
 #[cfg(any(feature = "std", test))]
-impl error::Error for DecodeError {
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
-}
+impl error::Error for DecodeError {}
 
 /// Errors that can occur while decoding into a slice.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,7 +65,7 @@ impl fmt::Display for DecodeSliceError {
 
 #[cfg(any(feature = "std", test))]
 impl error::Error for DecodeSliceError {
-    fn cause(&self) -> Option<&dyn error::Error> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             DecodeSliceError::DecodeError(e) => Some(e),
             DecodeSliceError::OutputSliceTooSmall => None,
