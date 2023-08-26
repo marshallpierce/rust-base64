@@ -12,12 +12,43 @@ const ALPHABET_SIZE: usize = 64;
 /// Common alphabets are provided as constants, and custom alphabets
 /// can be made via `from_str` or the `TryFrom<str>` implementation.
 ///
+/// # Examples
+///
+/// Building and using a custom Alphabet:
+///
 /// ```
 /// let custom = base64::alphabet::Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
 ///
 /// let engine = base64::engine::GeneralPurpose::new(
 ///     &custom,
 ///     base64::engine::general_purpose::PAD);
+/// ```
+///
+/// Building a const:
+///
+/// ```
+/// use base64::alphabet::Alphabet;
+///
+/// static CUSTOM: Alphabet = {
+///     // Result::unwrap() isn't const yet, but panic!() is OK
+///     match Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") {
+///         Ok(x) => x,
+///         Err(_) => panic!("creation of alphabet failed"),
+///     }
+/// };
+/// ```
+///
+/// Building a lazy_static:
+///
+/// ```
+/// use base64::{
+///     alphabet::Alphabet,
+///     engine::{general_purpose::GeneralPurpose, GeneralPurposeConfig},
+/// };
+///
+/// lazy_static::lazy_static! {
+///     static ref CUSTOM: Alphabet = Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
+/// }
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alphabet {

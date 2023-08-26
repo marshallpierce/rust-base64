@@ -25,6 +25,7 @@ structopt = "0.3.26"
 # test fixtures for engine tests
 rstest = "0.12.0"
 rstest_reuse = "0.3.0"
+lazy_static = "1.4.0"
 
 [features]
 default = ["std"]
