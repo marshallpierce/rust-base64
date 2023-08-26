@@ -623,7 +623,7 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte<E: EngineWrap
     let mut rng = seeded_rng();
 
     // the different amounts of proper padding, w/ offset from end for the last non-padding char
-    let suffixes = vec![("/w==", 2), ("iYu=", 1), ("zzzz", 0)];
+    let suffixes = [("/w==", 2), ("iYu=", 1), ("zzzz", 0)];
 
     let prefix_quads_range = distributions::Uniform::from(0..=256);
 
@@ -869,7 +869,7 @@ fn decode_pad_mode_requires_canonical_accepts_canonical<E: EngineWrapper>(engine
 fn decode_pad_mode_requires_canonical_rejects_non_canonical<E: EngineWrapper>(engine_wrapper: E) {
     let engine = E::standard_with_pad_mode(true, DecodePaddingMode::RequireCanonical);
 
-    let suffixes = vec!["/w", "/w=", "iYU"];
+    let suffixes = ["/w", "/w=", "iYU"];
     for num_prefix_quads in 0..256 {
         for &suffix in suffixes.iter() {
             let mut encoded = "AAAA".repeat(num_prefix_quads);
@@ -896,7 +896,7 @@ fn decode_pad_mode_requires_no_padding_accepts_no_padding<E: EngineWrapper>(engi
 fn decode_pad_mode_requires_no_padding_rejects_any_padding<E: EngineWrapper>(engine_wrapper: E) {
     let engine = E::standard_with_pad_mode(true, DecodePaddingMode::RequireNone);
 
-    let suffixes = vec!["/w=", "/w==", "iYU="];
+    let suffixes = ["/w=", "/w==", "iYU="];
     for num_prefix_quads in 0..256 {
         for &suffix in suffixes.iter() {
             let mut encoded = "AAAA".repeat(num_prefix_quads);
