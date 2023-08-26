@@ -34,6 +34,8 @@ impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
             let mut len = self.engine.internal_encode(chunk, &mut buf);
             if chunk.len() != CHUNK_SIZE && self.engine.config().encode_padding() {
                 // Final, potentially partial, chunk.
+                // Only need to consider if padding is needed on a partial chunk since full chunk
+                // is a multiple of 3, which therefore won't be padded.
                 // Pad output to multiple of four bytes if required by config.
                 len += add_padding(len, &mut buf[len..]);
             }
@@ -121,7 +123,7 @@ pub mod tests {
         let mut rng = rand::rngs::SmallRng::from_entropy();
         let input_len_range = Uniform::new(1, 10_000);
 
-        for _ in 0..5_000 {
+        for _ in 0..20_000 {
             input_buf.clear();
             output_buf.clear();
 
