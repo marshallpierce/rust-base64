@@ -1,3 +1,8 @@
+# 0.21.3
+
+- Implement `source` instead of `cause` on Error types
+- Roll back MSRV to 1.48.0 so Debian can continue to live in a time warp
+
 # 0.21.2
 
 - Rollback MSRV to 1.57.0 -- only dev dependencies need 1.60, not the main code
