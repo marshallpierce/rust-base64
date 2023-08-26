@@ -3,6 +3,7 @@
 - Implement `source` instead of `cause` on Error types
 - Roll back MSRV to 1.48.0 so Debian can continue to live in a time warp
 - Slightly faster chunked encoding for short inputs
+- Decrease binary size
 
 # 0.21.2
 
