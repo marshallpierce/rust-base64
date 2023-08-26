@@ -2,6 +2,7 @@
 
 - Implement `source` instead of `cause` on Error types
 - Roll back MSRV to 1.48.0 so Debian can continue to live in a time warp
+- Slightly faster chunked encoding for short inputs
 
 # 0.21.2
 
@@ -16,7 +17,6 @@
 
 - `Engine.internal_decode` return type changed
 - Update MSRV to 1.60.0
-
 
 # 0.21.0
 
