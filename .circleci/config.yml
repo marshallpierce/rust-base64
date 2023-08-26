@@ -22,6 +22,7 @@ workflows:
                 '__msrv__', # won't add any other toolchains, just uses what's in the docker image
                 '1.60.0', # minimum needed to build dev-dependencies
                 'stable',
+                'beta',
                 'nightly'
               ]
 

@@ -1,8 +1,7 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
 use crate::PAD_BYTE;
-use core::convert::TryFrom;
-use core::fmt;
+use core::{convert, fmt};
 #[cfg(any(feature = "std", test))]
 use std::error;
 
@@ -125,7 +124,7 @@ impl Alphabet {
     }
 }
 
-impl TryFrom<&str> for Alphabet {
+impl convert::TryFrom<&str> for Alphabet {
     type Error = ParseAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -203,6 +202,7 @@ pub const BIN_HEX: Alphabet = Alphabet::from_str_unchecked(
 #[cfg(test)]
 mod tests {
     use crate::alphabet::*;
+    use core::convert::TryFrom as _;
 
     #[test]
     fn detects_duplicate_start() {
