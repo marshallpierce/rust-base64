@@ -14,13 +14,15 @@ workflows:
                 # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
                 # therefore faster than a minimal, customized alpine.
                 # MSRV
-                'rust:1.57.0'
+                'rust:1.48.0'
               ]
               # a hacky scheme to work around CircleCI's inability to deal with mutable docker tags, forcing us to
               # get a nightly or stable toolchain via rustup instead of a mutable docker tag
               toolchain_override: [
                 '__msrv__', # won't add any other toolchains, just uses what's in the docker image
+                '1.60.0', # minimum needed to build dev-dependencies
                 'stable',
+                'beta',
                 'nightly'
               ]
 
@@ -63,8 +65,15 @@ jobs:
               cargo clippy --all-targets
             fi
       - run:
+          name: Build main target
+          command: cargo build
+      - run:
           name: Build all targets
-          command: cargo build --all-targets
+          command: |
+            if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
+            then
+              cargo build --all-targets
+            fi
       - run:
           name: Build without default features
           command: cargo build --no-default-features
@@ -81,8 +90,13 @@ jobs:
           name: Build ARM with only alloc feature
           command: cargo build --target thumbv6m-none-eabi --no-default-features --features alloc
       - run:
+          # dev dependencies can't build on 1.48.0
           name: Run tests
-          command: cargo test --verbose
+          command: |
+            if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
+            then
+              cargo test --verbose
+            fi
       - run:
           name: Build docs
           command: cargo doc --verbose

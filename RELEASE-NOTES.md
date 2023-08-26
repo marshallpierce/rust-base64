@@ -1,7 +1,22 @@
+# 0.21.3
+
+- Implement `source` instead of `cause` on Error types
+- Roll back MSRV to 1.48.0 so Debian can continue to live in a time warp
+- Slightly faster chunked encoding for short inputs
+
+# 0.21.2
+
+- Rollback MSRV to 1.57.0 -- only dev dependencies need 1.60, not the main code
+
 # 0.21.1
 
 - Remove the possibility of panicking during decoded length calculations
-- Slightly faster encoding for short inputs
+- `DecoderReader` no longer sometimes erroneously ignores padding  [#226](https://github.com/marshallpierce/rust-base64/issues/226)
+
+## Breaking changes
+
+- `Engine.internal_decode` return type changed
+- Update MSRV to 1.60.0
 
 # 0.21.0
 

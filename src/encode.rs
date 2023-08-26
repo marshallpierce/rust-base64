@@ -149,11 +149,7 @@ impl fmt::Display for EncodeSliceError {
 }
 
 #[cfg(any(feature = "std", test))]
-impl error::Error for EncodeSliceError {
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
-}
+impl error::Error for EncodeSliceError {}
 
 #[cfg(test)]
 mod tests {

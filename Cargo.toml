@@ -1,6 +1,6 @@
 [package]
 name = "base64"
-version = "0.21.0"
+version = "0.21.2"
 authors = ["Alice Maz <alice@alicemaz.com>", "Marshall Pierce <marshall@mpierce.org>"]
 description = "encodes and decodes base64 as bytes or utf8"
 repository = "https://github.com/marshallpierce/rust-base64"
@@ -9,12 +9,17 @@ readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
-edition = "2021"
-rust-version = "1.57.0"
+edition = "2018"
+# dev-dependencies require 1.60, but the main code doesn't
+# This option was added in 1.56, keep it for when we bump MSRV.
+rust-version = "1.48.0"
 
 [[bench]]
 name = "benchmarks"
 harness = false
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -24,6 +29,7 @@ structopt = "0.3.26"
 # test fixtures for engine tests
 rstest = "0.12.0"
 rstest_reuse = "0.3.0"
+lazy_static = "1.4.0"
 
 [features]
 default = ["std"]
