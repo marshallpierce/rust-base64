@@ -17,6 +17,9 @@ rust-version = "1.57.0"
 name = "benchmarks"
 harness = false
 
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+
 [dev-dependencies]
 criterion = "0.4.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
