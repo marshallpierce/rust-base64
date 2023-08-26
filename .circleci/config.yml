@@ -14,7 +14,7 @@ workflows:
                 # be easier on the CI hosts since presumably those fat lower layers will already be cached, and
                 # therefore faster than a minimal, customized alpine.
                 # MSRV
-                'rust:1.57.0'
+                'rust:1.48.0'
               ]
               # a hacky scheme to work around CircleCI's inability to deal with mutable docker tags, forcing us to
               # get a nightly or stable toolchain via rustup instead of a mutable docker tag
@@ -89,7 +89,7 @@ jobs:
           name: Build ARM with only alloc feature
           command: cargo build --target thumbv6m-none-eabi --no-default-features --features alloc
       - run:
-          # dev dependencies can't build on 1.57.0
+          # dev dependencies can't build on 1.48.0
           name: Run tests
           command: |
             if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]

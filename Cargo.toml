@@ -9,9 +9,10 @@ readme = "README.md"
 keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
-edition = "2021"
+edition = "2018"
 # dev-dependencies require 1.60, but the main code doesn't
-rust-version = "1.57.0"
+# This option was added in 1.56, keep it for when we bump MSRV.
+rust-version = "1.48.0"
 
 [[bench]]
 name = "benchmarks"
