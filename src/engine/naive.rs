@@ -6,8 +6,7 @@ use crate::{
     },
     DecodeError, PAD_BYTE,
 };
-use alloc::ops::BitOr;
-use std::ops::{BitAnd, Shl, Shr};
+use std::ops::{BitAnd, BitOr, Shl, Shr};
 
 /// Comparatively simple implementation that can be used as something to compare against in tests
 pub struct Naive {

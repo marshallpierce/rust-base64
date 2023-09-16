@@ -34,7 +34,7 @@ lazy_static = "1.4.0"
 [features]
 default = ["std"]
 alloc = []
-std = []
+std = ["alloc"]
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`
