@@ -17,6 +17,19 @@ rust-version = "1.48.0"
 [[bench]]
 name = "benchmarks"
 harness = false
+required-features = ["std"]
+
+[[example]]
+name = "base64"
+required-features = ["std"]
+
+[[test]]
+name = "tests"
+required-features = ["alloc"]
+
+[[test]]
+name = "encode"
+required-features = ["alloc"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

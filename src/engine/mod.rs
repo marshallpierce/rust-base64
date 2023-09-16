@@ -178,7 +178,8 @@ pub trait Engine: Send + Sync {
     ///
     /// # Example
     ///
-    /// ```rust
+    #[cfg_attr(feature = "alloc", doc = "```")]
+    #[cfg_attr(not(feature = "alloc"), doc = "```ignore")]
     /// use base64::{Engine as _, engine::general_purpose};
     /// let s = b"hello internet!";
     /// let mut buf = Vec::new();

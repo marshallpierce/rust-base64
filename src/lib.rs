@@ -81,7 +81,8 @@
 //!
 //! ## Using predefined engines
 //!
-//! ```
+#![cfg_attr(feature = "alloc", doc = "```")]
+#![cfg_attr(not(feature = "alloc"), doc = "```ignore")]
 //! use base64::{Engine as _, engine::general_purpose};
 //!
 //! let orig = b"data";
@@ -95,7 +96,8 @@
 //!
 //! ## Custom alphabet, config, and engine
 //!
-//! ```
+#![cfg_attr(feature = "alloc", doc = "```")]
+#![cfg_attr(not(feature = "alloc"), doc = "```ignore")]
 //! use base64::{engine, alphabet, Engine as _};
 //!
 //! // bizarro-world base64: +/ as the first symbols instead of the last
