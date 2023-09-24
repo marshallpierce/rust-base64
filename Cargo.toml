@@ -10,7 +10,7 @@ keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-# dev-dependencies require 1.60, but the main code doesn't
+# dev-dependencies require 1.63, but the main code doesn't
 # This option was added in 1.56, keep it for when we bump MSRV.
 rust-version = "1.48.0"
 
@@ -37,7 +37,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 [dev-dependencies]
 criterion = "0.4.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
-# clap 4 would require 1.60
 structopt = "0.3.26"
 # test fixtures for engine tests
 rstest = "0.12.0"
