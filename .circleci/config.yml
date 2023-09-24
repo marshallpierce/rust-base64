@@ -20,7 +20,7 @@ workflows:
               # get a nightly or stable toolchain via rustup instead of a mutable docker tag
               toolchain_override: [
                 '__msrv__', # won't add any other toolchains, just uses what's in the docker image
-                '1.60.0', # minimum needed to build dev-dependencies
+                '1.63.0', # minimum needed to build dev-dependencies
                 'stable',
                 'beta',
                 'nightly'
@@ -76,10 +76,20 @@ jobs:
             fi
       - run:
           name: Build without default features
-          command: cargo build --no-default-features
+          command: |
+            cargo build --no-default-features
+            if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
+            then
+              cargo build --no-default-features --all-targets
+            fi
       - run:
           name: Build with only alloc
-          command: cargo build --no-default-features --features alloc
+          command: |
+            cargo build --no-default-features --features alloc
+            if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
+            then
+              cargo build --no-default-features --features alloc --all-targets
+            fi
       - run:
           name: Add arm toolchain
           command: rustup target add thumbv6m-none-eabi
@@ -95,7 +105,8 @@ jobs:
           command: |
             if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
             then
-              cargo test --verbose
+              cargo test --no-default-features
+              cargo test
             fi
       - run:
           name: Build docs
