@@ -81,7 +81,8 @@
 //!
 //! ## Using predefined engines
 //!
-//! ```
+#![cfg_attr(feature = "alloc", doc = "```")]
+#![cfg_attr(not(feature = "alloc"), doc = "```ignore")]
 //! use base64::{Engine as _, engine::general_purpose};
 //!
 //! let orig = b"data";
@@ -95,7 +96,8 @@
 //!
 //! ## Custom alphabet, config, and engine
 //!
-//! ```
+#![cfg_attr(feature = "alloc", doc = "```")]
+#![cfg_attr(not(feature = "alloc"), doc = "```ignore")]
 //! use base64::{engine, alphabet, Engine as _};
 //!
 //! // bizarro-world base64: +/ as the first symbols instead of the last
@@ -136,10 +138,8 @@
 #![allow(clippy::single_component_path_imports)]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 
-#[cfg(all(feature = "alloc", not(any(feature = "std", test))))]
+#[cfg(any(feature = "alloc", test))]
 extern crate alloc;
-#[cfg(any(feature = "std", test))]
-extern crate std as alloc;
 
 // has to be included at top level because of the way rstest_reuse defines its macros
 #[cfg(test)]
@@ -159,14 +159,14 @@ pub mod alphabet;
 
 mod encode;
 #[allow(deprecated)]
-#[cfg(any(feature = "alloc", feature = "std", test))]
+#[cfg(any(feature = "alloc", test))]
 pub use crate::encode::{encode, encode_engine, encode_engine_string};
 #[allow(deprecated)]
 pub use crate::encode::{encode_engine_slice, encoded_len, EncodeSliceError};
 
 mod decode;
 #[allow(deprecated)]
-#[cfg(any(feature = "alloc", feature = "std", test))]
+#[cfg(any(feature = "alloc", test))]
 pub use crate::decode::{decode, decode_engine, decode_engine_vec};
 #[allow(deprecated)]
 pub use crate::decode::{decode_engine_slice, decoded_len_estimate, DecodeError, DecodeSliceError};
