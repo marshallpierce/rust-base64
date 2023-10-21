@@ -1,3 +1,7 @@
+# 0.21.5
+
+- Add `Debug` and `Clone` impls for the general purpose Engine
+
 # 0.21.4
 
 - Make `encoded_len` `const`, allowing the creation of arrays sized to encode compile-time-known data lengths

@@ -10,7 +10,7 @@ keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-# dev-dependencies require 1.63, but the main code doesn't
+# dev-dependencies require 1.65, but the main code doesn't
 # This option was added in 1.56, keep it for when we bump MSRV.
 rust-version = "1.48.0"
 
