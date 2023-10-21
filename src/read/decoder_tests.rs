@@ -76,7 +76,7 @@ fn trailing_junk() {
                         saw_error = true;
                         break;
                     }
-                    Ok(read) if read == 0 => break,
+                    Ok(0) => break,
                     Ok(_) => (),
                 }
             }

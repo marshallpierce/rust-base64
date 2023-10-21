@@ -19,6 +19,8 @@ pub(crate) const INVALID_VALUE: u8 = 255;
 /// - It uses no vector CPU instructions, so it will work on any system.
 /// - It is reasonably fast (~2-3GiB/s).
 /// - It is not constant-time, though, so it is vulnerable to timing side-channel attacks. For loading cryptographic keys, etc, it is suggested to use the forthcoming constant-time implementation.
+
+#[derive(Debug, Clone)]
 pub struct GeneralPurpose {
     encode_table: [u8; 64],
     decode_table: [u8; 256],
