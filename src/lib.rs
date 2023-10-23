@@ -75,7 +75,7 @@
 //!
 //! # `Display`
 //!
-//! See [display] for how to transparently base64 data via a `Display` implementation.
+//! See [display] for how to transparently format base64 data via a `Display` implementation.
 //!
 //! # Examples
 //!
