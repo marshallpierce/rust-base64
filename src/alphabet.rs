@@ -38,17 +38,18 @@ const ALPHABET_SIZE: usize = 64;
 /// };
 /// ```
 ///
-/// Building a lazy_static:
+/// Building lazily:
 ///
 /// ```
 /// use base64::{
 ///     alphabet::Alphabet,
 ///     engine::{general_purpose::GeneralPurpose, GeneralPurposeConfig},
 /// };
+/// use once_cell::sync::Lazy;
 ///
-/// lazy_static::lazy_static! {
-///     static ref CUSTOM: Alphabet = Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap();
-/// }
+/// static CUSTOM: Lazy<Alphabet> = Lazy::new(||
+///     Alphabet::new("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").unwrap()
+/// );
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Alphabet {
