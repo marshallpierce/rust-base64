@@ -51,6 +51,12 @@ jobs:
           name: Log rustc version
           command: rustc --version
       - run:
+          name: Build main target
+          # update first to select dependencies appropriate for this toolchain
+          command: |
+            cargo update
+            cargo build
+      - run:
           name: Check formatting
           command: |
             rustup component add rustfmt
@@ -64,9 +70,6 @@ jobs:
               rustup component add clippy
               cargo clippy --all-targets
             fi
-      - run:
-          name: Build main target
-          command: cargo build
       - run:
           name: Build all targets
           command: |
