@@ -5,13 +5,18 @@ use std::process;
 use std::str::FromStr;
 
 use base64::{alphabet, engine, read, write};
-use clap::{self, Parser};
+use structopt::StructOpt;
 
-#[derive(Copy, Clone, Debug, Default, Parser)]
+#[derive(Debug, StructOpt)]
 enum Alphabet {
-    #[default]
     Standard,
     UrlSafe,
+}
+
+impl Default for Alphabet {
+    fn default() -> Self {
+        Self::Standard
+    }
 }
 
 impl FromStr for Alphabet {
@@ -26,22 +31,22 @@ impl FromStr for Alphabet {
 }
 
 /// Base64 encode or decode FILE (or standard input), to standard output.
-#[derive(Debug, Parser)]
+#[derive(Debug, StructOpt)]
 struct Opt {
     /// decode data
-    #[arg(short, long)]
+    #[structopt(short = "d", long = "decode")]
     decode: bool,
     /// The alphabet to choose. Defaults to the standard base64 alphabet.
     /// Supported alphabets include "standard" and "urlsafe".
-    #[arg(short, long)]
+    #[structopt(long = "alphabet")]
     alphabet: Option<Alphabet>,
     /// The file to encode/decode.
-    #[arg(short, long)]
+    #[structopt(parse(from_os_str))]
     file: Option<PathBuf>,
 }
 
 fn main() {
-    let opt = Opt::parse();
+    let opt = Opt::from_args();
     let stdin;
     let mut input: Box<dyn Read> = match opt.file {
         None => {
