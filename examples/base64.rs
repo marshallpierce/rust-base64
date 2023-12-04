@@ -2,46 +2,35 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::process;
-use std::str::FromStr;
 
 use base64::{alphabet, engine, read, write};
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt, strum::EnumString, Default, Debug)]
+#[strum(serialize_all = "kebab-case")]
 enum Alphabet {
+    #[default]
     Standard,
     UrlSafe,
-}
-
-impl Default for Alphabet {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
-impl FromStr for Alphabet {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, String> {
-        match s {
-            "standard" => Ok(Self::Standard),
-            "urlsafe" => Ok(Self::UrlSafe),
-            _ => Err(format!("alphabet '{}' unrecognized", s)),
-        }
-    }
 }
 
 /// Base64 encode or decode FILE (or standard input), to standard output.
 #[derive(Debug, StructOpt)]
 struct Opt {
-    /// decode data
+    /// Decode the base64-encoded input (default: encode the input as base64).
     #[structopt(short = "d", long = "decode")]
     decode: bool,
-    /// The alphabet to choose. Defaults to the standard base64 alphabet.
-    /// Supported alphabets include "standard" and "urlsafe".
+
+    /// The encoding alphabet: "standard" (default) or "url-safe".
     #[structopt(long = "alphabet")]
     alphabet: Option<Alphabet>,
-    /// The file to encode/decode.
-    #[structopt(parse(from_os_str))]
+
+    /// Omit padding characters while encoding, and reject them while decoding.
+    #[structopt(short = "p")]
+    no_padding: bool,
+
+    /// The file to encode or decode.
+    #[structopt(name = "FILE", parse(from_os_str))]
     file: Option<PathBuf>,
 }
 
@@ -66,7 +55,10 @@ fn main() {
             Alphabet::Standard => alphabet::STANDARD,
             Alphabet::UrlSafe => alphabet::URL_SAFE,
         },
-        engine::general_purpose::PAD,
+        match opt.no_padding {
+            true => engine::general_purpose::NO_PAD,
+            false => engine::general_purpose::PAD,
+        },
     );
 
     let stdout = io::stdout();
