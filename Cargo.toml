@@ -37,7 +37,9 @@ rustdoc-args = ["--generate-link-to-definition"]
 [dev-dependencies]
 criterion = "0.4.0"
 rand = { version = "0.8.5", features = ["small_rng"] }
-structopt = "0.3.26"
+# Latest is 4.4.13 but specifies MSRV in Cargo.toml which means we can't depend
+# on it (even though we won't compile it in MSRV CI).
+clap = { version = "3.2.25", features = ["derive"] }
 # test fixtures for engine tests
 rstest = "0.13.0"
 rstest_reuse = "0.6.0"
