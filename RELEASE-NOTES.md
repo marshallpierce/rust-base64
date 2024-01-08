@@ -1,3 +1,7 @@
+# 0.21.6
+
+- Improved introductory documentation and example
+
 # 0.21.5
 
 - Add `Debug` and `Clone` impls for the general purpose Engine
