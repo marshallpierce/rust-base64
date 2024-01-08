@@ -160,21 +160,21 @@ impl fmt::Display for ParseAlphabetError {
 #[cfg(any(feature = "std", test))]
 impl error::Error for ParseAlphabetError {}
 
-/// The standard alphabet (uses `+` and `/`).
+/// The standard alphabet (with `+` and `/`) specified in [RFC 4648][].
 ///
-/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
+/// [RFC 4648]: https://datatracker.ietf.org/doc/html/rfc4648#section-4
 pub const STANDARD: Alphabet = Alphabet::from_str_unchecked(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
 );
 
-/// The URL safe alphabet (uses `-` and `_`).
+/// The URL-safe alphabet (with `-` and `_`) specified in [RFC 4648][].
 ///
-/// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-4).
+/// [RFC 4648]: https://datatracker.ietf.org/doc/html/rfc4648#section-5
 pub const URL_SAFE: Alphabet = Alphabet::from_str_unchecked(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
 );
 
-/// The `crypt(3)` alphabet (uses `.` and `/` as the first two values).
+/// The `crypt(3)` alphabet (with `.` and `/` as the _first_ two characters).
 ///
 /// Not standardized, but folk wisdom on the net asserts that this alphabet is what crypt uses.
 pub const CRYPT: Alphabet = Alphabet::from_str_unchecked(
@@ -186,7 +186,7 @@ pub const BCRYPT: Alphabet = Alphabet::from_str_unchecked(
     "./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
 );
 
-/// The alphabet used in IMAP-modified UTF-7 (uses `+` and `,`).
+/// The alphabet used in IMAP-modified UTF-7 (with `+` and `,`).
 ///
 /// See [RFC 3501](https://tools.ietf.org/html/rfc3501#section-5.1.3)
 pub const IMAP_MUTF7: Alphabet = Alphabet::from_str_unchecked(
