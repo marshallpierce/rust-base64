@@ -1,7 +1,7 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
 use crate::PAD_BYTE;
-use core::{convert, fmt, primitive::str};
+use core::{convert, fmt};
 #[cfg(any(feature = "std", test))]
 use std::error;
 
