@@ -1,7 +1,7 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
 use crate::PAD_BYTE;
-use core::{convert, fmt};
+use core::{convert, fmt, primitive::str};
 #[cfg(any(feature = "std", test))]
 use std::error;
 
@@ -126,7 +126,7 @@ impl Alphabet {
 
     /// Create a `&str` from the symbols in the `Alphabet`
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.symbols).unwrap()
+        core::str::from_utf8(&self.symbols).unwrap()
     }
 }
 
