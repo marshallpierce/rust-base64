@@ -124,6 +124,7 @@ impl Alphabet {
         Ok(Self::from_str_unchecked(alphabet))
     }
 
+    /// Create a String from the symbols in the `Alphabet`
     pub fn as_string(&self) -> String {
         self.symbols.iter().map(|c| *c as char).collect::<String>()
     }
