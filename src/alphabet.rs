@@ -124,10 +124,9 @@ impl Alphabet {
         Ok(Self::from_str_unchecked(alphabet))
     }
 
-    /// Create a String from the symbols in the `Alphabet`
-    #[cfg(any(feature = "std", test))]
-    pub fn as_string(&self) -> String {
-        self.symbols.iter().map(|c| *c as char).collect::<String>()
+    /// Create a `&str` from the symbols in the `Alphabet`
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.symbols).unwrap()
     }
 }
 
@@ -278,11 +277,9 @@ mod tests {
     }
 
     #[test]
-    fn string_same_as_input() {
+    fn str_same_as_input() {
         let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
         let a = Alphabet::try_from(alphabet).unwrap();
-
-        assert_eq!(String::from(alphabet), a.as_string())
+        assert_eq!(alphabet, a.as_str())
     }
 }
