@@ -125,6 +125,7 @@ impl Alphabet {
     }
 
     /// Create a String from the symbols in the `Alphabet`
+    #[cfg(any(feature = "std", test))]
     pub fn as_string(&self) -> String {
         self.symbols.iter().map(|c| *c as char).collect::<String>()
     }
