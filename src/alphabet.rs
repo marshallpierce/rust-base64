@@ -123,6 +123,10 @@ impl Alphabet {
 
         Ok(Self::from_str_unchecked(alphabet))
     }
+
+    pub fn as_string(&self) -> String {
+        self.symbols.iter().map(|c| *c as char).collect::<String>()
+    }
 }
 
 impl convert::TryFrom<&str> for Alphabet {
@@ -269,5 +273,14 @@ mod tests {
             Alphabet::try_from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn string_same_as_input() {
+        let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+        let a = Alphabet::try_from(alphabet).unwrap();
+
+        assert_eq!(String::from(alphabet), a.as_string())
     }
 }
