@@ -113,6 +113,7 @@ pub trait Engine: Send + Sync {
     ///     engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
     ///
     /// let b64_url = CUSTOM_ENGINE.encode(b"hello internet~");
+    /// ```
     #[cfg(any(feature = "alloc", test))]
     #[inline]
     fn encode<T: AsRef<[u8]>>(&self, input: T) -> String {
