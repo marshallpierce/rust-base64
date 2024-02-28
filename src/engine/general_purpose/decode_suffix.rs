@@ -17,14 +17,14 @@ pub(crate) fn decode_suffix(
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
 ) -> Result<DecodeMetadata, DecodeError> {
-    // Decode any leftovers that aren't a complete input block of 8 bytes.
+    // Decode any leftovers that might not be a complete input chunk of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
-    let mut leftover_bits: u64 = 0;
     let mut morsels_in_leftover = 0;
     let mut padding_bytes = 0;
     let mut first_padding_index: usize = 0;
     let mut last_symbol = 0_u8;
     let start_of_leftovers = input_index;
+    let mut morsels = [0_u8; 8];
 
     for (i, &b) in input[start_of_leftovers..].iter().enumerate() {
         // '=' padding
@@ -83,13 +83,12 @@ pub(crate) fn decode_suffix(
 
         // can use up to 8 * 6 = 48 bits of the u64, if last chunk has no padding.
         // Pack the leftovers from left to right.
-        let shift = 64 - (morsels_in_leftover + 1) * 6;
         let morsel = decode_table[b as usize];
         if morsel == INVALID_VALUE {
             return Err(DecodeError::InvalidByte(start_of_leftovers + i, b));
         }
 
-        leftover_bits |= (morsel as u64) << shift;
+        morsels[morsels_in_leftover] = morsel;
         morsels_in_leftover += 1;
     }
 
@@ -121,23 +120,23 @@ pub(crate) fn decode_suffix(
     // useless since there are no more symbols to provide the necessary 4 additional bits
     // to finish the second original byte.
 
-    let leftover_bits_ready_to_append = match morsels_in_leftover {
-        0 => 0,
-        2 => 8,
-        3 => 16,
-        4 => 24,
-        6 => 32,
-        7 => 40,
-        8 => 48,
-        // can also be detected as case #2 bad padding above
-        _ => unreachable!(
-            "Impossible: must only have 0 to 8 input bytes in last chunk, with no invalid lengths"
-        ),
-    };
+    // TODO how do we know this?
+    debug_assert!(morsels_in_leftover != 1 && morsels_in_leftover != 5);
+    let leftover_bytes_to_append = morsels_in_leftover * 6 / 8;
+    let leftover_bits_to_append = leftover_bytes_to_append * 8;
+    // A couple percent speedup from nudging these ORs to use more ILP with a two-way split
+    let leftover_bits = ((u64::from(morsels[0]) << 58)
+        | (u64::from(morsels[1]) << 52)
+        | (u64::from(morsels[2]) << 46)
+        | (u64::from(morsels[3]) << 40))
+        | ((u64::from(morsels[4]) << 34)
+            | (u64::from(morsels[5]) << 28)
+            | (u64::from(morsels[6]) << 22)
+            | (u64::from(morsels[7]) << 16));
 
     // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
     // will not be included in the output
-    let mask = !0 >> leftover_bits_ready_to_append;
+    let mask = !0 >> leftover_bits_to_append;
     if !decode_allow_trailing_bits && (leftover_bits & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
         return Err(DecodeError::InvalidLastSymbol(
@@ -148,7 +147,7 @@ pub(crate) fn decode_suffix(
 
     // TODO benchmark simply converting to big endian bytes
     let mut leftover_bits_appended_to_buf = 0;
-    while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
+    while leftover_bits_appended_to_buf < leftover_bits_to_append {
         // `as` simply truncates the higher bits, which is what we want here
         let selected_bits = (leftover_bits >> (56 - leftover_bits_appended_to_buf)) as u8;
         output[output_index] = selected_bits;
