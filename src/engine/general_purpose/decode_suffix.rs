@@ -123,9 +123,9 @@ pub(crate) fn decode_suffix(
     // TODO how do we know this?
     debug_assert!(morsels_in_leftover != 1 && morsels_in_leftover != 5);
     let leftover_bytes_to_append = morsels_in_leftover * 6 / 8;
-    let leftover_bits_to_append = leftover_bytes_to_append * 8;
-    // A couple percent speedup from nudging these ORs to use more ILP with a two-way split
-    let leftover_bits = ((u64::from(morsels[0]) << 58)
+    // Put the up to 6 complete bytes as the high bytes.
+    // Gain a couple percent speedup from nudging these ORs to use more ILP with a two-way split.
+    let mut leftover_num = ((u64::from(morsels[0]) << 58)
         | (u64::from(morsels[1]) << 52)
         | (u64::from(morsels[2]) << 46)
         | (u64::from(morsels[3]) << 40))
@@ -136,8 +136,8 @@ pub(crate) fn decode_suffix(
 
     // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
     // will not be included in the output
-    let mask = !0 >> leftover_bits_to_append;
-    if !decode_allow_trailing_bits && (leftover_bits & mask) != 0 {
+    let mask = !0 >> (leftover_bytes_to_append * 8);
+    if !decode_allow_trailing_bits && (leftover_num & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
         return Err(DecodeError::InvalidLastSymbol(
             start_of_leftovers + morsels_in_leftover - 1,
@@ -145,15 +145,13 @@ pub(crate) fn decode_suffix(
         ));
     }
 
-    // TODO benchmark simply converting to big endian bytes
-    let mut leftover_bits_appended_to_buf = 0;
-    while leftover_bits_appended_to_buf < leftover_bits_to_append {
-        // `as` simply truncates the higher bits, which is what we want here
-        let selected_bits = (leftover_bits >> (56 - leftover_bits_appended_to_buf)) as u8;
-        output[output_index] = selected_bits;
+    // Strangely, this approach benchmarks better than writing bytes one at a time,
+    // or copy_from_slice into output.
+    for _ in 0..leftover_bytes_to_append {
+        let hi_byte = (leftover_num >> 56) as u8;
+        leftover_num <<= 8;
+        output[output_index] = hi_byte;
         output_index += 1;
-
-        leftover_bits_appended_to_buf += 8;
     }
 
     Ok(DecodeMetadata::new(
