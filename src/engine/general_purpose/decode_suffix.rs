@@ -3,7 +3,7 @@ use crate::{
     DecodeError, PAD_BYTE,
 };
 
-/// Decode the last 1-8 bytes, checking for trailing set bits and padding per the provided
+/// Decode the last 0-4 bytes, checking for trailing set bits and padding per the provided
 /// parameters.
 ///
 /// Returns the decode metadata representing the total number of bytes decoded, including the ones
@@ -17,16 +17,18 @@ pub(crate) fn decode_suffix(
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
 ) -> Result<DecodeMetadata, DecodeError> {
+    debug_assert!((input.len() - input_index) <= 4);
+
     // Decode any leftovers that might not be a complete input chunk of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
     let mut morsels_in_leftover = 0;
-    let mut padding_bytes = 0;
-    let mut first_padding_index: usize = 0;
+    let mut padding_bytes_count = 0;
+    // offset from input_index
+    let mut first_padding_offset: usize = 0;
     let mut last_symbol = 0_u8;
-    let start_of_leftovers = input_index;
-    let mut morsels = [0_u8; 8];
+    let mut morsels = [0_u8; 4];
 
-    for (i, &b) in input[start_of_leftovers..].iter().enumerate() {
+    for (leftover_index, &b) in input[input_index..].iter().enumerate() {
         // '=' padding
         if b == PAD_BYTE {
             // There can be bad padding bytes in a few ways:
@@ -41,30 +43,30 @@ pub(crate) fn decode_suffix(
             //     Per config, non-canonical but still functional non- or partially-padded base64
             //     may be treated as an error condition.
 
-            if i % 4 < 2 {
+            if leftover_index < 2 {
                 // Check for case #2.
-                let bad_padding_index = start_of_leftovers
-                    + if padding_bytes > 0 {
+                let bad_padding_index = input_index
+                    + if padding_bytes_count > 0 {
                         // If we've already seen padding, report the first padding index.
                         // This is to be consistent with the normal decode logic: it will report an
                         // error on the first padding character (since it doesn't expect to see
                         // anything but actual encoded data).
                         // This could only happen if the padding started in the previous quad since
-                        // otherwise this case would have been hit at i % 4 == 0 if it was the same
+                        // otherwise this case would have been hit at i == 4 if it was the same
                         // quad.
-                        first_padding_index
+                        first_padding_offset
                     } else {
                         // haven't seen padding before, just use where we are now
-                        i
+                        leftover_index
                     };
                 return Err(DecodeError::InvalidByte(bad_padding_index, b));
             }
 
-            if padding_bytes == 0 {
-                first_padding_index = i;
+            if padding_bytes_count == 0 {
+                first_padding_offset = leftover_index;
             }
 
-            padding_bytes += 1;
+            padding_bytes_count += 1;
             continue;
         }
 
@@ -72,9 +74,9 @@ pub(crate) fn decode_suffix(
         // To make '=' handling consistent with the main loop, don't allow
         // non-suffix '=' in trailing chunk either. Report error as first
         // erroneous padding.
-        if padding_bytes > 0 {
+        if padding_bytes_count > 0 {
             return Err(DecodeError::InvalidByte(
-                start_of_leftovers + first_padding_index,
+                input_index + first_padding_offset,
                 PAD_BYTE,
             ));
         }
@@ -85,22 +87,31 @@ pub(crate) fn decode_suffix(
         // Pack the leftovers from left to right.
         let morsel = decode_table[b as usize];
         if morsel == INVALID_VALUE {
-            return Err(DecodeError::InvalidByte(start_of_leftovers + i, b));
+            return Err(DecodeError::InvalidByte(input_index + leftover_index, b));
         }
 
         morsels[morsels_in_leftover] = morsel;
         morsels_in_leftover += 1;
     }
 
+    // If there was 1 trailing byte, and it was valid, and we got to this point without hitting
+    // an invalid byte, now we can report invalid length
+    if !input.is_empty() && morsels_in_leftover < 2 {
+        return Err(DecodeError::InvalidLength(
+            input_index + morsels_in_leftover,
+        ));
+    }
+
     match padding_mode {
         DecodePaddingMode::Indifferent => { /* everything we care about was already checked */ }
         DecodePaddingMode::RequireCanonical => {
-            if (padding_bytes + morsels_in_leftover) % 4 != 0 {
+            // allow empty input
+            if (padding_bytes_count + morsels_in_leftover) % 4 != 0 {
                 return Err(DecodeError::InvalidPadding);
             }
         }
         DecodePaddingMode::RequireNone => {
-            if padding_bytes > 0 {
+            if padding_bytes_count > 0 {
                 // check at the end to make sure we let the cases of padding that should be InvalidByte
                 // get hit
                 return Err(DecodeError::InvalidPadding);
@@ -120,27 +131,21 @@ pub(crate) fn decode_suffix(
     // useless since there are no more symbols to provide the necessary 4 additional bits
     // to finish the second original byte.
 
-    // TODO how do we know this?
-    debug_assert!(morsels_in_leftover != 1 && morsels_in_leftover != 5);
     let leftover_bytes_to_append = morsels_in_leftover * 6 / 8;
     // Put the up to 6 complete bytes as the high bytes.
     // Gain a couple percent speedup from nudging these ORs to use more ILP with a two-way split.
-    let mut leftover_num = ((u64::from(morsels[0]) << 58)
-        | (u64::from(morsels[1]) << 52)
-        | (u64::from(morsels[2]) << 46)
-        | (u64::from(morsels[3]) << 40))
-        | ((u64::from(morsels[4]) << 34)
-            | (u64::from(morsels[5]) << 28)
-            | (u64::from(morsels[6]) << 22)
-            | (u64::from(morsels[7]) << 16));
+    let mut leftover_num = (u32::from(morsels[0]) << 26)
+        | (u32::from(morsels[1]) << 20)
+        | (u32::from(morsels[2]) << 14)
+        | (u32::from(morsels[3]) << 8);
 
     // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
     // will not be included in the output
-    let mask = !0 >> (leftover_bytes_to_append * 8);
+    let mask = !0_u32 >> (leftover_bytes_to_append * 8);
     if !decode_allow_trailing_bits && (leftover_num & mask) != 0 {
         // last morsel is at `morsels_in_leftover` - 1
         return Err(DecodeError::InvalidLastSymbol(
-            start_of_leftovers + morsels_in_leftover - 1,
+            input_index + morsels_in_leftover - 1,
             last_symbol,
         ));
     }
@@ -148,16 +153,17 @@ pub(crate) fn decode_suffix(
     // Strangely, this approach benchmarks better than writing bytes one at a time,
     // or copy_from_slice into output.
     for _ in 0..leftover_bytes_to_append {
-        let hi_byte = (leftover_num >> 56) as u8;
+        let hi_byte = (leftover_num >> 24) as u8;
         leftover_num <<= 8;
+        // TODO use checked writes
         output[output_index] = hi_byte;
         output_index += 1;
     }
 
     Ok(DecodeMetadata::new(
         output_index,
-        if padding_bytes > 0 {
-            Some(input_index + first_padding_index)
+        if padding_bytes_count > 0 {
+            Some(input_index + first_padding_offset)
         } else {
             None
         },

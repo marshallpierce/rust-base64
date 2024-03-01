@@ -115,15 +115,12 @@ impl Engine for Naive {
         if estimate.rem == 1 {
             // trailing whitespace is so common that it's worth it to check the last byte to
             // possibly return a better error message
-            if let Some(b) = input.last() {
-                if *b != PAD_BYTE
-                    && self.decode_table[*b as usize] == general_purpose::INVALID_VALUE
-                {
-                    return Err(DecodeError::InvalidByte(input.len() - 1, *b));
-                }
+            let last_byte = input[input.len() - 1];
+            if last_byte != PAD_BYTE
+                && self.decode_table[usize::from(last_byte)] == general_purpose::INVALID_VALUE
+            {
+                return Err(DecodeError::InvalidByte(input.len() - 1, last_byte));
             }
-
-            return Err(DecodeError::InvalidLength);
         }
 
         let mut input_index = 0_usize;
