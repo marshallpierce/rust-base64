@@ -19,7 +19,7 @@ use crate::{
     },
     read::DecoderReader,
     tests::{assert_encode_sanity, random_alphabet, random_config},
-    DecodeError, PAD_BYTE,
+    DecodeError, DecodeSliceError, PAD_BYTE,
 };
 
 // the case::foo syntax includes the "foo" in the generated test method names
@@ -803,7 +803,8 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
                         PAD_BYTE,
                     )),
                     engine.decode(&encoded),
-                    "suffix data len {} pad len {}",
+                    "input {} suffix data len {} pad len {}",
+                    String::from_utf8(encoded).unwrap(),
                     suffix_data_len,
                     padding_len
                 );
@@ -1077,16 +1078,15 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
         assert_eq!(orig_data.len(), decode_bytes_written);
         assert_eq!(orig_data, decode_buf);
 
-        // TODO
         // same for checked variant
-        // decode_buf.clear();
-        // decode_buf.resize(input_len, 0);
-        // // decode into the non-empty buf
-        // let decode_bytes_written = engine
-        //     .decode_slice(encoded_data.as_bytes(), &mut decode_buf[..])
-        //     .unwrap();
-        // assert_eq!(orig_data.len(), decode_bytes_written);
-        // assert_eq!(orig_data, decode_buf);
+        decode_buf.clear();
+        decode_buf.resize(input_len, 0);
+        // decode into the non-empty buf
+        let decode_bytes_written = engine
+            .decode_slice(encoded_data.as_bytes(), &mut decode_buf[..])
+            .unwrap();
+        assert_eq!(orig_data.len(), decode_bytes_written);
+        assert_eq!(orig_data, decode_buf);
     }
 }
 
@@ -1118,7 +1118,10 @@ fn inner_decode_reports_padding_position<E: EngineWrapper>(engine_wrapper: E) {
         if pad_position % 4 < 2 {
             // impossible padding
             assert_eq!(
-                Err(DecodeError::InvalidByte(pad_position, PAD_BYTE)),
+                Err(DecodeSliceError::DecodeError(DecodeError::InvalidByte(
+                    pad_position,
+                    PAD_BYTE
+                ))),
                 decode_res
             );
         } else {
@@ -1184,6 +1187,63 @@ fn estimate_via_u128_inflation<E: EngineWrapper>(engine_wrapper: E) {
                 encoded_len
             );
         })
+}
+
+#[apply(all_engines)]
+fn decode_slice_checked_fails_gracefully_at_all_output_lengths<E: EngineWrapper>(
+    engine_wrapper: E,
+) {
+    let mut rng = seeded_rng();
+    for original_len in 0..1000 {
+        let mut original = vec![0; original_len];
+        rng.fill(&mut original[..]);
+
+        for mode in all_pad_modes() {
+            let engine = E::standard_with_pad_mode(
+                match mode {
+                    DecodePaddingMode::Indifferent | DecodePaddingMode::RequireCanonical => true,
+                    DecodePaddingMode::RequireNone => false,
+                },
+                mode,
+            );
+
+            let encoded = engine.encode(&original);
+            let mut decode_buf = Vec::with_capacity(original_len);
+            for decode_buf_len in 0..original_len {
+                decode_buf.resize(decode_buf_len, 0);
+                assert_eq!(
+                    DecodeSliceError::OutputSliceTooSmall,
+                    engine
+                        .decode_slice(&encoded, &mut decode_buf[..])
+                        .unwrap_err(),
+                    "original len: {}, encoded len: {}, buf len: {}, mode: {:?}",
+                    original_len,
+                    encoded.len(),
+                    decode_buf_len,
+                    mode
+                );
+                // internal method works the same
+                assert_eq!(
+                    DecodeSliceError::OutputSliceTooSmall,
+                    engine
+                        .internal_decode(
+                            encoded.as_bytes(),
+                            &mut decode_buf[..],
+                            engine.internal_decoded_len_estimate(encoded.len())
+                        )
+                        .unwrap_err()
+                );
+            }
+
+            decode_buf.resize(original_len, 0);
+            rng.fill(&mut decode_buf[..]);
+            assert_eq!(
+                original_len,
+                engine.decode_slice(&encoded, &mut decode_buf[..]).unwrap()
+            );
+            assert_eq!(original, decode_buf);
+        }
+    }
 }
 
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.
@@ -1346,7 +1406,7 @@ impl EngineWrapper for NaiveWrapper {
         naive::Naive::new(
             &STANDARD,
             naive::NaiveConfig {
-                encode_padding: false,
+                encode_padding: encode_pad,
                 decode_allow_trailing_bits: false,
                 decode_padding_mode: decode_pad_mode,
             },
@@ -1415,7 +1475,7 @@ impl<E: Engine> Engine for DecoderReaderEngine<E> {
         input: &[u8],
         output: &mut [u8],
         decode_estimate: Self::DecodeEstimate,
-    ) -> Result<DecodeMetadata, DecodeError> {
+    ) -> Result<DecodeMetadata, DecodeSliceError> {
         let mut reader = DecoderReader::new(input, &self.engine);
         let mut buf = vec![0; input.len()];
         // to avoid effects like not detecting invalid length due to progressively growing
@@ -1434,6 +1494,9 @@ impl<E: Engine> Engine for DecoderReaderEngine<E> {
                     .and_then(|inner| inner.downcast::<DecodeError>().ok())
                     .unwrap()
             })?;
+        if output.len() < buf.len() {
+            return Err(DecodeSliceError::OutputSliceTooSmall);
+        }
         output[..buf.len()].copy_from_slice(&buf);
         Ok(DecodeMetadata::new(
             buf.len(),

@@ -52,9 +52,7 @@ impl error::Error for DecodeError {}
 pub enum DecodeSliceError {
     /// A [DecodeError] occurred
     DecodeError(DecodeError),
-    /// The provided slice _may_ be too small.
-    ///
-    /// The check is conservative (assumes the last triplet of output bytes will all be needed).
+    /// The provided slice is too small.
     OutputSliceTooSmall,
 }
 

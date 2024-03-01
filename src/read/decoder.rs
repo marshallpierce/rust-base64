@@ -1,4 +1,4 @@
-use crate::{engine::Engine, DecodeError, PAD_BYTE};
+use crate::{engine::Engine, DecodeError, DecodeSliceError, PAD_BYTE};
 use std::{cmp, fmt, io};
 
 // This should be large, but it has to fit on the stack.
@@ -133,6 +133,10 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
     /// caller's responsibility to choose the number of b64 bytes to decode correctly.
     ///
     /// Returns a Result with the number of decoded bytes written to `buf`.
+    ///
+    /// # Panics
+    ///
+    /// panics if `buf` is too small
     fn decode_to_buf(&mut self, b64_len_to_decode: usize, buf: &mut [u8]) -> io::Result<usize> {
         debug_assert!(self.b64_len >= b64_len_to_decode);
         debug_assert!(self.b64_offset + self.b64_len <= BUF_SIZE);
@@ -146,26 +150,35 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
                 buf,
                 self.engine.internal_decoded_len_estimate(b64_len_to_decode),
             )
-            .map_err(|e| match e {
-                DecodeError::InvalidByte(offset, byte) => {
-                    match (byte, self.padding_offset) {
-                        // if there was padding in a previous block of decoding that happened to
-                        // be correct, and we now find more padding that happens to be incorrect,
-                        // to be consistent with non-reader decodes, record the error at the first
-                        // padding
-                        (PAD_BYTE, Some(first_pad_offset)) => {
-                            DecodeError::InvalidByte(first_pad_offset, PAD_BYTE)
+            .map_err(|dse| match dse {
+                DecodeSliceError::DecodeError(de) => {
+                    match de {
+                        DecodeError::InvalidByte(offset, byte) => {
+                            match (byte, self.padding_offset) {
+                                // if there was padding in a previous block of decoding that happened to
+                                // be correct, and we now find more padding that happens to be incorrect,
+                                // to be consistent with non-reader decodes, record the error at the first
+                                // padding
+                                (PAD_BYTE, Some(first_pad_offset)) => {
+                                    DecodeError::InvalidByte(first_pad_offset, PAD_BYTE)
+                                }
+                                _ => {
+                                    DecodeError::InvalidByte(self.input_consumed_len + offset, byte)
+                                }
+                            }
                         }
-                        _ => DecodeError::InvalidByte(self.input_consumed_len + offset, byte),
+                        DecodeError::InvalidLength(len) => {
+                            DecodeError::InvalidLength(self.input_consumed_len + len)
+                        }
+                        DecodeError::InvalidLastSymbol(offset, byte) => {
+                            DecodeError::InvalidLastSymbol(self.input_consumed_len + offset, byte)
+                        }
+                        DecodeError::InvalidPadding => DecodeError::InvalidPadding,
                     }
                 }
-                DecodeError::InvalidLength(len) => {
-                    DecodeError::InvalidLength(self.input_consumed_len + len)
+                DecodeSliceError::OutputSliceTooSmall => {
+                    unreachable!("buf is sized correctly in calling code")
                 }
-                DecodeError::InvalidLastSymbol(offset, byte) => {
-                    DecodeError::InvalidLastSymbol(self.input_consumed_len + offset, byte)
-                }
-                DecodeError::InvalidPadding => DecodeError::InvalidPadding,
             })
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 

@@ -1,12 +1,13 @@
 use crate::{
     engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodeMetadata, DecodePaddingMode},
-    DecodeError, PAD_BYTE,
+    DecodeError, DecodeSliceError, PAD_BYTE,
 };
 
 #[doc(hidden)]
 pub struct GeneralPurposeEstimate {
+    /// input len % 4
     rem: usize,
-    conservative_len: usize,
+    conservative_decoded_len: usize,
 }
 
 impl GeneralPurposeEstimate {
@@ -14,14 +15,14 @@ impl GeneralPurposeEstimate {
         let rem = encoded_len % 4;
         Self {
             rem,
-            conservative_len: (encoded_len / 4 + (rem > 0) as usize) * 3,
+            conservative_decoded_len: (encoded_len / 4 + (rem > 0) as usize) * 3,
         }
     }
 }
 
 impl DecodeEstimate for GeneralPurposeEstimate {
     fn decoded_len_estimate(&self) -> usize {
-        self.conservative_len
+        self.conservative_decoded_len
     }
 }
 
@@ -38,25 +39,9 @@ pub(crate) fn decode_helper(
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
     padding_mode: DecodePaddingMode,
-) -> Result<DecodeMetadata, DecodeError> {
-    // detect a trailing invalid byte, like a newline, as a user convenience
-    if estimate.rem == 1 {
-        let last_byte = input[input.len() - 1];
-        // exclude pad bytes; might be part of padding that extends from earlier in the input
-        if last_byte != PAD_BYTE && decode_table[usize::from(last_byte)] == INVALID_VALUE {
-            return Err(DecodeError::InvalidByte(input.len() - 1, last_byte));
-        }
-    }
-
-    // skip last quad, even if it's complete, as it may have padding
-    let input_complete_nonterminal_quads_len = input
-        .len()
-        .saturating_sub(estimate.rem)
-        // if rem was 0, subtract 4 to avoid padding
-        .saturating_sub((estimate.rem == 0) as usize * 4);
-    debug_assert!(
-        input.is_empty() || (1..=4).contains(&(input.len() - input_complete_nonterminal_quads_len))
-    );
+) -> Result<DecodeMetadata, DecodeSliceError> {
+    let input_complete_nonterminal_quads_len =
+        complete_quads_len(input, estimate.rem, output.len(), decode_table)?;
 
     const UNROLLED_INPUT_CHUNK_SIZE: usize = 32;
     const UNROLLED_OUTPUT_CHUNK_SIZE: usize = UNROLLED_INPUT_CHUNK_SIZE / 4 * 3;
@@ -133,6 +118,48 @@ pub(crate) fn decode_helper(
         decode_allow_trailing_bits,
         padding_mode,
     )
+}
+
+/// Returns the length of complete quads, except for the last one, even if it is complete.
+///
+/// Returns an error if the output len is not big enough for decoding those complete quads, or if
+/// the input % 4 == 1, and that last byte is an invalid value other than a pad byte.
+///
+/// - `input` is the base64 input
+/// - `input_len_rem` is input len % 4
+/// - `output_len` is the length of the output slice
+pub(crate) fn complete_quads_len(
+    input: &[u8],
+    input_len_rem: usize,
+    output_len: usize,
+    decode_table: &[u8; 256],
+) -> Result<usize, DecodeSliceError> {
+    debug_assert!(input.len() % 4 == input_len_rem);
+
+    // detect a trailing invalid byte, like a newline, as a user convenience
+    if input_len_rem == 1 {
+        let last_byte = input[input.len() - 1];
+        // exclude pad bytes; might be part of padding that extends from earlier in the input
+        if last_byte != PAD_BYTE && decode_table[usize::from(last_byte)] == INVALID_VALUE {
+            return Err(DecodeError::InvalidByte(input.len() - 1, last_byte).into());
+        }
+    };
+
+    // skip last quad, even if it's complete, as it may have padding
+    let input_complete_nonterminal_quads_len = input
+        .len()
+        .saturating_sub(input_len_rem)
+        // if rem was 0, subtract 4 to avoid padding
+        .saturating_sub((input_len_rem == 0) as usize * 4);
+    debug_assert!(
+        input.is_empty() || (1..=4).contains(&(input.len() - input_complete_nonterminal_quads_len))
+    );
+
+    // check that everything except the last quad handled by decode_suffix will fit
+    if output_len < input_complete_nonterminal_quads_len / 4 * 3 {
+        return Err(DecodeSliceError::OutputSliceTooSmall);
+    };
+    Ok(input_complete_nonterminal_quads_len)
 }
 
 /// Decode 8 bytes of input into 6 bytes of output.
@@ -321,7 +348,7 @@ mod tests {
                 let len_128 = encoded_len as u128;
 
                 let estimate = GeneralPurposeEstimate::new(encoded_len);
-                assert_eq!((len_128 + 3) / 4 * 3, estimate.conservative_len as u128);
+                assert_eq!((len_128 + 3) / 4 * 3, estimate.conservative_decoded_len as u128);
             })
     }
 }

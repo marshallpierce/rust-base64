@@ -3,11 +3,11 @@ use crate::{
     alphabet,
     alphabet::Alphabet,
     engine::{Config, DecodeMetadata, DecodePaddingMode},
-    DecodeError,
+    DecodeSliceError,
 };
 use core::convert::TryInto;
 
-mod decode;
+pub(crate) mod decode;
 pub(crate) mod decode_suffix;
 
 pub use decode::GeneralPurposeEstimate;
@@ -173,7 +173,7 @@ impl super::Engine for GeneralPurpose {
         input: &[u8],
         output: &mut [u8],
         estimate: Self::DecodeEstimate,
-    ) -> Result<DecodeMetadata, DecodeError> {
+    ) -> Result<DecodeMetadata, DecodeSliceError> {
         decode::decode_helper(
             input,
             estimate,
