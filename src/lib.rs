@@ -228,7 +228,7 @@
     unused_extern_crates,
     unused_import_braces,
     unused_results,
-    variant_size_differences,
+    variant_size_differences
 )]
 #![forbid(unsafe_code)]
 // Allow globally until https://github.com/rust-lang/rust-clippy/issues/8768 is resolved.

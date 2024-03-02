@@ -112,8 +112,12 @@ impl Engine for Naive {
         output: &mut [u8],
         estimate: Self::DecodeEstimate,
     ) -> Result<DecodeMetadata, DecodeSliceError> {
-        let complete_nonterminal_quads_len =
-            general_purpose::decode::complete_quads_len(input, estimate.rem, output.len(), &self.decode_table)?;
+        let complete_nonterminal_quads_len = general_purpose::decode::complete_quads_len(
+            input,
+            estimate.rem,
+            output.len(),
+            &self.decode_table,
+        )?;
 
         const BOTTOM_BYTE: u32 = 0xFF;
 

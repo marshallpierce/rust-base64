@@ -348,7 +348,10 @@ mod tests {
                 let len_128 = encoded_len as u128;
 
                 let estimate = GeneralPurposeEstimate::new(encoded_len);
-                assert_eq!((len_128 + 3) / 4 * 3, estimate.conservative_decoded_len as u128);
+                assert_eq!(
+                    (len_128 + 3) / 4 * 3,
+                    estimate.conservative_decoded_len as u128
+                );
             })
     }
 }
