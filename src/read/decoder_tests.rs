@@ -77,7 +77,7 @@ fn trailing_junk() {
                         break;
                     }
                     Ok(0) => break,
-                    Ok(_) => (),
+                    Ok(_len) => (),
                 }
             }
 
