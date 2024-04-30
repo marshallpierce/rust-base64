@@ -1,3 +1,7 @@
+# 0.22.1
+
+- Correct the symbols used for the predefined `alphabet::BIN_HEX`.
+
 # 0.22.0
 
 - `DecodeSliceError::OutputSliceTooSmall` is now conservative rather than precise. That is, the error will only occur if the decoded output _cannot_ fit, meaning that `Engine::decode_slice` can now be used with exactly-sized output slices. As part of this, `Engine::internal_decode` now returns `DecodeSliceError` instead of `DecodeError`, but that is not expected to affect any external callers.
