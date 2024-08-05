@@ -188,6 +188,33 @@
 //! # }
 //! ```
 //!
+//! This also allows for constant-space validity checking of encoded data, using a
+//! statically allocated buffer:
+//!
+#![cfg_attr(feature = "std", doc = "```")]
+#![cfg_attr(not(feature = "std"), doc = "```ignore")]
+//! # use std::io::{self, Read};
+//! use base64::{engine::general_purpose::STANDARD, read::DecoderReader};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut invalid_input = "dt==";
+//! let mut decoder = DecoderReader::new(io::Cursor::new(&mut invalid_input), &STANDARD);
+//!
+//! let mut buf = [0u8; 128];
+//!
+//! let is_valid = loop {
+//!     match decoder.read(&mut buf) {
+//!         Ok(0) => break true, // Read to end w/o error
+//!         Ok(_) => continue,
+//!         Err(_) => break false,
+//!     }
+//! };
+//!
+//! assert!(!is_valid);
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! #### Encoding
 //!
 #![cfg_attr(feature = "std", doc = "```")]
