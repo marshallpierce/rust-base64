@@ -126,7 +126,10 @@ impl<'e, E: Engine, W: io::Write> EncoderWriter<'e, E, W> {
     pub fn finish(&mut self) -> Result<W> {
         // If we could consume self in finish(), we wouldn't have to worry about this case, but
         // finish() is retryable in the face of I/O errors, so we can't consume here.
-        assert!(self.delegate.is_some(), "Encoder has already had finish() called");
+        assert!(
+            self.delegate.is_some(),
+            "Encoder has already had finish() called"
+        );
 
         self.write_final_leftovers()?;
 
@@ -261,7 +264,10 @@ impl<'e, E: Engine, W: io::Write> io::Write for EncoderWriter<'e, E, W> {
     ///
     /// Any errors emitted by the delegate writer are returned.
     fn write(&mut self, input: &[u8]) -> Result<usize> {
-        assert!(self.delegate.is_some(), "Cannot write more after calling finish()");
+        assert!(
+            self.delegate.is_some(),
+            "Cannot write more after calling finish()"
+        );
 
         if input.is_empty() {
             return Ok(0);
