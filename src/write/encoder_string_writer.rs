@@ -3,7 +3,7 @@ use crate::engine::Engine;
 use std::io;
 
 /// A `Write` implementation that base64-encodes data using the provided config and accumulates the
-/// resulting base64 utf8 `&str` in a [StrConsumer] implementation (typically `String`), which is
+/// resulting base64 utf8 `&str` in a [`StrConsumer`] implementation (typically `String`), which is
 /// then exposed via `into_inner()`.
 ///
 /// # Examples
@@ -53,7 +53,7 @@ pub struct EncoderStringWriter<'e, E: Engine, S: StrConsumer> {
 }
 
 impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
-    /// Create a EncoderStringWriter that will append to the provided `StrConsumer`.
+    /// Create a `EncoderStringWriter` that will append to the provided `StrConsumer`.
     pub fn from_consumer(str_consumer: S, engine: &'e E) -> Self {
         EncoderStringWriter {
             encoder: EncoderWriter::new(Utf8SingleCodeUnitWriter { str_consumer }, engine),
@@ -73,7 +73,7 @@ impl<'e, E: Engine, S: StrConsumer> EncoderStringWriter<'e, E, S> {
 }
 
 impl<'e, E: Engine> EncoderStringWriter<'e, E, String> {
-    /// Create a EncoderStringWriter that will encode into a new `String` with the provided config.
+    /// Create a `EncoderStringWriter` that will encode into a new `String` with the provided config.
     pub fn new(engine: &'e E) -> Self {
         EncoderStringWriter::from_consumer(String::new(), engine)
     }
@@ -95,7 +95,7 @@ pub trait StrConsumer {
     fn consume(&mut self, buf: &str);
 }
 
-/// As for io::Write, `StrConsumer` is implemented automatically for `&mut S`.
+/// As for `io::Write`, `StrConsumer` is implemented automatically for `&mut S`.
 impl<S: StrConsumer + ?Sized> StrConsumer for &mut S {
     fn consume(&mut self, buf: &str) {
         (**self).consume(buf);

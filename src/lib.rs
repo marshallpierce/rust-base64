@@ -247,7 +247,6 @@
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
 #![deny(
     missing_docs,
     trivial_casts,

@@ -1,4 +1,4 @@
-//! Provides the [GeneralPurpose] engine and associated config types.
+//! Provides the [`GeneralPurpose`] engine and associated config types.
 use crate::{
     alphabet,
     alphabet::Alphabet,
@@ -32,6 +32,7 @@ impl GeneralPurpose {
     ///
     /// While not very expensive to initialize, ideally these should be cached
     /// if the engine will be used repeatedly.
+    #[must_use]
     pub const fn new(alphabet: &Alphabet, config: GeneralPurposeConfig) -> Self {
         Self {
             encode_table: encode_table(alphabet),
@@ -176,7 +177,7 @@ impl super::Engine for GeneralPurpose {
     ) -> Result<DecodeMetadata, DecodeSliceError> {
         decode::decode_helper(
             input,
-            estimate,
+            &estimate,
             output,
             &self.decode_table,
             self.config.decode_allow_trailing_bits,
@@ -206,7 +207,7 @@ pub(crate) const fn encode_table(alphabet: &Alphabet) -> [u8; 64] {
 }
 
 /// Returns a table mapping base64 bytes as the lookup index to either:
-/// - [INVALID_VALUE] for bytes that aren't members of the alphabet
+/// - [`INVALID_VALUE`] for bytes that aren't members of the alphabet
 /// - a byte whose lower 6 bits are the value that was encoded into the index byte
 pub(crate) const fn decode_table(alphabet: &Alphabet) -> [u8; 256] {
     let mut decode_table = [INVALID_VALUE; 256];
@@ -238,7 +239,7 @@ fn read_u64(s: &[u8]) -> u64 {
 ///     // further customize using `.with_*` methods as needed
 /// ```
 ///
-/// The constants [PAD] and [NO_PAD] cover most use cases.
+/// The constants [PAD] and [`NO_PAD`] cover most use cases.
 ///
 /// To specify the characters used, see [Alphabet].
 #[derive(Clone, Copy, Debug)]
@@ -254,6 +255,7 @@ impl GeneralPurposeConfig {
     ///
     /// This probably matches most people's expectations, but consider disabling padding to save
     /// a few bytes unless you specifically need it for compatibility with some legacy system.
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             // RFC states that padding must be applied by default
@@ -273,6 +275,7 @@ impl GeneralPurposeConfig {
     ///
     /// For new applications, consider not using padding if the decoders you're using don't require
     /// padding to be present.
+    #[must_use]
     pub const fn with_encode_padding(self, padding: bool) -> Self {
         Self {
             encode_padding: padding,
@@ -287,6 +290,7 @@ impl GeneralPurposeConfig {
     /// character as per [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
     /// If invalid trailing bits are present and this is `true`, those bits will
     /// be silently ignored, else `DecodeError::InvalidLastSymbol` will be emitted.
+    #[must_use]
     pub const fn with_decode_allow_trailing_bits(self, allow: bool) -> Self {
         Self {
             decode_allow_trailing_bits: allow,
@@ -307,6 +311,7 @@ impl GeneralPurposeConfig {
     ///
     /// Or, if "canonical" in your circumstance means _no_ padding rather than padding to the
     /// next multiple of four, there's `DecodePaddingMode::RequireNoPadding`.
+    #[must_use]
     pub const fn with_decode_padding_mode(self, mode: DecodePaddingMode) -> Self {
         Self {
             decode_padding_mode: mode,
@@ -316,7 +321,7 @@ impl GeneralPurposeConfig {
 }
 
 impl Default for GeneralPurposeConfig {
-    /// Delegates to [GeneralPurposeConfig::new].
+    /// Delegates to [`GeneralPurposeConfig::new`].
     fn default() -> Self {
         Self::new()
     }
@@ -328,21 +333,21 @@ impl Config for GeneralPurposeConfig {
     }
 }
 
-/// A [GeneralPurpose] engine using the [alphabet::STANDARD] base64 alphabet and [PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and [PAD] config.
 pub const STANDARD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, PAD);
 
-/// A [GeneralPurpose] engine using the [alphabet::STANDARD] base64 alphabet and [NO_PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and [`NO_PAD`] config.
 pub const STANDARD_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
-/// A [GeneralPurpose] engine using the [alphabet::URL_SAFE] base64 alphabet and [PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and [PAD] config.
 pub const URL_SAFE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, PAD);
 
-/// A [GeneralPurpose] engine using the [alphabet::URL_SAFE] base64 alphabet and [NO_PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and [`NO_PAD`] config.
 pub const URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
 
 /// Include padding bytes when encoding, and require that they be present when decoding.
 ///
-/// This is the standard per the base64 RFC, but consider using [NO_PAD] instead as padding serves
+/// This is the standard per the base64 RFC, but consider using [`NO_PAD`] instead as padding serves
 /// little purpose in practice.
 pub const PAD: GeneralPurposeConfig = GeneralPurposeConfig::new();
 

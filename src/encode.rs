@@ -11,7 +11,7 @@ use crate::PAD_BYTE;
 
 /// Encode arbitrary octets as base64 using the [`STANDARD` engine](STANDARD).
 ///
-/// See [Engine::encode].
+/// See [`Engine::encode`].
 #[allow(unused)]
 #[deprecated(since = "0.21.0", note = "Use Engine::encode")]
 #[cfg(any(feature = "alloc", test))]
@@ -21,7 +21,7 @@ pub fn encode<T: AsRef<[u8]>>(input: T) -> String {
 
 ///Encode arbitrary octets as base64 using the provided `Engine` into a new `String`.
 ///
-/// See [Engine::encode].
+/// See [`Engine::encode`].
 #[allow(unused)]
 #[deprecated(since = "0.21.0", note = "Use Engine::encode")]
 #[cfg(any(feature = "alloc", test))]
@@ -31,7 +31,7 @@ pub fn encode_engine<E: Engine, T: AsRef<[u8]>>(input: T, engine: &E) -> String 
 
 ///Encode arbitrary octets as base64 into a supplied `String`.
 ///
-/// See [Engine::encode_string].
+/// See [`Engine::encode_string`].
 #[allow(unused)]
 #[deprecated(since = "0.21.0", note = "Use Engine::encode_string")]
 #[cfg(any(feature = "alloc", test))]
@@ -40,12 +40,12 @@ pub fn encode_engine_string<E: Engine, T: AsRef<[u8]>>(
     output_buf: &mut String,
     engine: &E,
 ) {
-    engine.encode_string(input, output_buf)
+    engine.encode_string(input, output_buf);
 }
 
 /// Encode arbitrary octets as base64 into a supplied slice.
 ///
-/// See [Engine::encode_slice].
+/// See [`Engine::encode_slice`].
 #[allow(unused)]
 #[deprecated(since = "0.21.0", note = "Use Engine::encode_slice")]
 pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
@@ -58,7 +58,7 @@ pub fn encode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 
 /// B64-encode and pad (if configured).
 ///
-/// This helper exists to avoid recalculating encoded_size, which is relatively expensive on short
+/// This helper exists to avoid recalculating `encoded_size`, which is relatively expensive on short
 /// inputs.
 ///
 /// `encoded_size` is the encoded size calculated for `input`.
@@ -94,6 +94,7 @@ pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
 ///
 /// Returns `None` if the encoded length can't be represented in `usize`. This will happen for
 /// input lengths in approximately the top quarter of the range of `usize`.
+#[must_use]
 pub const fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
     let rem = bytes_len % 3;
 

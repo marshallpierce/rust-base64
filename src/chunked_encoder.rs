@@ -7,7 +7,7 @@ use alloc::string::String;
 #[cfg(any(feature = "alloc", test))]
 use core::str;
 
-/// The output mechanism for ChunkedEncoder's encoded bytes.
+/// The output mechanism for `ChunkedEncoder`'s encoded bytes.
 pub trait Sink {
     type Error;
 
