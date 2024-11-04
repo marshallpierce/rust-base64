@@ -24,10 +24,10 @@ pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
 /// Different implementations offer different characteristics. The library currently ships with
-/// [GeneralPurpose] that offers good speed and works on any CPU, with more choices
+/// [`GeneralPurpose`] that offers good speed and works on any CPU, with more choices
 /// coming later, like a constant-time one when side channel resistance is called for, and vendor-specific vectorized ones for more speed.
 ///
-/// See [general_purpose::STANDARD_NO_PAD] if you just want standard base64. Otherwise, when possible, it's
+/// See [`general_purpose::STANDARD_NO_PAD`] if you just want standard base64. Otherwise, when possible, it's
 /// recommended to store the engine in a `const` so that references to it won't pose any lifetime
 /// issues, and to avoid repeating the cost of engine setup.
 ///
@@ -164,7 +164,7 @@ pub trait Engine: Send + Sync {
                 .expect("Writing to a String shouldn't fail");
         }
 
-        inner(self, input.as_ref(), output_buf)
+        inner(self, input.as_ref(), output_buf);
     }
 
     /// Encode arbitrary octets as base64 into a supplied slice.
@@ -345,9 +345,9 @@ pub trait Engine: Send + Sync {
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
-    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    /// See [`crate::decoded_len_estimate`] for calculating buffer sizes.
     ///
-    /// See [Engine::decode_slice_unchecked] for a version that panics instead of returning an error
+    /// See [`Engine::decode_slice_unchecked`] for a version that panics instead of returning an error
     /// if the output buffer is too small.
     #[inline]
     fn decode_slice<T: AsRef<[u8]>>(
@@ -381,9 +381,9 @@ pub trait Engine: Send + Sync {
     ///
     /// This will not write any bytes past exactly what is decoded (no stray garbage bytes at the end).
     ///
-    /// See [crate::decoded_len_estimate] for calculating buffer sizes.
+    /// See [`crate::decoded_len_estimate`] for calculating buffer sizes.
     ///
-    /// See [Engine::decode_slice] for a version that returns an error instead of panicking if the output
+    /// See [`Engine::decode_slice`] for a version that returns an error instead of panicking if the output
     /// buffer is too small.
     ///
     /// # Panics
@@ -422,7 +422,7 @@ pub trait Engine: Send + Sync {
 pub trait Config {
     /// Returns `true` if padding should be added after the encoded output.
     ///
-    /// Padding is added outside the engine's encode() since the engine may be used
+    /// Padding is added outside the engine's `encode()` since the engine may be used
     /// to encode only a chunk of the overall output, so it can't always know when
     /// the output is "done" and would therefore need padding (if configured).
     // It could be provided as a separate parameter when encoding, but that feels like
@@ -448,7 +448,7 @@ pub trait DecodeEstimate {
 /// Controls how pad bytes are handled when decoding.
 ///
 /// Each [Engine] must support at least the behavior indicated by
-/// [DecodePaddingMode::RequireCanonical], and may support other modes.
+/// [`DecodePaddingMode::RequireCanonical`], and may support other modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecodePaddingMode {
     /// Canonical padding is allowed, but any fewer padding bytes than that is also allowed.

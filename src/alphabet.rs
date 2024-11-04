@@ -125,6 +125,7 @@ impl Alphabet {
     }
 
     /// Create a `&str` from the symbols in the `Alphabet`
+    #[must_use]
     pub fn as_str(&self) -> &str {
         core::str::from_utf8(&self.symbols).unwrap()
     }
@@ -198,7 +199,7 @@ pub const IMAP_MUTF7: Alphabet = Alphabet::from_str_unchecked(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,",
 );
 
-/// The alphabet used in BinHex 4.0 files.
+/// The alphabet used in `BinHex` 4.0 files.
 ///
 /// See [BinHex 4.0 Definition](http://files.stairways.com/other/binhex-40-specs-info.txt)
 pub const BIN_HEX: Alphabet = Alphabet::from_str_unchecked(

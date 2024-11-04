@@ -21,7 +21,7 @@ pub enum DecodeError {
     InvalidLength(usize),
     /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
     /// This is indicative of corrupted or truncated Base64.
-    /// Unlike [DecodeError::InvalidByte], which reports symbols that aren't in the alphabet,
+    /// Unlike [`DecodeError::InvalidByte`], which reports symbols that aren't in the alphabet,
     /// this error is for symbols that are in the alphabet but represent nonsensical encodings.
     InvalidLastSymbol(usize, u8),
     /// The nature of the padding was not as configured: absent or incorrect when it must be
@@ -50,7 +50,7 @@ impl error::Error for DecodeError {}
 /// Errors that can occur while decoding into a slice.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DecodeSliceError {
-    /// A [DecodeError] occurred
+    /// A [`DecodeError`] occurred
     DecodeError(DecodeError),
     /// The provided slice is too small.
     OutputSliceTooSmall,
@@ -83,7 +83,7 @@ impl From<DecodeError> for DecodeSliceError {
 
 /// Decode base64 using the [`STANDARD` engine](STANDARD).
 ///
-/// See [Engine::decode].
+/// See [`Engine::decode`].
 #[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", test))]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
@@ -92,7 +92,7 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
 
 /// Decode from string reference as octets using the specified [Engine].
 ///
-/// See [Engine::decode].
+/// See [`Engine::decode`].
 ///Returns a `Result` containing a `Vec<u8>`.
 #[deprecated(since = "0.21.0", note = "Use Engine::decode")]
 #[cfg(any(feature = "alloc", test))]
@@ -105,7 +105,7 @@ pub fn decode_engine<E: Engine, T: AsRef<[u8]>>(
 
 /// Decode from string reference as octets.
 ///
-/// See [Engine::decode_vec].
+/// See [`Engine::decode_vec`].
 #[cfg(any(feature = "alloc", test))]
 #[deprecated(since = "0.21.0", note = "Use Engine::decode_vec")]
 pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
@@ -118,7 +118,7 @@ pub fn decode_engine_vec<E: Engine, T: AsRef<[u8]>>(
 
 /// Decode the input into the provided output slice.
 ///
-/// See [Engine::decode_slice].
+/// See [`Engine::decode_slice`].
 #[deprecated(since = "0.21.0", note = "Use Engine::decode_slice")]
 pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
     input: T,
@@ -146,6 +146,7 @@ pub fn decode_engine_slice<E: Engine, T: AsRef<[u8]>>(
 /// // start of the next quad of encoded symbols
 /// assert_eq!(6, decoded_len_estimate(5));
 /// ```
+#[must_use]
 pub fn decoded_len_estimate(encoded_len: usize) -> usize {
     STANDARD
         .internal_decoded_len_estimate(encoded_len)

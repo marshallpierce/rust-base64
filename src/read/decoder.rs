@@ -222,7 +222,7 @@ impl<'e, E: Engine, R: io::Read> io::Read for DecoderReader<'e, E, R> {
     /// Under non-error circumstances, this returns `Ok` with the value being the number of bytes
     /// written in `buf`.
     ///
-    /// Where possible, this function buffers base64 to minimize the number of read() calls to the
+    /// Where possible, this function buffers base64 to minimize the number of `read()` calls to the
     /// delegate reader.
     ///
     /// # Errors

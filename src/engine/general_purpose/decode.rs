@@ -15,7 +15,7 @@ impl GeneralPurposeEstimate {
         let rem = encoded_len % 4;
         Self {
             rem,
-            conservative_decoded_len: (encoded_len / 4 + (rem > 0) as usize) * 3,
+            conservative_decoded_len: (encoded_len / 4 + usize::from(rem > 0)) * 3,
         }
     }
 }
@@ -26,7 +26,7 @@ impl DecodeEstimate for GeneralPurposeEstimate {
     }
 }
 
-/// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.
+/// Helper to avoid duplicating `num_chunks` calculation, which is costly on short inputs.
 /// Returns the decode metadata, or an error.
 // We're on the fragile edge of compiler heuristics here. If this is not inlined, slow. If this is
 // inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
@@ -34,7 +34,7 @@ impl DecodeEstimate for GeneralPurposeEstimate {
 #[inline]
 pub(crate) fn decode_helper(
     input: &[u8],
-    estimate: GeneralPurposeEstimate,
+    estimate: &GeneralPurposeEstimate,
     output: &mut [u8],
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
@@ -150,7 +150,7 @@ pub(crate) fn complete_quads_len(
         .len()
         .saturating_sub(input_len_rem)
         // if rem was 0, subtract 4 to avoid padding
-        .saturating_sub((input_len_rem == 0) as usize * 4);
+        .saturating_sub(usize::from(input_len_rem == 0) * 4);
     debug_assert!(
         input.is_empty() || (1..=4).contains(&(input.len() - input_complete_nonterminal_quads_len))
     );
@@ -251,7 +251,7 @@ fn decode_chunk_8(
     Ok(())
 }
 
-/// Like [decode_chunk_8] but for 4 bytes of input and 3 bytes of output.
+/// Like [`decode_chunk_8`] but for 4 bytes of input and 3 bytes of output.
 #[inline(always)]
 fn decode_chunk_4(
     input: &[u8],
