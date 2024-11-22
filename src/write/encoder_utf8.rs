@@ -77,7 +77,7 @@ impl<W: fmt::Write> io::Write for Utf8Compat<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner
             .write_str(from_utf8(buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?)
-            .map_err(io::Error::other)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
             .map(|()| buf.len())
     }
 

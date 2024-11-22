@@ -117,10 +117,10 @@ fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
     fill(&mut v);
 
     b.iter(|| {
-        let mut stream_enc = write::EncoderStringWriter::new(&STANDARD);
+        let mut stream_enc = write::EncoderWriter::string(&STANDARD);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
-        let _ = stream_enc.into_inner();
+        let _ = stream_enc.formatter();
     });
 }
 
@@ -131,10 +131,10 @@ fn do_encode_bench_string_reuse_buf_stream(b: &mut Bencher, &size: &usize) {
     let mut buf = String::new();
     b.iter(|| {
         buf.clear();
-        let mut stream_enc = write::EncoderStringWriter::from_consumer(&mut buf, &STANDARD);
+        let mut stream_enc = write::EncoderWriter::utf8(&mut buf, &STANDARD);
         stream_enc.write_all(&v).unwrap();
         stream_enc.flush().unwrap();
-        let _ = stream_enc.into_inner();
+        let _ = stream_enc.formatter();
     });
 }
 
