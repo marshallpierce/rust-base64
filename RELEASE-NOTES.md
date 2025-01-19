@@ -1,3 +1,7 @@
+# Next
+
+- Added more consts for preconfigured configs and engines
+
 # 0.22.1
 
 - Correct the symbols used for the predefined `alphabet::BIN_HEX`.

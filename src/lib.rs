@@ -114,6 +114,8 @@
 //! assert_eq!(STANDARD_NO_PAD.decode(b"Zm8="), Err(base64::DecodeError::InvalidPadding));
 //! ```
 //!
+//! Padding serves no practical purpose, so where possible, encode without padding.
+//!
 //! ### Further customization
 //!
 //! Decoding and encoding behavior can be customized by creating an
