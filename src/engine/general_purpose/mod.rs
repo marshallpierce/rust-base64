@@ -1,4 +1,6 @@
 //! Provides the [`GeneralPurpose`] engine and associated config types.
+//!
+//! See preconfigured engines like [`STANDARD_NO_PAD`] or [`STANDARD_NO_PAD_INDIFFERENT`].
 use crate::{
     alphabet,
     alphabet::Alphabet,
@@ -333,22 +335,42 @@ impl Config for GeneralPurposeConfig {
     }
 }
 
-/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and [PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and [`PAD`] config.
 pub const STANDARD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, PAD);
+
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and
+/// [`PAD_INDIFFERENT`] config.
+pub const STANDARD_PAD_INDIFFERENT: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::STANDARD, PAD_INDIFFERENT);
 
 /// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and [`NO_PAD`] config.
 pub const STANDARD_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::STANDARD, NO_PAD);
 
-/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and [PAD] config.
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and
+/// [`NO_PAD_INDIFFERENT`] config.
+pub const STANDARD_NO_PAD_INDIFFERENT: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::STANDARD, NO_PAD_INDIFFERENT);
+
+/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and [`PAD`] config.
 pub const URL_SAFE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, PAD);
+
+/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and
+/// [`PAD_INDIFFERENT`] config.
+pub const URL_SAFE_PAD_INDIFFERENT: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::URL_SAFE, PAD_INDIFFERENT);
 
 /// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and [`NO_PAD`] config.
 pub const URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
 
+/// A [`GeneralPurpose`] engine using the [`alphabet::URL_SAFE`] base64 alphabet and
+/// [`NO_PAD_INDIFFERENT`] config.
+pub const URL_SAFE_NO_PAD_INDIFFERENT: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD_INDIFFERENT);
+
 /// Include padding bytes when encoding, and require that they be present when decoding.
 ///
-/// This is the standard per the base64 RFC, but consider using [`NO_PAD_INDIFFERENT`] instead as padding serves
-/// little purpose in practice.
+/// This is the standard per the base64 RFC, but consider using [`NO_PAD`] or [`NO_PAD_INDIFFERENT`]
+/// instead as padding serves little purpose in practice.
 pub const PAD: GeneralPurposeConfig = GeneralPurposeConfig::new();
 
 /// Include padding bytes when encoding, but allow input with or without padding when decoding.
