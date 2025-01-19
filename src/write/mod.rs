@@ -1,11 +1,9 @@
 //! Implementations of `io::Write` to transparently handle base64.
 mod encoder;
-mod encoder_string_writer;
+mod encoder_utf8;
 
-pub use self::{
-    encoder::EncoderWriter,
-    encoder_string_writer::{EncoderStringWriter, StrConsumer},
-};
+pub use self::encoder::EncoderWriter;
+pub use self::encoder_utf8::Utf8Compat;
 
 #[cfg(test)]
 mod encoder_tests;
