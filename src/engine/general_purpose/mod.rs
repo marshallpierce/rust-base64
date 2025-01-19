@@ -347,11 +347,21 @@ pub const URL_SAFE_NO_PAD: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_S
 
 /// Include padding bytes when encoding, and require that they be present when decoding.
 ///
-/// This is the standard per the base64 RFC, but consider using [`NO_PAD`] instead as padding serves
+/// This is the standard per the base64 RFC, but consider using [`NO_PAD_INDIFFERENT`] instead as padding serves
 /// little purpose in practice.
 pub const PAD: GeneralPurposeConfig = GeneralPurposeConfig::new();
 
-/// Don't add padding when encoding, and require no padding when decoding.
+/// Include padding bytes when encoding, but allow input with or without padding when decoding.
+pub const PAD_INDIFFERENT: GeneralPurposeConfig = GeneralPurposeConfig::new()
+    .with_encode_padding(true)
+    .with_decode_padding_mode(DecodePaddingMode::Indifferent);
+
+/// Don't add padding when encoding, and require that there is no padding when decoding.
 pub const NO_PAD: GeneralPurposeConfig = GeneralPurposeConfig::new()
     .with_encode_padding(false)
     .with_decode_padding_mode(DecodePaddingMode::RequireNone);
+
+/// Don't add padding when encoding, and allow input with or without padding when decoding.
+pub const NO_PAD_INDIFFERENT: GeneralPurposeConfig = GeneralPurposeConfig::new()
+    .with_encode_padding(false)
+    .with_decode_padding_mode(DecodePaddingMode::Indifferent);
