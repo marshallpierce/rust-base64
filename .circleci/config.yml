@@ -20,7 +20,7 @@ workflows:
               # get a nightly or stable toolchain via rustup instead of a mutable docker tag
               toolchain_override: [
                 '__msrv__', # won't add any other toolchains, just uses what's in the docker image
-                '1.70.0', # minimum needed to build dev-dependencies
+                '1.81.0', # minimum needed to build dev-dependencies
                 'stable',
                 'beta',
                 'nightly'
