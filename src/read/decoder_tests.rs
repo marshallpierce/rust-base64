@@ -11,7 +11,7 @@ use crate::{
     alphabet,
     engine::{general_purpose::STANDARD, Engine, GeneralPurpose},
     tests::{random_alphabet, random_config, random_engine},
-    DecodeError, PAD_BYTE,
+    DecodeError,
 };
 
 #[test]
@@ -215,7 +215,7 @@ fn reports_invalid_last_symbol_correctly() {
         let config = random_config(&mut rng);
         let alphabet = random_alphabet(&mut rng);
         // changing padding will cause invalid padding errors when we twiddle the last byte
-        let engine = GeneralPurpose::new(alphabet, config.with_encode_padding(false));
+        let engine = GeneralPurpose::new(&alphabet, config.with_encode_padding(false));
         engine.encode_string(&bytes[..], &mut b64);
         b64_bytes.extend(b64.bytes());
         assert_eq!(b64_bytes.len(), b64.len());
@@ -375,7 +375,7 @@ fn internal_padding_error_with_short_read_concatenated_texts_invalid_byte_error(
                         2 => 3,
                         _ => unreachable!(),
                     },
-                PAD_BYTE
+                engine.padding.as_u8()
             ),
             read_decode_err
         );
@@ -409,7 +409,7 @@ fn internal_padding_anywhere_error() {
         engine.encode_string(&bytes[..], &mut b64);
         let mut b64_bytes = b64.as_bytes().to_vec();
         // put padding somewhere other than the last quad
-        b64_bytes[rng.gen_range(0..bytes.len() - 4)] = PAD_BYTE;
+        b64_bytes[rng.gen_range(0..bytes.len() - 4)] = engine.padding.as_u8();
 
         // short read to make it plausible for padding to happen on a read boundary
         let read_len = rng.gen_range(1..10);

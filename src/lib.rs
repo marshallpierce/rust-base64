@@ -46,7 +46,7 @@
 //!
 //! #### URL-safe alphabet
 //!
-//! The standard alphabet uses `+` and `/` as its two non-alphanumeric tokens,
+//! The standard alphabet uses `+` and `/` as its two non-alphanumeric symbols,
 //! which cannot be safely used in URL’s without encoding them as `%2B` and
 //! `%2F`.
 //!
@@ -302,4 +302,3 @@ pub mod prelude;
 #[cfg(test)]
 mod tests;
 
-const PAD_BYTE: u8 = b'=';

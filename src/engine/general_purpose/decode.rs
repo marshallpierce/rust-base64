@@ -1,7 +1,8 @@
 use crate::{
     engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodeMetadata, DecodePaddingMode},
-    DecodeError, DecodeSliceError, PAD_BYTE,
+    DecodeError, DecodeSliceError,
 };
+use crate::alphabet::Symbol;
 
 #[doc(hidden)]
 pub struct GeneralPurposeEstimate {
@@ -38,10 +39,11 @@ pub(crate) fn decode_helper(
     output: &mut [u8],
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
+    padding: Symbol,
     padding_mode: DecodePaddingMode,
 ) -> Result<DecodeMetadata, DecodeSliceError> {
     let input_complete_nonterminal_quads_len =
-        complete_quads_len(input, estimate.rem, output.len(), decode_table)?;
+        complete_quads_len(input, estimate.rem, output.len(), decode_table, padding)?;
 
     const UNROLLED_INPUT_CHUNK_SIZE: usize = 32;
     const UNROLLED_OUTPUT_CHUNK_SIZE: usize = UNROLLED_INPUT_CHUNK_SIZE / 4 * 3;
@@ -116,6 +118,7 @@ pub(crate) fn decode_helper(
         output_complete_quad_len,
         decode_table,
         decode_allow_trailing_bits,
+        padding,
         padding_mode,
     )
 }
@@ -133,6 +136,7 @@ pub(crate) fn complete_quads_len(
     input_len_rem: usize,
     output_len: usize,
     decode_table: &[u8; 256],
+    padding: Symbol
 ) -> Result<usize, DecodeSliceError> {
     debug_assert!(input.len() % 4 == input_len_rem);
 
@@ -140,7 +144,7 @@ pub(crate) fn complete_quads_len(
     if input_len_rem == 1 {
         let last_byte = input[input.len() - 1];
         // exclude pad bytes; might be part of padding that extends from earlier in the input
-        if last_byte != PAD_BYTE && decode_table[usize::from(last_byte)] == INVALID_VALUE {
+        if last_byte != padding.as_u8() && decode_table[usize::from(last_byte)] == INVALID_VALUE {
             return Err(DecodeError::InvalidByte(input.len() - 1, last_byte).into());
         }
     };

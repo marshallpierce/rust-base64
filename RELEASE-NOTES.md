@@ -1,6 +1,7 @@
-# Next
+# 0.23.0
 
 - Added more consts for preconfigured configs and engines
+- Add support for custom padding symbols
 
 # 0.22.1
 

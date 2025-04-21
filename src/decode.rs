@@ -158,7 +158,7 @@ mod tests {
     use super::*;
     use crate::{
         alphabet,
-        engine::{general_purpose, Config, GeneralPurpose},
+        engine::{general_purpose, GeneralPurpose},
         tests::{assert_encode_sanity, random_engine},
     };
     use rand::{
@@ -194,7 +194,7 @@ mod tests {
 
             let engine = random_engine(&mut rng);
             engine.encode_string(&orig_data, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
+            assert_encode_sanity(&encoded_data, &engine, input_len);
 
             let prefix_len = prefix_len_range.sample(&mut rng);
 
@@ -312,7 +312,7 @@ mod tests {
 
             let engine = random_engine(&mut rng);
             engine.encode_string(&orig_data, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, engine.config().encode_padding(), input_len);
+            assert_encode_sanity(&encoded_data, &engine, input_len);
 
             // fill the buffer with random garbage, long enough to have some room before and after
             for _ in 0..5000 {

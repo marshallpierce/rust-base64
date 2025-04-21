@@ -37,7 +37,7 @@ impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
                 // Only need to consider if padding is needed on a partial chunk since full chunk
                 // is a multiple of 3, which therefore won't be padded.
                 // Pad output to multiple of four bytes if required by config.
-                len += add_padding(len, &mut buf[len..]);
+                len += add_padding(len, self.engine.padding(), &mut buf[len..]);
             }
             sink.write_encoded_bytes(&buf[..len])?;
         }

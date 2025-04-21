@@ -1,13 +1,12 @@
+use crate::alphabet::Symbol;
+#[cfg(any(feature = "alloc", test))]
+use crate::engine::general_purpose::STANDARD;
+use crate::engine::{Config, Engine};
 #[cfg(any(feature = "alloc", test))]
 use alloc::string::String;
 use core::fmt;
 #[cfg(any(feature = "std", test))]
 use std::error;
-
-#[cfg(any(feature = "alloc", test))]
-use crate::engine::general_purpose::STANDARD;
-use crate::engine::{Config, Engine};
-use crate::PAD_BYTE;
 
 /// Encode arbitrary octets as base64 using the [`STANDARD` engine](STANDARD).
 ///
@@ -77,7 +76,11 @@ pub(crate) fn encode_with_padding<E: Engine + ?Sized>(
     let b64_bytes_written = engine.internal_encode(input, output);
 
     let padding_bytes = if engine.config().encode_padding() {
-        add_padding(b64_bytes_written, &mut output[b64_bytes_written..])
+        add_padding(
+            b64_bytes_written,
+            engine.padding(),
+            &mut output[b64_bytes_written..],
+        )
     } else {
         0
     };
@@ -130,13 +133,17 @@ pub const fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
 /// `output` is the slice where padding should be written, of length at least 2.
 ///
 /// Returns the number of padding bytes written.
-pub(crate) fn add_padding(unpadded_output_len: usize, output: &mut [u8]) -> usize {
+pub(crate) fn add_padding(
+    unpadded_output_len: usize,
+    padding: Symbol,
+    output: &mut [u8],
+) -> usize {
     let pad_bytes = (4 - (unpadded_output_len % 4)) % 4;
     // for just a couple bytes, this has better performance than using
     // .fill(), or iterating over mutable refs, which call memset()
     #[allow(clippy::needless_range_loop)]
     for i in 0..pad_bytes {
-        output[i] = PAD_BYTE;
+        output[i] = padding.as_u8();
     }
 
     pad_bytes
@@ -164,6 +171,7 @@ impl error::Error for EncodeSliceError {}
 mod tests {
     use super::*;
 
+    use crate::alphabet::PADDING_SYMBOL;
     use crate::{
         alphabet,
         engine::general_purpose::{GeneralPurpose, NO_PAD, STANDARD},
@@ -274,16 +282,8 @@ mod tests {
                 encoded_data_no_prefix.len() + prefix_len,
                 encoded_data_with_prefix.len()
             );
-            assert_encode_sanity(
-                &encoded_data_no_prefix,
-                engine.config().encode_padding(),
-                input_len,
-            );
-            assert_encode_sanity(
-                &encoded_data_with_prefix[prefix_len..],
-                engine.config().encode_padding(),
-                input_len,
-            );
+            assert_encode_sanity(&encoded_data_no_prefix, &engine, input_len);
+            assert_encode_sanity(&encoded_data_with_prefix[prefix_len..], &engine, input_len);
 
             // append plain encode onto prefix
             prefix.push_str(&encoded_data_no_prefix);
@@ -338,7 +338,7 @@ mod tests {
 
             assert_encode_sanity(
                 str::from_utf8(&encoded_data[0..encoded_size]).unwrap(),
-                engine.config().encode_padding(),
+                &engine,
                 input_len,
             );
 
@@ -450,7 +450,7 @@ mod tests {
 
             let orig_output_buf = output.clone();
 
-            let bytes_written = add_padding(unpadded_output_len, &mut output);
+            let bytes_written = add_padding(unpadded_output_len, PADDING_SYMBOL, &mut output);
 
             // make sure the part beyond bytes_written is the same garbage it was before
             assert_eq!(orig_output_buf[bytes_written..], output[bytes_written..]);
@@ -476,7 +476,7 @@ mod tests {
         }
 
         let encoded = engine.encode(&bytes);
-        assert_encode_sanity(&encoded, padded, input_len);
+        assert_encode_sanity(&encoded, engine, input_len);
 
         assert_eq!(enc_len, encoded.len());
     }

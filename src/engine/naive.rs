@@ -7,11 +7,13 @@ use crate::{
     DecodeError, DecodeSliceError,
 };
 use std::ops::{BitAnd, BitOr, Shl, Shr};
+use crate::alphabet::Symbol;
 
 /// Comparatively simple implementation that can be used as something to compare against in tests
 pub struct Naive {
     encode_table: [u8; 64],
     decode_table: [u8; 256],
+    pub(crate) padding: Symbol,
     config: NaiveConfig,
 }
 
@@ -23,6 +25,7 @@ impl Naive {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
+            padding: alphabet.padding,
             config,
         }
     }
@@ -117,6 +120,7 @@ impl Engine for Naive {
             estimate.rem,
             output.len(),
             &self.decode_table,
+            self.padding
         )?;
 
         const BOTTOM_BYTE: u32 = 0xFF;
@@ -147,12 +151,17 @@ impl Engine for Naive {
             complete_nonterminal_quads_len / 4 * 3,
             &self.decode_table,
             self.config.decode_allow_trailing_bits,
+            self.padding,
             self.config.decode_padding_mode,
         )
     }
 
     fn config(&self) -> &Self::Config {
         &self.config
+    }
+
+    fn padding(&self) -> Symbol {
+        self.padding
     }
 }
 

@@ -20,6 +20,7 @@ mod naive;
 mod tests;
 
 pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+use crate::alphabet::Symbol;
 
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///
@@ -81,7 +82,7 @@ pub trait Engine: Send + Sync {
     ///
     /// Decoding must not write any bytes into the output slice other than the decoded data.
     ///
-    /// Non-canonical trailing bits in the final tokens or non-canonical padding must be reported as
+    /// Non-canonical trailing bits in the final symbols or non-canonical padding must be reported as
     /// errors unless the engine is configured otherwise.
     #[doc(hidden)]
     fn internal_decode(
@@ -416,6 +417,11 @@ pub trait Engine: Send + Sync {
 
         inner(self, input.as_ref(), output)
     }
+
+    /// Returns the symbol used for encode padding.
+    ///
+    /// Typically this is `'='`, but weird alphabets may use other values.
+    fn padding(&self) -> Symbol;
 }
 
 /// The minimal level of configuration that engines must support.
@@ -441,7 +447,7 @@ pub trait DecodeEstimate {
     /// for pre-allocating buffers, etc.
     ///
     /// The estimate must be no larger than the next largest complete triple of decoded bytes.
-    /// That is, the final quad of tokens to decode may be assumed to be complete with no padding.
+    /// That is, the final quad of symbols to decode may be assumed to be complete with no padding.
     fn decoded_len_estimate(&self) -> usize;
 }
 
