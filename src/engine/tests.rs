@@ -813,6 +813,13 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
     }
 }
 
+#[apply(all_engines)]
+#[should_panic = "Output slice is too small"]
+fn decode_slice_unchecked_in_small_slice<E: EngineWrapper>(engine_wrapper: E) {
+    let mut decode_buf = [0_u8; 1];
+    E::standard().decode_slice_unchecked("Zm9v".as_bytes(), &mut decode_buf[..]);
+}
+
 // https://eprint.iacr.org/2022/361.pdf table 2, test 1
 #[apply(all_engines)]
 fn decode_malleability_test_case_3_byte_suffix_valid<E: EngineWrapper>(engine_wrapper: E) {
