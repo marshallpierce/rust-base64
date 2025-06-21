@@ -74,6 +74,9 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 .decode_slice_unchecked(encoded_without_padding.as_bytes(), &mut decode_buf[..])
                 .unwrap();
             assert_eq!(orig.len(), decode_len);
+            assert!(engine_no_padding
+                .check_encoded(encoded_without_padding)
+                .is_ok());
 
             assert_eq!(
                 orig,
@@ -85,7 +88,11 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 assert_eq!(
                     Err(DecodeError::InvalidPadding),
                     engine_no_padding.decode(encoded)
-                )
+                );
+                assert_eq!(
+                    Err(DecodeError::InvalidPadding),
+                    engine_no_padding.check_encoded(encoded),
+                );
             }
         }
 
@@ -107,6 +114,7 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 .decode_slice_unchecked(encoded.as_bytes(), &mut decode_buf[..])
                 .unwrap();
             assert_eq!(orig.len(), decode_len);
+            assert!(engine.check_encoded(encoded).is_ok());
 
             assert_eq!(
                 orig,
@@ -118,7 +126,11 @@ fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
                 assert_eq!(
                     Err(DecodeError::InvalidPadding),
                     engine.decode(encoded_without_padding)
-                )
+                );
+                assert_eq!(
+                    Err(DecodeError::InvalidPadding),
+                    engine.check_encoded(encoded_without_padding)
+                );
             }
         }
     }
@@ -333,6 +345,8 @@ fn decode_detect_invalid_last_symbol<E: EngineWrapper>(engine_wrapper: E) {
 
     assert_eq!(Ok(vec![0x89, 0x85]), engine.decode("iYU="));
     assert_eq!(Ok(vec![0xFF]), engine.decode("/w=="));
+    assert_eq!(Ok(()), engine.check_encoded("iYU="));
+    assert_eq!(Ok(()), engine.check_encoded("/w=="));
 
     for (suffix, offset) in vec![
         // suffix, offset of bad byte from start of suffix
@@ -360,6 +374,13 @@ fn decode_detect_invalid_last_symbol<E: EngineWrapper>(engine_wrapper: E) {
                 )),
                 engine.decode(encoded.as_str())
             );
+            assert_eq!(
+                Err(DecodeError::InvalidLastSymbol(
+                    encoded.len() - 4 + offset,
+                    suffix.as_bytes()[offset],
+                )),
+                engine.check_encoded(encoded.as_str())
+            );
         }
     }
 }
@@ -373,6 +394,10 @@ fn decode_detect_1_valid_symbol_in_last_quad_invalid_length<E: EngineWrapper>(en
             let engine = E::standard_with_pad_mode(true, mode);
 
             assert_eq!(Err(DecodeError::InvalidLength(len)), engine.decode(&input));
+            assert_eq!(
+                Err(DecodeError::InvalidLength(len)),
+                engine.check_encoded(&input)
+            );
             // if we add padding, then the first pad byte in the quad is invalid because it should
             // be the second symbol
             for _ in 0..3 {
@@ -380,6 +405,10 @@ fn decode_detect_1_valid_symbol_in_last_quad_invalid_length<E: EngineWrapper>(en
                 assert_eq!(
                     Err(DecodeError::InvalidByte(len, PAD_BYTE)),
                     engine.decode(&input)
+                );
+                assert_eq!(
+                    Err(DecodeError::InvalidByte(len, PAD_BYTE)),
+                    engine.check_encoded(&input)
                 );
             }
         }
@@ -399,12 +428,20 @@ fn decode_detect_1_invalid_byte_in_last_quad_invalid_byte<E: EngineWrapper>(engi
                 Err(DecodeError::InvalidByte(prefix_len, b'*')),
                 engine.decode(&input)
             );
+            assert_eq!(
+                Err(DecodeError::InvalidByte(prefix_len, b'*')),
+                engine.check_encoded(&input)
+            );
             // adding padding doesn't matter
             for _ in 0..3 {
                 input.push(PAD_BYTE);
                 assert_eq!(
                     Err(DecodeError::InvalidByte(prefix_len, b'*')),
                     engine.decode(&input)
+                );
+                assert_eq!(
+                    Err(DecodeError::InvalidByte(prefix_len, b'*')),
+                    engine.check_encoded(&input)
                 );
             }
         }
@@ -452,13 +489,21 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
                             .decode(&clone)
                             // remove prefix
                             .map(|decoded| decoded[decoded_prefix_len..].to_vec());
-
                         assert_eq!(Ok(bytes.clone()), res);
+
+                        let res = engine.check_encoded(&clone);
+                        assert_eq!(Ok(()), res);
                     }
-                    None => assert_eq!(
-                        Err(DecodeError::InvalidLastSymbol(1, s2)),
-                        engine.decode(&symbols[..])
-                    ),
+                    None => {
+                        assert_eq!(
+                            Err(DecodeError::InvalidLastSymbol(1, s2)),
+                            engine.decode(&symbols[..])
+                        );
+                        assert_eq!(
+                            Err(DecodeError::InvalidLastSymbol(1, s2)),
+                            engine.check_encoded(&symbols[..])
+                        );
+                    }
                 }
             }
         }
@@ -519,13 +564,21 @@ fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapp
                                 .decode(&input)
                                 // remove prefix
                                 .map(|decoded| decoded[decoded_prefix_len..].to_vec());
-
                             assert_eq!(Ok(bytes.clone()), res);
+
+                            let res = engine.check_encoded(&input);
+                            assert_eq!(Ok(()), res);
                         }
-                        None => assert_eq!(
-                            Err(DecodeError::InvalidLastSymbol(2, s3)),
-                            engine.decode(&symbols[..])
-                        ),
+                        None => {
+                            assert_eq!(
+                                Err(DecodeError::InvalidLastSymbol(2, s3)),
+                                engine.decode(&symbols[..])
+                            );
+                            assert_eq!(
+                                Err(DecodeError::InvalidLastSymbol(2, s3)),
+                                engine.check_encoded(&symbols[..])
+                            );
+                        }
                     }
                 }
             }
@@ -554,6 +607,7 @@ fn decode_invalid_trailing_bits_ignored_when_configured<E: EngineWrapper>(engine
             Ok(expected_decode_bytes),
             decoded.map(|v| v[decoded_prefix_len..].to_vec())
         );
+        assert_eq!(Ok(()), engine.check_encoded(prefixed));
     }
 
     let mut prefix = String::new();
@@ -566,6 +620,12 @@ fn decode_invalid_trailing_bits_ignored_when_configured<E: EngineWrapper>(engine
             .is_ok());
         assert!(strict
             .decode(prefixed_data(&mut input, prefix.len(), "iYU="))
+            .is_ok());
+        assert!(strict
+            .check_encoded(prefixed_data(&mut input, prefix.len(), "/w=="))
+            .is_ok());
+        assert!(strict
+            .check_encoded(prefixed_data(&mut input, prefix.len(), "iYU="))
             .is_ok());
         // trailing 01
         assert_tolerant_decode(&forgiving, &mut input, prefix.len(), vec![255], "/x==");
@@ -632,6 +692,10 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
                 &encode_buf[0..encoded_len_with_padding],
                 &mut decode_buf[..],
             )
+        );
+        assert_eq!(
+            Err(DecodeError::InvalidByte(invalid_index, invalid_byte)),
+            engine.check_encoded(&encode_buf[0..encoded_len_with_padding],)
         );
     }
 }
@@ -726,6 +790,10 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte_at_first_pad(
                 encoded.len(),
                 String::from_utf8(encoded).unwrap()
             );
+            assert_eq!(
+                Err(DecodeError::InvalidByte(padding_start, PAD_BYTE)),
+                engine.check_encoded(&encoded),
+            );
         }
     }
 }
@@ -770,6 +838,10 @@ fn decode_padding_starts_before_final_chunk_error_invalid_byte_at_first_pad<E: E
                 padding_len,
                 std::str::from_utf8(&encoded).unwrap()
             );
+            assert_eq!(
+                Err(DecodeError::InvalidByte(padding_start, PAD_BYTE)),
+                engine.check_encoded(&encoded),
+            );
         }
     }
 }
@@ -808,6 +880,13 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
                     suffix_data_len,
                     padding_len
                 );
+                assert_eq!(
+                    Err(DecodeError::InvalidByte(
+                        prefix_quad_len * 4 + suffix_data_len,
+                        PAD_BYTE,
+                    )),
+                    engine.check_encoded(&encoded)
+                );
             }
         }
     }
@@ -820,6 +899,7 @@ fn decode_malleability_test_case_3_byte_suffix_valid<E: EngineWrapper>(engine_wr
         b"Hello".as_slice(),
         &E::standard().decode("SGVsbG8=").unwrap()
     );
+    assert_eq!(Ok(()), E::standard().check_encoded("SGVsbG8="));
 }
 
 // https://eprint.iacr.org/2022/361.pdf table 2, test 2
@@ -831,6 +911,10 @@ fn decode_malleability_test_case_3_byte_suffix_invalid_trailing_symbol<E: Engine
         DecodeError::InvalidLastSymbol(6, 0x39),
         E::standard().decode("SGVsbG9=").unwrap_err()
     );
+    assert_eq!(
+        DecodeError::InvalidLastSymbol(6, 0x39),
+        E::standard().check_encoded("SGVsbG9=").unwrap_err()
+    );
 }
 
 // https://eprint.iacr.org/2022/361.pdf table 2, test 3
@@ -839,6 +923,10 @@ fn decode_malleability_test_case_3_byte_suffix_no_padding<E: EngineWrapper>(engi
     assert_eq!(
         DecodeError::InvalidPadding,
         E::standard().decode("SGVsbG9").unwrap_err()
+    );
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().check_encoded("SGVsbG9").unwrap_err()
     );
 }
 
@@ -851,6 +939,7 @@ fn decode_malleability_test_case_2_byte_suffix_valid_two_padding_symbols<E: Engi
         b"Hell".as_slice(),
         &E::standard().decode("SGVsbA==").unwrap()
     );
+    assert_eq!(Ok(()), E::standard().check_encoded("SGVsbA=="));
 }
 
 // https://eprint.iacr.org/2022/361.pdf table 2, test 5
@@ -860,6 +949,10 @@ fn decode_malleability_test_case_2_byte_suffix_short_padding<E: EngineWrapper>(e
         DecodeError::InvalidPadding,
         E::standard().decode("SGVsbA=").unwrap_err()
     );
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().check_encoded("SGVsbA=").unwrap_err()
+    );
 }
 
 // https://eprint.iacr.org/2022/361.pdf table 2, test 6
@@ -868,6 +961,10 @@ fn decode_malleability_test_case_2_byte_suffix_no_padding<E: EngineWrapper>(engi
     assert_eq!(
         DecodeError::InvalidPadding,
         E::standard().decode("SGVsbA").unwrap_err()
+    );
+    assert_eq!(
+        DecodeError::InvalidPadding,
+        E::standard().check_encoded("SGVsbA").unwrap_err()
     );
 }
 
@@ -881,6 +978,10 @@ fn decode_malleability_test_case_2_byte_suffix_too_much_padding<E: EngineWrapper
     assert_eq!(
         DecodeError::InvalidByte(6, PAD_BYTE),
         E::standard().decode("SGVsbA====").unwrap_err()
+    );
+    assert_eq!(
+        DecodeError::InvalidByte(6, PAD_BYTE),
+        E::standard().check_encoded("SGVsbA====").unwrap_err()
     );
 }
 
@@ -905,7 +1006,8 @@ fn decode_pad_mode_requires_canonical_rejects_non_canonical<E: EngineWrapper>(en
             encoded.push_str(suffix);
 
             let res = engine.decode(&encoded);
-
+            assert_eq!(Err(DecodeError::InvalidPadding), res);
+            let res = engine.check_encoded(&encoded);
             assert_eq!(Err(DecodeError::InvalidPadding), res);
         }
     }
@@ -932,7 +1034,8 @@ fn decode_pad_mode_requires_no_padding_rejects_any_padding<E: EngineWrapper>(eng
             encoded.push_str(suffix);
 
             let res = engine.decode(&encoded);
-
+            assert_eq!(Err(DecodeError::InvalidPadding), res);
+            let res = engine.check_encoded(&encoded);
             assert_eq!(Err(DecodeError::InvalidPadding), res);
         }
     }
@@ -984,6 +1087,16 @@ fn do_invalid_trailing_byte(engine: impl Engine, mode: DecodePaddingMode) {
                     last_byte
                 )),
                 engine.decode(&input),
+                "mode: {:?}, input: {}",
+                mode,
+                String::from_utf8(input).unwrap()
+            );
+            assert_eq!(
+                Err(DecodeError::InvalidByte(
+                    num_prefix_quads * 4 + 4,
+                    last_byte
+                )),
+                engine.check_encoded(&input),
                 "mode: {:?}, input: {}",
                 mode,
                 String::from_utf8(input).unwrap()
@@ -1042,6 +1155,14 @@ fn do_invalid_trailing_padding_as_invalid_byte_at_first_padding(
                 mode,
                 s
             );
+            assert_eq!(
+                // pad after `g`, not the last one
+                Err(DecodeError::InvalidByte(
+                    num_prefix_quads * 4 + pad_offset,
+                    PAD_BYTE
+                )),
+                engine.check_encoded(&s),
+            );
         }
     }
 }
@@ -1077,6 +1198,7 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
             .unwrap();
         assert_eq!(orig_data.len(), decode_bytes_written);
         assert_eq!(orig_data, decode_buf);
+        assert_eq!(Ok(()), engine.check_encoded(encoded_data.as_bytes()));
 
         // same for checked variant
         decode_buf.clear();
@@ -1087,6 +1209,7 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
             .unwrap();
         assert_eq!(orig_data.len(), decode_bytes_written);
         assert_eq!(orig_data, decode_buf);
+        assert_eq!(Ok(()), engine.check_encoded(encoded_data.as_bytes()));
     }
 }
 
@@ -1115,6 +1238,7 @@ fn inner_decode_reports_padding_position<E: EngineWrapper>(engine_wrapper: E) {
             &mut decoded[..],
             engine.internal_decoded_len_estimate(b64.len()),
         );
+        let check_res = engine.check_encoded(b64.as_bytes());
         if pad_position % 4 < 2 {
             // impossible padding
             assert_eq!(
@@ -1123,6 +1247,10 @@ fn inner_decode_reports_padding_position<E: EngineWrapper>(engine_wrapper: E) {
                     PAD_BYTE
                 ))),
                 decode_res
+            );
+            assert_eq!(
+                Err(DecodeError::InvalidByte(pad_position, PAD_BYTE)),
+                check_res
             );
         } else {
             let decoded_bytes = pad_position / 4 * 3
@@ -1136,6 +1264,7 @@ fn inner_decode_reports_padding_position<E: EngineWrapper>(engine_wrapper: E) {
                 Ok(DecodeMetadata::new(decoded_bytes, Some(pad_position))),
                 decode_res
             );
+            assert_eq!(Ok(()), check_res);
         }
     }
 }
@@ -1242,6 +1371,7 @@ fn decode_slice_checked_fails_gracefully_at_all_output_lengths<E: EngineWrapper>
                 engine.decode_slice(&encoded, &mut decode_buf[..]).unwrap()
             );
             assert_eq!(original, decode_buf);
+            assert_eq!(Ok(()), engine.check_encoded(&encoded));
         }
     }
 }
@@ -1512,6 +1642,10 @@ impl<E: Engine> Engine for DecoderReaderEngine<E> {
     fn config(&self) -> &Self::Config {
         self.engine.config()
     }
+
+    fn check_encoded<T: AsRef<[u8]>>(&self, encoded: T) -> Result<(), DecodeError> {
+        self.engine.check_encoded(encoded)
+    }
 }
 
 struct DecoderReaderEngineWrapper {}
@@ -1573,6 +1707,8 @@ fn assert_all_suffixes_ok<E: Engine>(engine: E, suffixes: Vec<&str>) {
             encoded.push_str(suffix);
 
             let res = &engine.decode(&encoded);
+            assert!(res.is_ok());
+            let res = &engine.check_encoded(&encoded);
             assert!(res.is_ok());
         }
     }
