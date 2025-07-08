@@ -2,10 +2,9 @@
 //!
 //! See preconfigured engines like [`STANDARD_NO_PAD`] or [`STANDARD_NO_PAD_INDIFFERENT`].
 use crate::{
-    alphabet,
-    alphabet::Alphabet,
+    alphabet::{self, Alphabet},
     engine::{Config, DecodeMetadata, DecodePaddingMode},
-    DecodeSliceError,
+    DecodeError, DecodeSliceError,
 };
 use core::convert::TryInto;
 
@@ -189,6 +188,49 @@ impl super::Engine for GeneralPurpose {
 
     fn config(&self) -> &Self::Config {
         &self.config
+    }
+
+    fn check_encoded<T: AsRef<[u8]>>(&self, encoded: T) -> Result<(), DecodeError> {
+        let input = encoded.as_ref();
+        let rem = input.len() % 4;
+        let suffix_start = match (input.len(), rem) {
+            // there's no prefix, just suffix
+            (0..4, _) => 0,
+            // make last partition the suffix
+            (4.., 0) => input.len() - 4,
+            // make last incomplete partition the suffix
+            (4.., rem) => input.len() - rem,
+        };
+        // partition the input without suffix
+        let prefix_input = &input[..suffix_start];
+
+        // try to find an invalid value
+        let invalid_value = prefix_input
+            .iter()
+            .position(|&b| self.decode_table[b as usize] == INVALID_VALUE);
+        if let Some(pos) = invalid_value {
+            return Err(DecodeError::InvalidByte(pos, prefix_input[pos]));
+        }
+
+        // reuse `decode_suffix`, even tho it writes to a buffer it's not on the hot codepath
+        let mut output_buffer = [0_u8; 3];
+        _ = super::decode_suffix(
+            input,
+            suffix_start,
+            &mut output_buffer,
+            0,
+            &self.decode_table,
+            self.config.decode_allow_trailing_bits,
+            self.config.decode_padding_mode,
+        )
+        .map_err(|e| match e {
+            DecodeSliceError::DecodeError(err) => err,
+            DecodeSliceError::OutputSliceTooSmall => {
+                unreachable!("output buffer sized conservatively");
+            }
+        })?;
+
+        Ok(())
     }
 }
 

@@ -154,6 +154,11 @@ impl Engine for Naive {
     fn config(&self) -> &Self::Config {
         &self.config
     }
+
+    fn check_encoded<T: AsRef<[u8]>>(&self, encoded: T) -> Result<(), DecodeError> {
+        _ = self.decode(encoded)?;
+        Ok(())
+    }
 }
 
 pub struct NaiveEstimate {

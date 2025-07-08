@@ -3,7 +3,9 @@
 use crate::chunked_encoder;
 use crate::{
     encode::{encode_with_padding, EncodeSliceError},
-    encoded_len, DecodeError, DecodeSliceError,
+    encoded_len,
+    engine::general_purpose::decode_suffix::decode_suffix,
+    DecodeError, DecodeSliceError,
 };
 #[cfg(any(feature = "alloc", test))]
 use alloc::vec::Vec;
@@ -416,6 +418,10 @@ pub trait Engine: Send + Sync {
 
         inner(self, input.as_ref(), output)
     }
+
+    // TODO: more docs
+    /// Checks for decoding errors without decoding.
+    fn check_encoded<T: AsRef<[u8]>>(&self, encoded: T) -> Result<(), DecodeError>;
 }
 
 /// The minimal level of configuration that engines must support.
