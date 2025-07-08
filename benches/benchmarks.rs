@@ -46,6 +46,16 @@ fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
     });
 }
 
+fn do_check_encoded(b: &mut Bencher, &size: &usize) {
+    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
+    fill(&mut v);
+    let encoded = STANDARD.encode(&v);
+
+    b.iter(|| {
+        STANDARD.check_encoded(&encoded).unwrap();
+    });
+}
+
 fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
     fill(&mut v);
@@ -216,6 +226,11 @@ fn decode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
                 BenchmarkId::new("decode_slice", size),
                 size,
                 do_decode_bench_slice,
+            )
+            .bench_with_input(
+                BenchmarkId::new("check_encoded", size),
+                size,
+                do_check_encoded,
             )
             .bench_with_input(
                 BenchmarkId::new("decode_stream", size),
