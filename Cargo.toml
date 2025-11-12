@@ -57,3 +57,5 @@ debug = true
 [profile.test]
 # Faster tests save much more than the increase in compilation time
 opt-level = 3
+
+[workspace]
