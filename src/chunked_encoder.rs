@@ -54,7 +54,7 @@ pub(crate) struct StringSink<'a> {
 
 #[cfg(any(feature = "alloc", test))]
 impl<'a> StringSink<'a> {
-    pub(crate) fn new(s: &mut String) -> StringSink {
+    pub(crate) fn new(s: &mut String) -> StringSink<'_> {
         StringSink { string: s }
     }
 }
