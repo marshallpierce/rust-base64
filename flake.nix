@@ -1,64 +1,63 @@
 {
-  description = "A minimal development shell for a Rust project";
-
   inputs = {
-    nixpkgs.url = "github:meta-introspector/nixpkgs?ref=feature/CRQ-016-nixify";
-    rust-overlay = {
-      url = "github:meta-introspector/rust-overlay?ref=feature/CRQ-016-nixify";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    flake-utils.url = "github:meta-introspector/flake-utils?ref=feature/CRQ-016-nixify";
-    # Assuming cargo2nix is available as an input, or we can reference it from the main project
-    cargo2nix-root.url = "path:../.."; # Relative path to the main cargo2nix project
+    nixpkgs.url = "github:meta-introspector/nixpkgs?ref=feature/CRQ-016-nixify"; # Or your preferred nixpkgs branch/commit
+    flake-utils.url = "github:meta-introspector/flake-utils?ref=feature/CRQ-016-nixify"; # Or a stable flake-utils URL
+    cargo2nix.url = "github:cargo2nix/cargo2nix/release-0.12"; # Pin to a specific release for stability
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, cargo2nix-root }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
-          config.allowUnfree = true;
-        };
+  outputs = inputs: with inputs;
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ cargo2nix.overlays.default ];
+            config = {
+              permittedInsecurePackages = [ "openssl-1.1.1w" ];
+            };
+          };
 
-        # Use the cargo2nix from the root project to generate the package set
-        cargo2nixPkgs = cargo2nix-root.packages.${system}.rustPkgs;
-        
-        # The name of the crate in this directory. This needs to be dynamic.
-        # For now, let's assume the crate name is the directory name.
-        # This might need adjustment if the Cargo.toml has a different name.
-        crateName = (builtins.baseNameOf (builtins.toString self)); # This will be the directory name
+          rustToolchain = pkgs.rust-bin.nightly."2025-09-16".default; # Example nightly
 
-        # Generate the Cargo.nix for this specific crate
-        # This assumes Cargo.nix is generated in the current directory
-        rustPkgs = pkgs.rustBuilder.makePackageSet {
-          packageFun = import ./Cargo.nix;
-          rustChannel = "nightly";
-          rustVersion = "latest";
-          # Add any specific package overrides if needed for submodules
-          # packageOverrides = pkgs: [
-          #   (pkgs.rustBuilder.rustLib.makeOverride {
-          #     name = "some-crate";
-          #     overrideAttrs = old: { ... };
-          #   })
-          # ];
-        };
+          rustPkgs = pkgs.rustBuilder.makePackageSet {
+            packageFun = import ./Cargo.nix; # Links to your generated Cargo.nix
+            rustChannel = "nightly"; # Or "stable"
+            rustVersion = "latest"; # Or a specific version like "1.81.0"
 
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rustc
-            cargo
-            openssl.dev
-            pkg-config
-          ];
-          shellHook = ''
-            export PKG_CONFIG_PATH=${pkgs.openssl.dev}/lib/pkgconfig:$PKG_CONFIG_PATH
-          '';
-        };
+            rootFeatures = [
+              "base64/default"
+              "base64/alloc"
+              "base64/std"
+            ];
 
-        packages.default = rustPkgs.workspace.${crateName} or rustPkgs.unknown.${crateName}."0.1.0" or rustPkgs.unknown.${crateName}."*" or (throw "Could not find crate ${crateName} in Cargo.nix");
-      }
-    );
+            packageOverrides = pkgs: [
+              # Add any necessary package overrides here
+            ];
+          };
+
+          workspaceShell = pkgs.mkShell {
+            packages = [
+              pkgs.statix
+              pkgs.openssl_1_1.dev
+            ];
+            shellHook = ''
+              export PKG_CONFIG_PATH=${pkgs.openssl_1_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH
+              export PATH=${rustToolchain}/bin:$PATH
+            '';
+          };
+
+        in
+        rec {
+          devShells = {
+            default = workspaceShell;
+          };
+
+          packages = rec {
+            base64 = rustPkgs.workspace.base64 {};
+            default = base64;
+          };
+
+          apps = {};
+        }
+      );
 }
