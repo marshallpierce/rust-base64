@@ -59,3 +59,6 @@ debug = true
 opt-level = 3
 
 [workspace]
+
+[package.metadata.cargo2nix]
+cargo2nix_path = "/data/data/com.termux.nix/files/home/pick-up-nix2/vendor/rust/cargo2nix/target/debug/cargo2nix"
