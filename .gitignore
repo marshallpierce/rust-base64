@@ -13,3 +13,4 @@ main.rs
 /tmp
 vendor
 !Makefile
+process-repo.log

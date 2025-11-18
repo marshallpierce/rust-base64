@@ -20,7 +20,7 @@ path = ".."
 git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
 
 # Prevent this from interfering with workspaces
-[workspace]
+#[workspace]
 members = ["."]
 
 [[bin]]
