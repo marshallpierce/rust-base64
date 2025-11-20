@@ -50,13 +50,13 @@ default = ["std"]
 alloc = []
 std = ["alloc"]
 
-[profile.bench]
-# Useful for better disassembly when using `perf record` and `perf annotate`
-debug = true
+# [profile.bench]
+# # Useful for better disassembly when using `perf record` and `perf annotate`
+# debug = true
 
-[profile.test]
-# Faster tests save much more than the increase in compilation time
-opt-level = 3
+# [profile.test]
+# # Faster tests save much more than the increase in compilation time
+# opt-level = 3
 
 #[workspace]
 
