@@ -403,7 +403,7 @@ mod coverage_gaming {
 
     #[test]
     fn decode_error() {
-        let _ = format!("{:?}", DecodeError::InvalidPadding.clone());
+        let _ = format!("{:?}", DecodeError::InvalidPadding);
         let _ = format!(
             "{} {} {} {}",
             DecodeError::InvalidByte(0, 0),
@@ -419,7 +419,7 @@ mod coverage_gaming {
 
     #[test]
     fn decode_slice_error() {
-        let _ = format!("{:?}", DecodeSliceError::OutputSliceTooSmall.clone());
+        let _ = format!("{:?}", DecodeSliceError::OutputSliceTooSmall);
         let _ = format!(
             "{} {}",
             DecodeSliceError::OutputSliceTooSmall,
