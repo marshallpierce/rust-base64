@@ -49,6 +49,9 @@ rstest_reuse = "0.6.0"
 default = ["std"]
 alloc = []
 std = ["alloc"]
+# Enables the SIMD-accelerated engines (`Simd`, `Avx2`, `Neon`). Off by default. It is the only
+# feature that introduces `unsafe`; with it disabled the crate is `#![forbid(unsafe_code)]`.
+simd-unsafe = []
 
 [profile.bench]
 # Useful for better disassembly when using `perf record` and `perf annotate`

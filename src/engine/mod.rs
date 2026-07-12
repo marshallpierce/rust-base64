@@ -13,13 +13,45 @@ use alloc::{string::String, vec};
 
 pub mod general_purpose;
 
+#[cfg(all(
+    feature = "simd-unsafe",
+    any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
+pub mod simd;
+
 #[cfg(test)]
 mod naive;
 
 #[cfg(test)]
 mod tests;
 
-pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+pub use general_purpose::{GeneralPurpose, GeneralPurposeConfig, Scalar};
+
+/// The runtime-detected SIMD engine. Requires the `simd-unsafe` feature.
+#[cfg(all(
+    feature = "simd-unsafe",
+    feature = "std",
+    any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
+pub use simd::Simd;
+
+/// The AVX2 engine. Requires the `simd-unsafe` feature on an `x86_64` target.
+#[cfg(all(feature = "simd-unsafe", target_arch = "x86_64"))]
+pub use simd::Avx2;
+
+/// The NEON engine. Requires the `simd-unsafe` feature on an `aarch64` target.
+#[cfg(all(
+    feature = "simd-unsafe",
+    target_arch = "aarch64",
+    target_feature = "neon"
+))]
+pub use simd::Neon;
 
 /// An `Engine` provides low-level encoding and decoding operations that all other higher-level parts of the API use. Users of the library will generally not need to implement this.
 ///

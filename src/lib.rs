@@ -245,6 +245,26 @@
 //! assert_eq!("base64: AAECAw==", format!("base64: {}", value));
 //! ```
 //!
+//! # Crate features
+//!
+//! - `std` (default): enables `std::io` integration, [`std::error::Error`] impls, and heap
+//!   allocation. Implies `alloc`.
+//! - `alloc`: enables the allocating APIs (e.g. [`Engine::encode`], [`Engine::decode`]) in a
+//!   `no_std` build.
+//! - `simd-unsafe`: enables the SIMD-accelerated engines. It is off by default and is the only
+//!   feature that introduces `unsafe` code; with it disabled the crate is
+//!   `#![forbid(unsafe_code)]`.
+//!
+//! ## SIMD acceleration
+//!
+//! With the `simd-unsafe` feature, the [`engine`] module provides SIMD engines for the standard and
+//! URL-safe alphabets that are several times faster than [`GeneralPurpose`][engine::GeneralPurpose]:
+//!
+//! - `Simd` picks the best available instruction set (AVX2 on `x86_64`, NEON on `aarch64`) at
+//!   runtime and falls back to the scalar engine. It needs `std` for the CPU-feature detection.
+//! - `Avx2` and `Neon` target one instruction set without runtime detection, so they can be used in
+//!   `no_std` builds when the target is known to support the instructions.
+//!
 //! # Panics
 //!
 //! If length calculations result in overflowing `usize`, a panic will result.
@@ -258,7 +278,11 @@
     unused_results,
     variant_size_differences
 )]
-#![forbid(unsafe_code)]
+// The `simd-unsafe` feature (off by default) is the only source of `unsafe`; without it the crate
+// is `#![forbid(unsafe_code)]`. When it is enabled, `unsafe` is confined to the SIMD engine module,
+// which opts back in with a localized `allow`.
+#![cfg_attr(not(feature = "simd-unsafe"), forbid(unsafe_code))]
+#![cfg_attr(feature = "simd-unsafe", deny(unsafe_code))]
 // Allow globally until https://github.com/rust-lang/rust-clippy/issues/8768 is resolved.
 // The desired state is to allow it only for the rstest_reuse import.
 #![allow(clippy::single_component_path_imports)]

@@ -1,6 +1,6 @@
 # [base64](https://crates.io/crates/base64)
 
-[![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64) [![CircleCI](https://circleci.com/gh/marshallpierce/rust-base64/tree/master.svg?style=shield)](https://circleci.com/gh/marshallpierce/rust-base64/tree/master) [![codecov](https://codecov.io/gh/marshallpierce/rust-base64/branch/master/graph/badge.svg)](https://codecov.io/gh/marshallpierce/rust-base64) [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
+[![](https://img.shields.io/crates/v/base64.svg)](https://crates.io/crates/base64) [![Docs](https://docs.rs/base64/badge.svg)](https://docs.rs/base64) [![CircleCI](https://circleci.com/gh/marshallpierce/rust-base64/tree/master.svg?style=shield)](https://circleci.com/gh/marshallpierce/rust-base64/tree/master) [![codecov](https://codecov.io/gh/marshallpierce/rust-base64/branch/master/graph/badge.svg)](https://codecov.io/gh/marshallpierce/rust-base64)
 
 <a href="https://www.jetbrains.com/?from=rust-base64"><img src="/icon_CLion.svg" height="40px"/></a>
 
@@ -89,6 +89,17 @@ the `default-features` to target `core` instead. In that case you lose out on al
 around `std::io`, `std::error::Error`, and heap allocations. There is an additional `alloc` feature that you can activate
 to bring back the support for heap allocations.
 
+## SIMD acceleration
+
+The opt-in `simd-unsafe` feature enables SIMD-accelerated engines for the standard and
+URL-safe alphabets, which are several times faster than the scalar `GeneralPurpose` engine. It is
+the only feature that uses `unsafe`; without it the crate is `#![forbid(unsafe_code)]`.
+
+The `Simd` engine detects the best available instruction set (AVX2 on `x86_64`, NEON on `aarch64`) at
+runtime and falls back to the scalar engine, and needs the `std` feature. The `Avx2` and `Neon`
+engines target one instruction set without runtime detection, so they can be used in `no_std` builds
+when the target is known to support the instructions.
+
 ## Profiling
 
 On Linux, you can use [perf](https://perf.wiki.kernel.org/index.php/Main_Page) for profiling. Then compile the
@@ -151,4 +162,3 @@ cargo +nightly fuzz run decode_random
 ## License
 
 This project is dual-licensed under MIT and Apache 2.0.
-
