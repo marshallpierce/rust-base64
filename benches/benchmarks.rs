@@ -99,6 +99,38 @@ fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
     b.iter(|| STANDARD.encode_slice(&v, &mut buf).unwrap());
 }
 
+#[cfg(all(
+    feature = "simd-unsafe",
+    feature = "std",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+fn do_encode_bench_slice_simd(b: &mut Bencher, &size: &usize) {
+    let engine = base64::engine::Simd::standard(base64::engine::general_purpose::PAD);
+    let mut v: Vec<u8> = Vec::with_capacity(size);
+    fill(&mut v);
+    // conservative estimate of encoded size
+    let mut buf = vec![0; v.len() * 2];
+    b.iter(|| engine.encode_slice(&v, &mut buf).unwrap());
+}
+
+#[cfg(all(
+    feature = "simd-unsafe",
+    feature = "std",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+fn do_decode_bench_slice_simd(b: &mut Bencher, &size: &usize) {
+    let engine = base64::engine::Simd::standard(base64::engine::general_purpose::PAD);
+    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
+    fill(&mut v);
+    let encoded = engine.encode(&v);
+
+    let mut buf = vec![0; size];
+    b.iter(|| {
+        engine.decode_slice(&encoded, &mut buf).unwrap();
+        black_box(&buf);
+    });
+}
+
 fn do_encode_bench_stream(b: &mut Bencher, &size: &usize) {
     let mut v: Vec<u8> = Vec::with_capacity(size);
     fill(&mut v);
@@ -193,6 +225,17 @@ fn encode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
                 size,
                 do_encode_bench_string_reuse_buf_stream,
             );
+
+        #[cfg(all(
+            feature = "simd-unsafe",
+            feature = "std",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        group.bench_with_input(
+            BenchmarkId::new("encode_slice_simd", size),
+            size,
+            do_encode_bench_slice_simd,
+        );
     }
 
     group.finish();
@@ -222,6 +265,17 @@ fn decode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
                 size,
                 do_decode_bench_stream,
             );
+
+        #[cfg(all(
+            feature = "simd-unsafe",
+            feature = "std",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        group.bench_with_input(
+            BenchmarkId::new("decode_slice_simd", size),
+            size,
+            do_decode_bench_slice_simd,
+        );
     }
 
     group.finish();

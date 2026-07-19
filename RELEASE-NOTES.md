@@ -2,6 +2,10 @@
 
 - Added more consts for preconfigured configs and engines
 - Make DecodeError::InvalidLastSymbol more clear by including the decoded value
+- Added SIMD-accelerated engines behind the opt-in `simd-unsafe` feature: `Simd` picks the best
+  instruction set at runtime (AVX2 on `x86_64`, NEON on `aarch64`) and falls back to the scalar
+  `GeneralPurpose` engine, while `Avx2` and `Neon` target one instruction set with no runtime
+  detection and work in `no_std`. The engines support the standard and URL-safe alphabets.
 
 # 0.22.1
 
