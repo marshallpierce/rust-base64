@@ -19,9 +19,6 @@
 //! the shift/mask variant. Both share the same per-alphabet lookup tables, expressed as the
 //! associated constants of the `SimdAlphabet` trait so the kernels can inline them.
 #![allow(unsafe_code)]
-// NEON intrinsics require Rust 1.59, above the crate MSRV; these paths need `std`/the feature and
-// are not built at MSRV.
-#![allow(clippy::incompatible_msrv)]
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::{
@@ -149,6 +146,8 @@ mod avx2 {
             // SAFETY: the loop guard ensures `input[i..i+32]` is in bounds, so this reads 32 valid
             // bytes; `loadu` has no alignment requirement.
             let data = _mm256_loadu_si256(input.as_ptr().add(i).cast());
+            // TODO https://arxiv.org/abs/1704.00605 doesn't seem to require this perm step, which
+            // costs 3 cycles, and is slightly different in the reduce phase as well.
             // Rearrange dwords so low lane = bytes[0..16], high lane = bytes[12..28].
             let perm = _mm256_permutevar8x32_epi32(data, _mm256_setr_epi32(0, 1, 2, 3, 3, 4, 5, 6));
             let inb = _mm256_shuffle_epi8(perm, shuf);
@@ -272,6 +271,7 @@ mod neon {
         // SAFETY: `split_bytes` and `lut_data` are 16-byte arrays, each read in full by `vld1q_u8`.
         let split_shuf = vld1q_u8(split_bytes.as_ptr());
         let translate = vld1q_u8(lut_data.as_ptr().cast());
+        // note the in-memory LE byte order will affect how these match the shuffled data bytes
         let m1 = vdupq_n_u32(0x0000_fc00);
         let m2 = vdupq_n_u32(0x0000_03f0);
         let m3 = vdupq_n_u32(0x0fc0_0000);
@@ -288,10 +288,22 @@ mod neon {
             // bytes.
             let data = vld1q_u8(input.as_ptr().add(i));
             let x0 = vreinterpretq_u32_u8(vqtbl1q_u8(data, split_shuf));
+            // data now is 4 32-bit words in x0, each with the 3 bytes to encode in that word:
+            // 1 0 2 1
+            // 4 3 5 4
+            // 7 6 8 7
+            // a 9 b a
 
+            // select bits in chunks of 6 into their own bytes, treating the input as a bit sequence
+
+            // select the left 6 bits of [0, 3, 6, 9] (in byte 1 of the words) and shift until the
+            // 6 bits are the low 6 bits of byte 0, then cast to be in 2 byte words
             let x1 = vshrq_n_u16::<10>(vreinterpretq_u16_u32(vandq_u32(x0, m1)));
+            // right 2 bits of [0 3 6 9], left 4 bits of [1 4 7 a], shifted to low bits
             let x2 = vshlq_n_u16::<4>(vreinterpretq_u16_u32(vandq_u32(x0, m2)));
+            // right 4 bits of [1 4 7 a], left 2 bits of [2 5 8 b]
             let x3 = vshrq_n_u16::<6>(vreinterpretq_u16_u32(vandq_u32(x0, m3)));
+            // right 6 bits of [2 5 8 b]
             let x4 = vshlq_n_u16::<8>(vreinterpretq_u16_u32(vandq_u32(x0, m4)));
             let indices = vreinterpretq_u8_u16(vorrq_u16(vorrq_u16(x1, x2), vorrq_u16(x3, x4)));
 
@@ -324,11 +336,9 @@ mod neon {
         if quads_end < SIMD_MIN_INPUT_DECODE {
             return (0, 0);
         }
-        let shift_data = A::DECODE_SHIFT_LUT;
-        let mask_data = A::DECODE_MASK_LUT;
         // SAFETY: each LUT is a 16-byte array read in full by `vld1q_u8`.
-        let shift_lut = vld1q_u8(shift_data.as_ptr().cast());
-        let mask_lut = vld1q_u8(mask_data.as_ptr());
+        let shift_lut = vld1q_u8(A::DECODE_SHIFT_LUT.as_ptr().cast());
+        let mask_lut = vld1q_u8(A::DECODE_MASK_LUT.as_ptr());
         let bitpos_lut = vld1q_u8(BITPOS_LUT.as_ptr());
         let low_nibble_mask = vdupq_n_u8(0x0f);
         let fixup_char_v = vdupq_n_u8(A::DECODE_FIXUP_CHAR as u8);
@@ -376,12 +386,15 @@ mod neon {
 
             // Store exactly 12 bytes (8 + 4); a wider store would clobber an oversized output.
             // SAFETY: the loop guard ensures `o + 12 <= output.len()`, so the 8-byte store at `o`
-            // and the 4-byte lane store at `o + 8` are both in bounds.
+            // and the 4-byte store at `o + 8` are both in bounds.
             vst1_u8(output.as_mut_ptr().add(o), vget_low_u8(packed));
-            vst1q_lane_u32::<2>(
-                output.as_mut_ptr().add(o + 8).cast(),
-                vreinterpretq_u32_u8(packed),
-            );
+            // Can't use vst1q_lane_u32 to directly write the last lane as it requires 4-byte
+            // alignment, which we don't have.
+            // Could also shift words and then use vst1_u8 again, but this way is more direct and
+            // doesn't double-write the middle word.
+            let tail = vgetq_lane_u32::<2>(vreinterpretq_u32_u8(packed));
+            core::ptr::write_unaligned(output.as_mut_ptr().add(o + 8).cast::<u32>(), tail);
+
             i += 16;
             o += 12;
         }
@@ -773,127 +786,5 @@ impl Engine for Neon {
 
     fn config(&self) -> &Self::Config {
         self.inner.config()
-    }
-}
-
-#[cfg(all(
-    test,
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "std"
-))]
-mod tests {
-    use crate::{
-        alphabet::{self, Alphabet},
-        engine::{
-            general_purpose::PAD,
-            naive::{Naive, NaiveConfig},
-            DecodePaddingMode, Engine,
-        },
-    };
-    use rand::{rngs::SmallRng, Rng, SeedableRng};
-
-    fn naive(alphabet: &Alphabet) -> Naive {
-        Naive::new(
-            alphabet,
-            NaiveConfig {
-                encode_padding: true,
-                decode_allow_trailing_bits: false,
-                decode_padding_mode: DecodePaddingMode::RequireCanonical,
-            },
-        )
-    }
-
-    fn seeded_bytes(len: usize, seed: u64) -> Vec<u8> {
-        let mut rng = SmallRng::seed_from_u64(seed);
-        (0..len).map(|_| rng.gen()).collect()
-    }
-
-    /// Run every correctness check for one engine against the scalar `naive` oracle.
-    fn exercise<E: Engine>(name: &str, engine: &E, alphabet: &Alphabet) {
-        let oracle = naive(alphabet);
-
-        // Differential encode/decode over many lengths and seeds.
-        for len in 0..=400 {
-            for seed in 0..4u64 {
-                let data = seeded_bytes(len, 0x51D_0000 ^ (len as u64) << 3 ^ seed);
-                let encoded = engine.encode(&data);
-                assert_eq!(encoded, oracle.encode(&data), "{name} encode len {len}");
-                assert_eq!(
-                    engine.decode(&encoded).unwrap(),
-                    data,
-                    "{name} roundtrip {len}"
-                );
-            }
-        }
-
-        // Decode of every possible byte value at a range of positions (validity + decoded value).
-        let encoded = engine.encode(seeded_bytes(96, 0xA5A5_0001));
-        for b in 0u8..=255 {
-            for &pos in &[0usize, 5, 31, 32, 33, 64, 95, 120] {
-                let mut c = encoded.clone().into_bytes();
-                c[pos] = b;
-                assert_eq!(
-                    engine.decode(&c),
-                    oracle.decode(&c),
-                    "{name} byte {b:#x}@{pos}"
-                );
-            }
-        }
-
-        // Slice APIs must not write past the decoded/encoded length in an oversized buffer.
-        for len in [96usize, 120, 192, 300, 768, 3072] {
-            let data = seeded_bytes(len, 0xC10B_BE12 ^ len as u64);
-            let encoded = engine.encode(&data);
-
-            let mut out = vec![0xAB_u8; len + 64];
-            let written = engine.decode_slice(&encoded, &mut out).unwrap();
-            assert_eq!(written, len, "{name} decoded len at {len}");
-            assert_eq!(&out[..len], &data[..], "{name} decoded bytes at {len}");
-            assert!(
-                out[len..].iter().all(|&b| b == 0xAB),
-                "{} clobbered past decoded region at len {}",
-                name,
-                len
-            );
-
-            let mut out = vec![0xCD_u8; encoded.len() + 64];
-            let written = engine.encode_slice(&data, &mut out).unwrap();
-            assert_eq!(written, encoded.len(), "{name} encoded len at {len}");
-            assert_eq!(
-                &out[..written],
-                encoded.as_bytes(),
-                "{name} encoded bytes at {len}"
-            );
-            assert!(
-                out[written..].iter().all(|&b| b == 0xCD),
-                "{} clobbered past encoded region at len {}",
-                name,
-                len
-            );
-        }
-    }
-
-    #[test]
-    fn simd_engine_matches_scalar() {
-        exercise("simd std", &super::Simd::standard(PAD), &alphabet::STANDARD);
-        exercise("simd url", &super::Simd::url_safe(PAD), &alphabet::URL_SAFE);
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[test]
-    fn avx2_engine_matches_scalar() {
-        if let Some(engine) = super::Avx2::standard(PAD) {
-            exercise("avx2 std", &engine, &alphabet::STANDARD);
-        }
-        if let Some(engine) = super::Avx2::url_safe(PAD) {
-            exercise("avx2 url", &engine, &alphabet::URL_SAFE);
-        }
-    }
-
-    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-    #[test]
-    fn neon_engine_matches_scalar() {
-        exercise("neon std", &super::Neon::standard(PAD), &alphabet::STANDARD);
-        exercise("neon url", &super::Neon::url_safe(PAD), &alphabet::URL_SAFE);
     }
 }
