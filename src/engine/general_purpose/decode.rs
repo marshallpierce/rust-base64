@@ -64,14 +64,6 @@ pub(crate) fn decode_helper(
         output_index == input_index / 4 * 3,
         "prefix output must match consumed input"
     );
-    debug_assert!(
-        input_index <= input_complete_nonterminal_quads_len,
-        "prefix must not consume the terminal quad"
-    );
-    debug_assert!(
-        output_index == input_index / 4 * 3,
-        "prefix output must match consumed input"
-    );
 
     decode_complete_quads(
         input,

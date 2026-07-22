@@ -52,7 +52,7 @@ fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
     let encoded = STANDARD.encode(&v);
 
     let mut buf = vec![0; size];
-    buf.truncate(0);
+    buf.clear();
 
     b.iter(|| {
         let mut cursor = io::Cursor::new(&encoded[..]);

@@ -1,17 +1,22 @@
 // rstest_reuse template functions have unused variables
 #![allow(unused_variables)]
 
-use rand::{
-    self,
-    distributions::{self, Distribution as _},
-    rngs, Rng as _, SeedableRng as _,
-};
-use rstest::rstest;
-use rstest_reuse::{apply, template};
-use std::{collections, fmt, io::Read as _};
-
+#[cfg(feature = "simd-unsafe")]
+use crate::engine::simd::Simd;
+#[cfg(all(
+    feature = "simd-unsafe",
+    target_arch = "x86_64",
+    target_feature = "avx2"
+))]
+use crate::engine::Avx2;
+#[cfg(all(
+    feature = "simd-unsafe",
+    target_arch = "aarch64",
+    target_feature = "neon"
+))]
+use crate::engine::Neon;
 use crate::{
-    alphabet::{Alphabet, STANDARD},
+    alphabet::{Alphabet, STANDARD, URL_SAFE},
     encode::add_padding,
     encoded_len,
     engine::{
@@ -21,25 +26,94 @@ use crate::{
     tests::{assert_encode_sanity, random_alphabet, random_config},
     DecodeError, DecodeSliceError, PAD_BYTE,
 };
+use rand::prelude::SmallRng;
+use rand::{
+    self,
+    distributions::{self, Distribution as _},
+    rngs, Rng as _, SeedableRng as _,
+};
+use rstest::rstest;
+use rstest_reuse::{self, apply, template};
+use std::{collections, fmt, io::Read as _};
 
-// the case::foo syntax includes the "foo" in the generated test method names
 #[template]
-#[rstest(engine_wrapper,
-case::general_purpose(GeneralPurposeWrapper {}),
-case::naive(NaiveWrapper {}),
-case::decoder_reader(DecoderReaderEngineWrapper {}),
+#[rstest]
+#[case::general_purpose(GeneralPurposeWrapper)]
+#[case::naive(NaiveWrapper)]
+#[case::decoder_reader(DecoderReaderEngineWrapper)]
+#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "x86_64",
+        target_feature = "avx2"
+    ),
+    case::avx2(Avx2EngineWrapper)
 )]
-fn all_engines<E: EngineWrapper>(engine_wrapper: E) {}
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "aarch64",
+        target_feature = "neon"
+    ),
+    case::neon(NeonEngineWrapper)
+)]
+fn all_engines<E: EngineWrapper>(#[case] engine_wrapper: E) {}
+
+#[template]
+#[rstest]
+// so that there's at least one engine with no features enabled
+#[cfg_attr(not(feature = "simd-unsafe"), case::naive(NaiveWrapper))]
+#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "x86_64",
+        target_feature = "avx2"
+    ),
+    case::avx2(Avx2EngineWrapper)
+)]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "aarch64",
+        target_feature = "neon"
+    ),
+    case::neon(NeonEngineWrapper)
+)]
+fn simd_engines<E: EngineWrapper>(#[case] engine_wrapper: E) {}
+
+#[derive(Debug, Clone, Copy)]
+enum CommonAlphabet {
+    Standard,
+    UrlSafe,
+}
 
 /// Some decode tests don't make sense for use with `DecoderReader` as they are difficult to
 /// reason about or otherwise inapplicable given how DecoderReader slice up its input along
 /// chunk boundaries.
 #[template]
-#[rstest(engine_wrapper,
-case::general_purpose(GeneralPurposeWrapper {}),
-case::naive(NaiveWrapper {}),
+#[rstest]
+#[case::general_purpose(GeneralPurposeWrapper)]
+#[case::naive(NaiveWrapper)]
+#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "x86_64",
+        target_feature = "avx2"
+    ),
+    case::avx2(Avx2EngineWrapper)
 )]
-fn all_engines_except_decoder_reader<E: EngineWrapper>(engine_wrapper: E) {}
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        target_arch = "aarch64",
+        target_feature = "neon"
+    ),
+    case::neon(NeonEngineWrapper)
+)]
+fn all_engines_except_decoder_reader<E: EngineWrapper>(#[case] engine_wrapper: E) {}
 
 #[apply(all_engines)]
 fn rfc_test_vectors_std_alphabet<E: EngineWrapper>(engine_wrapper: E) {
@@ -270,6 +344,41 @@ fn encode_engine_slice_fits_into_precisely_sized_slice<E: EngineWrapper>(engine_
         assert_eq!(orig_data, decoded);
     }
 }
+#[apply(all_engines)]
+fn encode_matches_naive<E: EngineWrapper>(engine_wrapper: E) {
+    let mut rng = seeded_rng();
+
+    let mut orig_data = Vec::<u8>::new();
+    let mut encode_buf = Vec::<u8>::new();
+    let mut encode_naive_buf = Vec::<u8>::new();
+
+    let len_range = distributions::Uniform::new(1, 1_000);
+
+    for _ in 0..10_000 {
+        let (engine, alphabet) = E::random_alphabet(&mut rng);
+        let naive_engine =
+            NaiveWrapper::with_pad_and_alphabet(engine.config().encode_padding(), &alphabet);
+
+        orig_data.clear();
+        encode_buf.clear();
+        encode_naive_buf.clear();
+
+        let (orig_len, _, encoded_len) = generate_random_encoded_data(
+            &engine,
+            &mut orig_data,
+            &mut encode_buf,
+            &mut rng,
+            &len_range,
+        );
+
+        encode_naive_buf.resize(encoded_len, 0);
+        let _ = naive_engine
+            .encode_slice(&orig_data, &mut encode_naive_buf)
+            .unwrap();
+
+        assert_eq!(encode_naive_buf, encode_buf);
+    }
+}
 
 #[apply(all_engines)]
 fn decode_doesnt_write_extra_bytes<E>(engine_wrapper: E)
@@ -483,6 +592,50 @@ fn decode_detect_invalid_last_symbol_every_possible_two_symbols<E: EngineWrapper
     }
 }
 
+/// A reasonably fast to run test that won't take many minutes, yet exercises the riskiest logic
+/// for SIMD
+#[apply(simd_engines)]
+fn miri_quick_test<E: EngineWrapper>(
+    engine_wrapper: E,
+    #[values(CommonAlphabet::Standard, CommonAlphabet::UrlSafe)] alphabet: CommonAlphabet,
+) {
+    let mut orig_data = vec![0; 1024];
+    let mut encoded = vec![0; orig_data.len() * 2];
+    let mut encoded_oracle = vec![0; orig_data.len() * 2];
+    let mut decoded = orig_data.clone();
+
+    let mut rng = rand::thread_rng();
+    let engine = E::common_alphabet(alphabet);
+    let oracle = NaiveWrapper::common_alphabet(alphabet);
+
+    // slide offset to check for alignment issues
+    for offset in 0..=5 {
+        rng.fill(&mut orig_data[..]);
+
+        let filler_byte = rng.gen();
+        encoded.fill(filler_byte);
+        encoded_oracle.fill(filler_byte);
+        decoded.fill(filler_byte);
+
+        let expected_len = oracle
+            .encode_slice(&orig_data[offset..], &mut encoded_oracle[offset..])
+            .unwrap();
+        let actual_len = engine
+            .encode_slice(&orig_data[offset..], &mut encoded[offset..])
+            .unwrap();
+        assert_eq!(expected_len, actual_len);
+        assert_eq!(encoded_oracle, encoded);
+
+        let decoded_len = engine
+            .decode_slice(
+                &encoded[offset..(offset + actual_len)],
+                &mut decoded[offset..],
+            )
+            .unwrap();
+        assert_eq!(orig_data.len() - offset, decoded_len);
+        assert_eq!(orig_data[offset..], decoded[offset..(offset + decoded_len)]);
+    }
+}
 #[apply(all_engines)]
 fn decode_detect_invalid_last_symbol_every_possible_three_symbols<E: EngineWrapper>(
     engine_wrapper: E,
@@ -634,8 +787,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
     let len_range = distributions::Uniform::new(1, 1_000);
 
     for _ in 0..100_000 {
-        let alphabet = random_alphabet(&mut rng);
-        let engine = E::random_alphabet(&mut rng, alphabet);
+        let (engine, alphabet) = E::random_alphabet(&mut rng);
 
         orig_data.clear();
         encode_buf.clear();
@@ -1022,7 +1174,7 @@ fn decode_invalid_trailing_bytes_invalid_byte<E: EngineWrapper>(engine_wrapper: 
     }
 }
 fn do_invalid_trailing_byte(engine: impl Engine, mode: DecodePaddingMode) {
-    for last_byte in [b'*', b'\n'] {
+    for last_byte in *b"*\n" {
         for num_prefix_quads in 0..256 {
             let mut s: String = "ABCD".repeat(num_prefix_quads);
             s.push_str("Cg==");
@@ -1299,6 +1451,73 @@ fn decode_slice_checked_fails_gracefully_at_all_output_lengths<E: EngineWrapper>
     }
 }
 
+/// Run every correctness check for one engine against the scalar `naive` oracle.
+///
+/// It's somewhat duplicative of existing engine tests, but was too nice a collection to toss.
+#[apply(all_engines)]
+fn encode_decode_smorgasbord<E: EngineWrapper>(
+    engine_wrapper: E,
+    #[values(CommonAlphabet::Standard, CommonAlphabet::UrlSafe)] alphabet: CommonAlphabet,
+) {
+    let engine = E::common_alphabet(alphabet);
+    fn seeded_bytes(len: usize, seed: u64) -> Vec<u8> {
+        let mut rng = SmallRng::seed_from_u64(seed);
+        (0..len).map(|_| rng.gen()).collect()
+    }
+
+    let oracle = NaiveWrapper::common_alphabet(alphabet);
+
+    // Differential encode/decode over many lengths and seeds.
+    for len in 0..=400 {
+        for seed in 0..4u64 {
+            let data = seeded_bytes(len, 0x51D_0000 ^ (len as u64) << 3 ^ seed);
+            let encoded = engine.encode(&data);
+            assert_eq!(encoded, oracle.encode(&data), "encode len {len}");
+            assert_eq!(engine.decode(&encoded).unwrap(), data, "roundtrip {len}");
+        }
+    }
+
+    // Decode of every possible byte value at a range of positions (validity + decoded value).
+    let encoded = engine.encode(seeded_bytes(96, 0xA5A5_0001));
+    for b in 0u8..=255 {
+        for &pos in &[0usize, 5, 31, 32, 33, 64, 95, 120] {
+            let mut c = encoded.clone().into_bytes();
+            c[pos] = b;
+            assert_eq!(engine.decode(&c), oracle.decode(&c), "byte {b:#x}@{pos}");
+        }
+    }
+
+    // Slice APIs must not write past the decoded/encoded length in an oversized buffer.
+    for len in [96usize, 120, 192, 300, 768, 3072] {
+        let data = seeded_bytes(len, 0xC10B_BE12 ^ len as u64);
+        let encoded = engine.encode(&data);
+
+        let mut out = vec![0xAB_u8; len + 64];
+        let written = engine.decode_slice(&encoded, &mut out).unwrap();
+        assert_eq!(written, len, "decoded len at {len}");
+        assert_eq!(&out[..len], &data[..], "decoded bytes at {len}");
+        assert!(
+            out[len..].iter().all(|&b| b == 0xAB),
+            "clobbered past decoded region at len {}",
+            len
+        );
+
+        let mut out = vec![0xCD_u8; encoded.len() + 64];
+        let written = engine.encode_slice(&data, &mut out).unwrap();
+        assert_eq!(written, encoded.len(), "encoded len at {len}");
+        assert_eq!(
+            &out[..written],
+            encoded.as_bytes(),
+            "encoded bytes at {len}"
+        );
+        assert!(
+            out[written..].iter().all(|&b| b == 0xCD),
+            "clobbered past encoded region at len {}",
+            len
+        );
+    }
+}
+
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.
 ///
 /// Vecs provided should be empty.
@@ -1367,6 +1586,9 @@ trait EngineWrapper {
     /// encode, and required no padding on decode.
     fn standard_unpadded() -> Self::Engine;
 
+    /// Create a padded engine for `common_alphabet`.
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine;
+
     /// Return an engine configured for RFC standard alphabet with the provided encode and decode
     /// pad settings
     fn standard_with_pad_mode(encode_pad: bool, decode_pad_mode: DecodePaddingMode)
@@ -1378,11 +1600,11 @@ trait EngineWrapper {
     /// Return an engine configured with a randomized alphabet and config
     fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine;
 
-    /// Return an engine configured with the specified alphabet and randomized config
-    fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine;
+    /// Return an engine configured with the selected alphabet and randomized config
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet);
 }
 
-struct GeneralPurposeWrapper {}
+struct GeneralPurposeWrapper;
 
 impl EngineWrapper for GeneralPurposeWrapper {
     type Engine = general_purpose::GeneralPurpose;
@@ -1393,6 +1615,15 @@ impl EngineWrapper for GeneralPurposeWrapper {
 
     fn standard_unpadded() -> Self::Engine {
         general_purpose::GeneralPurpose::new(&STANDARD, general_purpose::NO_PAD)
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        match common_alphabet {
+            CommonAlphabet::Standard => Self::standard(),
+            CommonAlphabet::UrlSafe => {
+                general_purpose::GeneralPurpose::new(&URL_SAFE, general_purpose::PAD)
+            }
+        }
     }
 
     fn standard_with_pad_mode(
@@ -1415,17 +1646,36 @@ impl EngineWrapper for GeneralPurposeWrapper {
     }
 
     fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
-        let alphabet = random_alphabet(rng);
-
-        Self::random_alphabet(rng, alphabet)
+        Self::random_alphabet(rng).0
     }
 
-    fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        general_purpose::GeneralPurpose::new(alphabet, random_config(rng))
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        let alphabet = random_alphabet(rng);
+        (
+            general_purpose::GeneralPurpose::new(alphabet, random_config(rng)),
+            alphabet.clone(),
+        )
     }
 }
 
-struct NaiveWrapper {}
+struct NaiveWrapper;
+
+impl NaiveWrapper {
+    fn with_pad_and_alphabet(pad: bool, alphabet: &Alphabet) -> naive::Naive {
+        naive::Naive::new(
+            alphabet,
+            naive::NaiveConfig {
+                encode_padding: pad,
+                decode_allow_trailing_bits: false,
+                decode_padding_mode: if pad {
+                    DecodePaddingMode::RequireCanonical
+                } else {
+                    DecodePaddingMode::RequireNone
+                },
+            },
+        )
+    }
+}
 
 impl EngineWrapper for NaiveWrapper {
     type Engine = naive::Naive;
@@ -1450,6 +1700,20 @@ impl EngineWrapper for NaiveWrapper {
                 decode_padding_mode: DecodePaddingMode::RequireNone,
             },
         )
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        match common_alphabet {
+            CommonAlphabet::Standard => Self::standard(),
+            CommonAlphabet::UrlSafe => naive::Naive::new(
+                &URL_SAFE,
+                naive::NaiveConfig {
+                    encode_padding: true,
+                    decode_allow_trailing_bits: false,
+                    decode_padding_mode: DecodePaddingMode::RequireCanonical,
+                },
+            ),
+        }
     }
 
     fn standard_with_pad_mode(
@@ -1478,12 +1742,11 @@ impl EngineWrapper for NaiveWrapper {
     }
 
     fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
-        let alphabet = random_alphabet(rng);
-
-        Self::random_alphabet(rng, alphabet)
+        Self::random_alphabet(rng).0
     }
 
-    fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        let alphabet = random_alphabet(rng);
         let mode = rng.gen();
 
         let config = naive::NaiveConfig {
@@ -1496,7 +1759,7 @@ impl EngineWrapper for NaiveWrapper {
             decode_padding_mode: mode,
         };
 
-        naive::Naive::new(alphabet, config)
+        (naive::Naive::new(alphabet, config), alphabet.clone())
     }
 }
 
@@ -1567,7 +1830,7 @@ impl<E: Engine> Engine for DecoderReaderEngine<E> {
     }
 }
 
-struct DecoderReaderEngineWrapper {}
+struct DecoderReaderEngineWrapper;
 
 impl EngineWrapper for DecoderReaderEngineWrapper {
     type Engine = DecoderReaderEngine<general_purpose::GeneralPurpose>;
@@ -1578,6 +1841,10 @@ impl EngineWrapper for DecoderReaderEngineWrapper {
 
     fn standard_unpadded() -> Self::Engine {
         GeneralPurposeWrapper::standard_unpadded().into()
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        GeneralPurposeWrapper::common_alphabet(common_alphabet).into()
     }
 
     fn standard_with_pad_mode(
@@ -1595,8 +1862,179 @@ impl EngineWrapper for DecoderReaderEngineWrapper {
         GeneralPurposeWrapper::random(rng).into()
     }
 
-    fn random_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        GeneralPurposeWrapper::random_alphabet(rng, alphabet).into()
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        let (engine, alphabet) = GeneralPurposeWrapper::random_alphabet(rng);
+        (engine.into(), alphabet)
+    }
+}
+
+#[cfg(feature = "simd-unsafe")]
+struct SimdEngineWrapper;
+
+#[cfg(feature = "simd-unsafe")]
+impl EngineWrapper for SimdEngineWrapper {
+    type Engine = Simd;
+
+    fn standard() -> Self::Engine {
+        Simd::standard(general_purpose::PAD)
+    }
+
+    fn standard_unpadded() -> Self::Engine {
+        Simd::standard(general_purpose::NO_PAD)
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        match common_alphabet {
+            CommonAlphabet::Standard => Self::standard(),
+            CommonAlphabet::UrlSafe => Simd::url_safe(general_purpose::PAD),
+        }
+    }
+
+    fn standard_with_pad_mode(
+        encode_pad: bool,
+        decode_pad_mode: DecodePaddingMode,
+    ) -> Self::Engine {
+        Simd::standard(
+            general_purpose::GeneralPurposeConfig::new()
+                .with_encode_padding(encode_pad)
+                .with_decode_padding_mode(decode_pad_mode),
+        )
+    }
+
+    fn standard_allow_trailing_bits() -> Self::Engine {
+        Simd::standard(
+            general_purpose::GeneralPurposeConfig::new().with_decode_allow_trailing_bits(true),
+        )
+    }
+
+    fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
+        if rng.gen() {
+            Simd::standard(random_config(rng))
+        } else {
+            Simd::url_safe(random_config(rng))
+        }
+    }
+
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        if rng.gen() {
+            (Simd::standard(random_config(rng)), STANDARD)
+        } else {
+            (Simd::url_safe(random_config(rng)), URL_SAFE)
+        }
+    }
+}
+
+#[cfg(all(feature = "simd-unsafe", target_feature = "neon"))]
+struct NeonEngineWrapper;
+
+#[cfg(all(feature = "simd-unsafe", target_feature = "neon"))]
+impl EngineWrapper for NeonEngineWrapper {
+    type Engine = Neon;
+
+    fn standard() -> Self::Engine {
+        Neon::standard(general_purpose::PAD)
+    }
+
+    fn standard_unpadded() -> Self::Engine {
+        Neon::standard(general_purpose::NO_PAD)
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        match common_alphabet {
+            CommonAlphabet::Standard => Self::standard(),
+            CommonAlphabet::UrlSafe => Neon::url_safe(general_purpose::PAD),
+        }
+    }
+
+    fn standard_with_pad_mode(
+        encode_pad: bool,
+        decode_pad_mode: DecodePaddingMode,
+    ) -> Self::Engine {
+        Neon::standard(
+            general_purpose::GeneralPurposeConfig::new()
+                .with_encode_padding(encode_pad)
+                .with_decode_padding_mode(decode_pad_mode),
+        )
+    }
+
+    fn standard_allow_trailing_bits() -> Self::Engine {
+        Neon::standard(
+            general_purpose::GeneralPurposeConfig::new().with_decode_allow_trailing_bits(true),
+        )
+    }
+
+    fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
+        if rng.gen() {
+            Neon::standard(random_config(rng))
+        } else {
+            Neon::url_safe(random_config(rng))
+        }
+    }
+
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        if rng.gen() {
+            (Neon::standard(random_config(rng)), STANDARD)
+        } else {
+            (Neon::url_safe(random_config(rng)), URL_SAFE)
+        }
+    }
+}
+
+#[cfg(all(feature = "simd-unsafe", target_feature = "avx2"))]
+struct Avx2EngineWrapper;
+
+#[cfg(all(feature = "simd-unsafe", target_feature = "avx2"))]
+impl EngineWrapper for Avx2EngineWrapper {
+    type Engine = Avx2;
+
+    fn standard() -> Self::Engine {
+        Avx2::standard(general_purpose::PAD).unwrap()
+    }
+
+    fn standard_unpadded() -> Self::Engine {
+        Avx2::standard(general_purpose::NO_PAD).unwrap()
+    }
+
+    fn common_alphabet(common_alphabet: CommonAlphabet) -> Self::Engine {
+        match common_alphabet {
+            CommonAlphabet::Standard => Self::standard(),
+            CommonAlphabet::UrlSafe => Avx2::url_safe(general_purpose::PAD).unwrap(),
+        }
+    }
+
+    fn standard_with_pad_mode(
+        encode_pad: bool,
+        decode_pad_mode: DecodePaddingMode,
+    ) -> Self::Engine {
+        Avx2::standard(
+            general_purpose::GeneralPurposeConfig::new()
+                .with_encode_padding(encode_pad)
+                .with_decode_padding_mode(decode_pad_mode),
+        )
+        .unwrap()
+    }
+
+    fn standard_allow_trailing_bits() -> Self::Engine {
+        Avx2::standard(
+            general_purpose::GeneralPurposeConfig::new().with_decode_allow_trailing_bits(true),
+        )
+        .unwrap()
+    }
+
+    fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
+        if rng.gen() {
+            Avx2::standard(random_config(rng)).unwrap()
+        } else {
+            Avx2::url_safe(random_config(rng)).unwrap()
+        }
+    }
+
+    fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
+        if rng.gen() {
+            (Avx2::standard(random_config(rng)).unwrap(), STANDARD)
+        } else {
+            (Avx2::url_safe(random_config(rng)).unwrap(), URL_SAFE)
+        }
     }
 }
 

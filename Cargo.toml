@@ -10,9 +10,8 @@ keywords = ["base64", "utf8", "encode", "decode", "no_std"]
 categories = ["encoding"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
-# dev-dependencies require 1.65, but the main code doesn't
-# This option was added in 1.56, keep it for when we bump MSRV.
-rust-version = "1.48.0"
+# dev-dependencies require newer toolchains, but the main code doesn't
+rust-version = "1.60.0"
 
 [[bench]]
 name = "benchmarks"
@@ -42,11 +41,11 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 clap = { version = "3.2.25", features = ["derive"] }
 strum = { version = "0.25", features = ["derive"] }
 # test fixtures for engine tests
-rstest = "0.13.0"
-rstest_reuse = "0.6.0"
+rstest = "0.26.1"
+rstest_reuse = "0.7.0"
 
 [features]
-default = ["std"]
+default = ["std", "simd-unsafe"]
 alloc = []
 std = ["alloc"]
 # Enables the SIMD-accelerated engines (`Simd`, `Avx2`, `Neon`). Off by default. It is the only
