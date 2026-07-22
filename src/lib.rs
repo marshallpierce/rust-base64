@@ -46,7 +46,7 @@
 //!
 //! #### URL-safe alphabet
 //!
-//! The standard alphabet uses `+` and `/` as its two non-alphanumeric tokens,
+//! The standard alphabet uses `+` and `/` as its two non-alphanumeric symbols,
 //! which cannot be safely used in URL’s without encoding them as `%2B` and
 //! `%2F`.
 //!
@@ -251,7 +251,7 @@
 //!   allocation. Implies `alloc`.
 //! - `alloc`: enables the allocating APIs (e.g. [`Engine::encode`], [`Engine::decode`]) in a
 //!   `no_std` build.
-//! - `simd-unsafe`: enables the SIMD-accelerated engines. It is off by default and is the only
+//! - `simd-unsafe`: enables the SIMD-accelerated engines. It is on by default and is the only
 //!   feature that introduces `unsafe` code; with it disabled the crate is
 //!   `#![forbid(unsafe_code)]`.
 //!
@@ -278,22 +278,15 @@
     unused_results,
     variant_size_differences
 )]
-// The `simd-unsafe` feature (off by default) is the only source of `unsafe`; without it the crate
+// The `simd-unsafe` feature (on by default) is the only source of `unsafe`; without it the crate
 // is `#![forbid(unsafe_code)]`. When it is enabled, `unsafe` is confined to the SIMD engine module,
 // which opts back in with a localized `allow`.
 #![cfg_attr(not(feature = "simd-unsafe"), forbid(unsafe_code))]
 #![cfg_attr(feature = "simd-unsafe", deny(unsafe_code))]
-// Allow globally until https://github.com/rust-lang/rust-clippy/issues/8768 is resolved.
-// The desired state is to allow it only for the rstest_reuse import.
-#![allow(clippy::single_component_path_imports)]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 
 #[cfg(any(feature = "alloc", test))]
 extern crate alloc;
-
-// has to be included at top level because of the way rstest_reuse defines its macros
-#[cfg(test)]
-use rstest_reuse;
 
 mod chunked_encoder;
 pub mod display;
@@ -325,5 +318,3 @@ pub mod prelude;
 
 #[cfg(test)]
 mod tests;
-
-const PAD_BYTE: u8 = b'=';

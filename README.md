@@ -63,7 +63,7 @@ optionally may allow other behaviors.
 
 ## Rust version compatibility
 
-The minimum supported Rust version is 1.48.0.
+The minimum supported Rust version is 1.60.0.
 
 # Contributing
 
@@ -91,7 +91,7 @@ to bring back the support for heap allocations.
 
 ## SIMD acceleration
 
-The opt-in `simd-unsafe` feature enables SIMD-accelerated engines for the standard and
+The default-on `simd-unsafe` feature enables SIMD-accelerated engines for the standard and
 URL-safe alphabets, which are several times faster than the scalar `GeneralPurpose` engine. It is
 the only feature that uses `unsafe`; without it the crate is `#![forbid(unsafe_code)]`.
 
@@ -99,6 +99,20 @@ The `Simd` engine detects the best available instruction set (AVX2 on `x86_64`, 
 runtime and falls back to the scalar engine, and needs the `std` feature. The `Avx2` and `Neon`
 engines target one instruction set without runtime detection, so they can be used in `no_std` builds
 when the target is known to support the instructions.
+
+### Testing SIMD
+
+Testing SIMD directly requires having all of the necessary hardware available. Fortunately, the instructions we use are
+also provided by Miri, so we can check for UB and proper logic all at once on any system. Here, this is filtering for
+tests with `miri` in the name as those are written to be acceptably slow under Miri's overhead, but any test should work
+(eventually).
+
+```
+RUSTFLAGS="-C target-feature=+avx2" cargo +nightly miri \
+    test --target x86_64-unknown-linux-gnu miri
+RUSTFLAGS="-C target-feature=+neon" cargo +nightly miri \
+    test --target aarch64-unknown-linux-gnu miri
+```
 
 ## Profiling
 

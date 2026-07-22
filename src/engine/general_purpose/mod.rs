@@ -12,6 +12,7 @@ use core::convert::TryInto;
 pub(crate) mod decode;
 pub(crate) mod decode_suffix;
 
+use crate::alphabet::Symbol;
 pub use decode::GeneralPurposeEstimate;
 
 pub(crate) const INVALID_VALUE: u8 = 255;
@@ -27,6 +28,7 @@ pub(crate) const INVALID_VALUE: u8 = 255;
 pub struct GeneralPurpose {
     encode_table: [u8; 64],
     decode_table: [u8; 256],
+    pub(crate) padding: Symbol,
     config: GeneralPurposeConfig,
 }
 
@@ -46,6 +48,7 @@ impl GeneralPurpose {
         Self {
             encode_table: encode_table(alphabet),
             decode_table: decode_table(alphabet),
+            padding: alphabet.padding,
             config,
         }
     }
@@ -99,6 +102,7 @@ impl super::Engine for GeneralPurpose {
             output,
             &self.decode_table,
             self.config.decode_allow_trailing_bits,
+            self.padding,
             self.config.decode_padding_mode,
             |_, _, _| (0, 0),
         )
@@ -106,6 +110,10 @@ impl super::Engine for GeneralPurpose {
 
     fn config(&self) -> &Self::Config {
         &self.config
+    }
+
+    fn padding(&self) -> Symbol {
+        self.padding
     }
 }
 
@@ -284,7 +292,7 @@ pub(crate) const fn decode_table(alphabet: &Alphabet) -> [u8; 256] {
 
     // Since the table is full of `INVALID_VALUE` already, we only need to overwrite
     // the parts that are valid.
-    let mut index = 0;
+    let mut index = 0_usize;
     while index < 64 {
         // The index in the alphabet is the 6-bit value we care about.
         // Since the index is in 0-63, it is safe to cast to u8.
