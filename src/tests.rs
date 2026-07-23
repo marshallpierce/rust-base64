@@ -1,9 +1,9 @@
 use std::str;
 
 use rand::{
-    distributions,
-    distributions::{Distribution as _, Uniform},
-    Rng, SeedableRng,
+    distr,
+    distr::{Distribution as _, Uniform},
+    rngs, Rng, RngExt,
 };
 
 use crate::alphabet::{is_valid_b64_symbol, Symbol};
@@ -19,12 +19,12 @@ use crate::{
 #[test]
 fn roundtrip_random_config_short() {
     // exercise the slower encode/decode routines that operate on shorter buffers more vigorously
-    roundtrip_random_config(Uniform::new(0, 50), 10_000);
+    roundtrip_random_config(Uniform::new(0, 50).unwrap(), 10_000);
 }
 
 #[test]
 fn roundtrip_random_config_long() {
-    roundtrip_random_config(Uniform::new(0, 1000), 10_000);
+    roundtrip_random_config(Uniform::new(0, 1000).unwrap(), 10_000);
 }
 
 pub fn assert_encode_sanity(encoded: &str, engine: &impl Engine, input_len: usize) {
@@ -70,7 +70,7 @@ pub fn assert_encode_sanity_core(
 fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
     let mut input_buf: Vec<u8> = Vec::new();
     let mut encoded_buf = String::new();
-    let mut rng = rand::rngs::SmallRng::from_entropy();
+    let mut rng = rand::make_rng::<rngs::SmallRng>();
 
     for _ in 0..iterations {
         input_buf.clear();
@@ -81,7 +81,7 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
         let engine = random_engine(&mut rng);
 
         for _ in 0..input_len {
-            input_buf.push(rng.gen());
+            input_buf.push(rng.random());
         }
 
         engine.encode_string(&input_buf, &mut encoded_buf);
@@ -93,20 +93,20 @@ fn roundtrip_random_config(input_len_range: Uniform<usize>, iterations: u32) {
 }
 
 pub fn random_config<R: Rng>(rng: &mut R) -> GeneralPurposeConfig {
-    let mode = rng.gen();
+    let mode = rng.random();
     GeneralPurposeConfig::new()
         .with_encode_padding(match mode {
-            DecodePaddingMode::Indifferent => rng.gen(),
+            DecodePaddingMode::Indifferent => rng.random(),
             DecodePaddingMode::RequireCanonical => true,
             DecodePaddingMode::RequireNone => false,
         })
         .with_decode_padding_mode(mode)
-        .with_decode_allow_trailing_bits(rng.gen())
+        .with_decode_allow_trailing_bits(rng.random())
 }
 
-impl distributions::Distribution<DecodePaddingMode> for distributions::Standard {
+impl distr::Distribution<DecodePaddingMode> for distr::StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> DecodePaddingMode {
-        match rng.gen_range(0..=2) {
+        match rng.random_range(0..=2) {
             0 => DecodePaddingMode::Indifferent,
             1 => DecodePaddingMode::RequireCanonical,
             _ => DecodePaddingMode::RequireNone,
@@ -118,7 +118,7 @@ pub fn random_alphabet<R: Rng>(rng: &mut R) -> alphabet::Alphabet {
     // 65 symbols for alphabet + padding
     let mut symbols = Vec::with_capacity(65);
     while symbols.len() < 65 {
-        let t = rng.gen();
+        let t = rng.random();
         if is_valid_b64_symbol(t) && !symbols.contains(&t) {
             symbols.push(t);
         }

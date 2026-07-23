@@ -173,10 +173,8 @@ mod tests {
         engine::general_purpose::{GeneralPurpose, NO_PAD, STANDARD},
         tests::{assert_encode_sanity, random_config, random_engine},
     };
-    use rand::{
-        distributions::{Distribution, Uniform},
-        Rng, SeedableRng,
-    };
+    use rand::distr::{Distribution, Uniform};
+    use rand::{rngs, RngExt};
     use std::str;
 
     const URL_SAFE_NO_PAD_ENGINE: GeneralPurpose = GeneralPurpose::new(&alphabet::URL_SAFE, NO_PAD);
@@ -244,10 +242,10 @@ mod tests {
         let mut encoded_data_with_prefix = String::new();
         let mut decoded = Vec::new();
 
-        let prefix_len_range = Uniform::new(0, 1000);
-        let input_len_range = Uniform::new(0, 1000);
+        let prefix_len_range = Uniform::new(0, 1000).unwrap();
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -259,7 +257,7 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                orig_data.push(rng.gen());
+                orig_data.push(rng.random());
             }
 
             let prefix_len = prefix_len_range.sample(&mut rng);
@@ -300,9 +298,9 @@ mod tests {
         let mut encoded_data_original_state = Vec::new();
         let mut decoded = Vec::new();
 
-        let input_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -313,12 +311,12 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                orig_data.push(rng.gen());
+                orig_data.push(rng.random());
             }
 
             // plenty of existing garbage in the encoded buffer
             for _ in 0..10 * input_len {
-                encoded_data.push(rng.gen());
+                encoded_data.push(rng.random());
             }
 
             encoded_data_original_state.extend_from_slice(&encoded_data);
@@ -355,9 +353,9 @@ mod tests {
         let mut input = Vec::new();
         let mut output = Vec::new();
 
-        let input_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             input.clear();
@@ -366,7 +364,7 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                input.push(rng.gen());
+                input.push(rng.random());
             }
 
             let config = random_config(&mut rng);
@@ -375,7 +373,7 @@ mod tests {
             // fill up the output buffer with garbage
             let encoded_size = encoded_len(input_len, config.encode_padding()).unwrap();
             for _ in 0..encoded_size {
-                output.push(rng.gen());
+                output.push(rng.random());
             }
 
             let orig_output_buf = output.clone();
@@ -395,9 +393,9 @@ mod tests {
         let mut input = Vec::new();
         let mut output = Vec::new();
 
-        let input_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             input.clear();
@@ -406,7 +404,7 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                input.push(rng.gen());
+                input.push(rng.random());
             }
 
             let engine = random_engine(&mut rng);
@@ -414,7 +412,7 @@ mod tests {
             // fill up the output buffer with garbage
             let encoded_size = encoded_len(input_len, engine.config().encode_padding()).unwrap();
             for _ in 0..encoded_size + 1000 {
-                output.push(rng.gen());
+                output.push(rng.random());
             }
 
             let orig_output_buf = output.clone();
@@ -433,7 +431,7 @@ mod tests {
     fn add_padding_random_valid_utf8() {
         let mut output = Vec::new();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         // cover our bases for length % 4
         for unpadded_output_len in 0..20 {
@@ -441,7 +439,7 @@ mod tests {
 
             // fill output with random
             for _ in 0..100 {
-                output.push(rng.gen());
+                output.push(rng.random());
             }
 
             let orig_output_buf = output.clone();
@@ -465,10 +463,10 @@ mod tests {
         assert_eq!(enc_len, encoded_len(input_len, padded).unwrap());
 
         let mut bytes: Vec<u8> = Vec::new();
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..input_len {
-            bytes.push(rng.gen());
+            bytes.push(rng.random());
         }
 
         let encoded = engine.encode(&bytes);

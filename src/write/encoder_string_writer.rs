@@ -138,13 +138,13 @@ mod tests {
     use crate::{
         engine::Engine, tests::random_engine, write::encoder_string_writer::EncoderStringWriter,
     };
-    use rand::Rng;
+    use rand::RngExt;
     use std::cmp;
     use std::io::Write;
 
     #[test]
     fn every_possible_split_of_input() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut orig_data = Vec::<u8>::new();
         let mut normal_encoded = String::new();
 
@@ -172,7 +172,7 @@ mod tests {
     }
     #[test]
     fn incremental_writes() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut orig_data = Vec::<u8>::new();
         let mut normal_encoded = String::new();
 
@@ -192,7 +192,7 @@ mod tests {
             // write small nibbles of data
             let mut offset = 0;
             while offset < size {
-                let nibble_size = cmp::min(rng.gen_range(0..=64), size - offset);
+                let nibble_size = cmp::min(rng.random_range(0..=64), size - offset);
                 let len = stream_encoder
                     .write(&orig_data[offset..offset + nibble_size])
                     .unwrap();

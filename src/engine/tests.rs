@@ -31,8 +31,8 @@ use crate::{
 use rand::rngs::SmallRng;
 use rand::{
     self,
-    distributions::{self, Distribution as _},
-    rngs, Rng as _, SeedableRng as _,
+    distr::{self, Distribution as _},
+    rngs, RngExt, SeedableRng as _,
 };
 use rstest::rstest;
 use rstest_reuse::{apply, template};
@@ -232,7 +232,7 @@ fn do_roundtrip_test<E: EngineWrapper>(make_engine: impl Fn(&mut rngs::SmallRng)
     let mut encode_buf = Vec::<u8>::new();
     let mut decode_buf = Vec::<u8>::new();
 
-    let len_range = distributions::Uniform::new(1, 1_000);
+    let len_range = distr::Uniform::new(1, 1_000).unwrap();
 
     for _ in 0..10_000 {
         let engine = make_engine(&mut rng);
@@ -269,7 +269,7 @@ fn encode_doesnt_write_extra_bytes<E: EngineWrapper>(engine_wrapper: E) {
     let mut encode_buf = Vec::<u8>::new();
     let mut encode_buf_backup = Vec::<u8>::new();
 
-    let input_len_range = distributions::Uniform::new(0, 1000);
+    let input_len_range = distr::Uniform::new(0, 1000).unwrap();
 
     for _ in 0..10_000 {
         let engine = E::random(&mut rng);
@@ -334,9 +334,9 @@ fn encode_engine_slice_fits_into_precisely_sized_slice<E: EngineWrapper>(engine_
     let mut encoded_data = Vec::new();
     let mut decoded = Vec::new();
 
-    let input_len_range = distributions::Uniform::new(0, 1000);
+    let input_len_range = distr::Uniform::new(0, 1000).unwrap();
 
-    let mut rng = rngs::SmallRng::from_entropy();
+    let mut rng = rand::make_rng::<rngs::SmallRng>();
 
     for _ in 0..10_000 {
         orig_data.clear();
@@ -346,7 +346,7 @@ fn encode_engine_slice_fits_into_precisely_sized_slice<E: EngineWrapper>(engine_
         let input_len = input_len_range.sample(&mut rng);
 
         for _ in 0..input_len {
-            orig_data.push(rng.gen());
+            orig_data.push(rng.random());
         }
 
         let engine = E::random(&mut rng);
@@ -380,7 +380,7 @@ fn encode_matches_naive<E: EngineWrapper>(engine_wrapper: E) {
     let mut encode_buf = Vec::<u8>::new();
     let mut encode_naive_buf = Vec::<u8>::new();
 
-    let len_range = distributions::Uniform::new(1, 1_000);
+    let len_range = distr::Uniform::new(1, 1_000).unwrap();
 
     for _ in 0..10_000 {
         let (engine, alphabet) = E::random_alphabet(&mut rng);
@@ -421,7 +421,7 @@ where
     let mut decode_buf = Vec::<u8>::new();
     let mut decode_buf_backup = Vec::<u8>::new();
 
-    let len_range = distributions::Uniform::new(1, 1_000);
+    let len_range = distr::Uniform::new(1, 1_000).unwrap();
 
     for _ in 0..10_000 {
         let engine = E::random(&mut rng);
@@ -632,7 +632,7 @@ fn miri_quick_test<E: EngineWrapper>(
     let mut encoded_oracle = vec![0; orig_data.len() * 2];
     let mut decoded = orig_data.clone();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let engine = E::common_alphabet(alphabet);
     let oracle = NaiveWrapper::common_alphabet(alphabet);
 
@@ -640,7 +640,7 @@ fn miri_quick_test<E: EngineWrapper>(
     for offset in 0..=5 {
         rng.fill(&mut orig_data[..]);
 
-        let filler_byte = rng.gen();
+        let filler_byte = rng.random();
         encoded.fill(filler_byte);
         encoded_oracle.fill(filler_byte);
         decoded.fill(filler_byte);
@@ -812,7 +812,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
     let mut encode_buf = Vec::<u8>::new();
     let mut decode_buf = Vec::<u8>::new();
 
-    let len_range = distributions::Uniform::new(1, 1_000);
+    let len_range = distr::Uniform::new(1, 1_000).unwrap();
 
     for _ in 0..100_000 {
         let (engine, alphabet) = E::random_alphabet(&mut rng);
@@ -835,7 +835,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
 
         // replace one encoded byte with an invalid byte
         let invalid_byte: u8 = loop {
-            let byte: u8 = rng.gen();
+            let byte: u8 = rng.random();
 
             if alphabet.symbols.contains(&byte) || byte == alphabet.padding.as_u8() {
                 continue;
@@ -844,7 +844,7 @@ fn decode_invalid_byte_error<E: EngineWrapper>(engine_wrapper: E) {
             }
         };
 
-        let invalid_range = distributions::Uniform::new(0, orig_len);
+        let invalid_range = distr::Uniform::new(0, orig_len).unwrap();
         let invalid_index = invalid_range.sample(&mut rng);
         encode_buf[invalid_index] = invalid_byte;
 
@@ -917,7 +917,7 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte_at_first_pad(
 ) {
     let mut rng = seeded_rng();
 
-    let prefix_quads_range = distributions::Uniform::from(0..=256);
+    let prefix_quads_range = distr::Uniform::new_inclusive(0, 256).unwrap();
 
     for _ in 0..100_000 {
         for (suffix, suffix_offset) in suffixes.iter() {
@@ -929,12 +929,12 @@ fn decode_padding_before_final_non_padding_char_error_invalid_byte_at_first_pad(
             let last_non_padding_offset = encoded.len() - 1 - suffix_offset;
 
             // don't include last non padding char as it must stay not padding
-            let padding_end = rng.gen_range(0..last_non_padding_offset);
+            let padding_end = rng.random_range(0..last_non_padding_offset);
 
             // don't use more than 100 bytes of padding, but also use shorter lengths when
             // padding_end is near the start of the encoded data to avoid biasing to padding
             // the entire prefix on short lengths
-            let padding_len = rng.gen_range(1..=usize::min(100, padding_end + 1));
+            let padding_len = rng.random_range(1..=usize::min(100, padding_end + 1));
             let padding_start = padding_end.saturating_sub(padding_len);
 
             encoded[padding_start..=padding_end].fill(engine.padding().as_u8());
@@ -965,8 +965,8 @@ fn decode_padding_starts_before_final_chunk_error_invalid_byte_at_first_pad<E: E
     let mut rng = seeded_rng();
 
     // must have at least one prefix quad
-    let prefix_quads_range = distributions::Uniform::from(1..256);
-    let suffix_pad_len_range = distributions::Uniform::from(1..=4);
+    let prefix_quads_range = distr::Uniform::new(1, 256).unwrap();
+    let suffix_pad_len_range = distr::Uniform::new_inclusive(1, 4).unwrap();
     // don't use no-padding mode, as the reader decode might decode a block that ends with
     // valid padding, which should then be referenced when encountering the later invalid byte
     for mode in pad_modes_allowing_padding() {
@@ -982,7 +982,7 @@ fn decode_padding_starts_before_final_chunk_error_invalid_byte_at_first_pad<E: E
 
             // amount of padding must be long enough to extend back from suffix into previous
             // quads
-            let padding_len = rng.gen_range(suffix_len + 1..encoded.len());
+            let padding_len = rng.random_range(suffix_len + 1..encoded.len());
             // no non-padding after padding in this test, so padding goes to the end
             let padding_start = encoded.len() - padding_len;
             encoded[padding_start..].fill(engine.padding().as_u8());
@@ -1010,8 +1010,8 @@ fn decode_too_little_data_before_padding_error_invalid_byte<E: EngineWrapper>(en
     let mut rng = seeded_rng();
 
     // want to test no prefix quad case, so start at 0
-    let prefix_quads_range = distributions::Uniform::from(0_usize..256);
-    let suffix_data_len_range = distributions::Uniform::from(0_usize..=1);
+    let prefix_quads_range = distr::Uniform::new_inclusive(0_usize, 256).unwrap();
+    let suffix_data_len_range = distr::Uniform::new_inclusive(0_usize, 1).unwrap();
     for mode in all_pad_modes() {
         // we don't encode so we don't care about encode padding
         let engine = E::standard_with_pad_mode(true, mode);
@@ -1290,8 +1290,8 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
     let mut encoded_data = String::new();
     let mut decode_buf = Vec::new();
 
-    let input_len_range = distributions::Uniform::new(0, 1000);
-    let mut rng = rngs::SmallRng::from_entropy();
+    let input_len_range = distr::Uniform::new(0, 1000).unwrap();
+    let mut rng = rand::make_rng::<rngs::SmallRng>();
 
     for _ in 0..10_000 {
         orig_data.clear();
@@ -1301,7 +1301,7 @@ fn decode_into_slice_fits_in_precisely_sized_slice<E: EngineWrapper>(engine_wrap
         let input_len = input_len_range.sample(&mut rng);
 
         for _ in 0..input_len {
-            orig_data.push(rng.gen());
+            orig_data.push(rng.random());
         }
 
         let engine = E::random(&mut rng);
@@ -1495,7 +1495,7 @@ fn encode_decode_smorgasbord<E: EngineWrapper>(
     let engine = E::common_alphabet(alphabet);
     fn seeded_bytes(len: usize, seed: u64) -> Vec<u8> {
         let mut rng = SmallRng::seed_from_u64(seed);
-        (0..len).map(|_| rng.gen()).collect()
+        (0..len).map(|_| rng.random()).collect()
     }
 
     let oracle = NaiveWrapper::common_alphabet(alphabet);
@@ -1554,7 +1554,7 @@ fn encode_decode_smorgasbord<E: EngineWrapper>(
 /// Returns a tuple of the original data length, the encoded data length (just data), and the length including padding.
 ///
 /// Vecs provided should be empty.
-fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distributions::Distribution<usize>>(
+fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distr::Distribution<usize>>(
     engine: &E,
     orig_data: &mut Vec<u8>,
     encode_buf: &mut Vec<u8>,
@@ -1586,14 +1586,14 @@ fn generate_random_encoded_data<E: Engine, R: rand::Rng, D: distributions::Distr
 }
 
 // fill to a random length
-fn fill_rand<R: rand::Rng, D: distributions::Distribution<usize>>(
+fn fill_rand<R: rand::Rng, D: distr::Distribution<usize>>(
     vec: &mut Vec<u8>,
     rng: &mut R,
     length_distribution: &D,
 ) -> usize {
     let len = length_distribution.sample(rng);
     for _ in 0..len {
-        vec.push(rng.gen());
+        vec.push(rng.random());
     }
 
     len
@@ -1601,7 +1601,7 @@ fn fill_rand<R: rand::Rng, D: distributions::Distribution<usize>>(
 
 fn fill_rand_len<R: rand::Rng>(vec: &mut Vec<u8>, rng: &mut R, len: usize) {
     for _ in 0..len {
-        vec.push(rng.gen());
+        vec.push(rng.random());
     }
 }
 
@@ -1787,15 +1787,15 @@ impl EngineWrapper for NaiveWrapper {
         (Self::random_with_alphabet(rng, &alphabet), alphabet)
     }
     fn random_with_alphabet<R: rand::Rng>(rng: &mut R, alphabet: &Alphabet) -> Self::Engine {
-        let mode = rng.gen();
+        let mode = rng.random();
 
         let config = naive::NaiveConfig {
             encode_padding: match mode {
-                DecodePaddingMode::Indifferent => rng.gen(),
+                DecodePaddingMode::Indifferent => rng.random(),
                 DecodePaddingMode::RequireCanonical => true,
                 DecodePaddingMode::RequireNone => false,
             },
-            decode_allow_trailing_bits: rng.gen(),
+            decode_allow_trailing_bits: rng.random(),
             decode_padding_mode: mode,
         };
 
@@ -1952,7 +1952,7 @@ impl EngineWrapper for SimdEngineWrapper {
     }
 
     fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
-        if rng.gen() {
+        if rng.random() {
             (Simd::standard(random_config(rng)), STANDARD)
         } else {
             (Simd::url_safe(random_config(rng)), URL_SAFE)
@@ -2010,7 +2010,7 @@ impl EngineWrapper for NeonEngineWrapper {
     }
 
     fn random<R: rand::Rng>(rng: &mut R) -> Self::Engine {
-        if rng.gen() {
+        if rng.random() {
             Neon::standard(random_config(rng))
         } else {
             Neon::url_safe(random_config(rng))
@@ -2018,7 +2018,7 @@ impl EngineWrapper for NeonEngineWrapper {
     }
 
     fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
-        if rng.gen() {
+        if rng.random() {
             (Neon::standard(random_config(rng)), STANDARD)
         } else {
             (Neon::url_safe(random_config(rng)), URL_SAFE)
@@ -2078,7 +2078,7 @@ impl EngineWrapper for Avx2EngineWrapper {
     }
 
     fn random_alphabet<R: rand::Rng>(rng: &mut R) -> (Self::Engine, Alphabet) {
-        if rng.gen() {
+        if rng.random() {
             (Avx2::standard(random_config(rng)).unwrap(), STANDARD)
         } else {
             (Avx2::url_safe(random_config(rng)).unwrap(), URL_SAFE)
@@ -2097,7 +2097,7 @@ impl EngineWrapper for Avx2EngineWrapper {
 }
 
 fn seeded_rng() -> rngs::SmallRng {
-    rngs::SmallRng::from_entropy()
+    rand::make_rng::<rngs::SmallRng>()
 }
 
 fn all_pad_modes() -> Vec<DecodePaddingMode> {

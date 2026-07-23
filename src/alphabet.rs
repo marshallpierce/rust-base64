@@ -1,6 +1,6 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
-use core::{convert, fmt};
+use core::{array, convert, fmt};
 #[cfg(any(feature = "std", test))]
 use std::error;
 
@@ -140,13 +140,10 @@ impl Alphabet {
 
     /// The 64 symbols of the alphabet (excluding padding).
     pub fn symbols(&self) -> [Symbol; ALPHABET_LEN] {
-        // arrays::from_fn is stable since 1.63, but MSRV is older
-        let mut out = [Symbol(0); ALPHABET_LEN];
-        for (i, s) in out.iter_mut().enumerate() {
+        array::from_fn(|i| {
             // safe to construct Symbol since all symbol bytes have already been checked
-            *s = Symbol(self.symbols[i]);
-        }
-        out
+            Symbol(self.symbols[i])
+        })
     }
 
     /// The symbol used for padding.
