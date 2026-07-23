@@ -1,4 +1,4 @@
-# Next
+# 0.23.0
 
 - Added more consts for preconfigured configs and engines
 - Make DecodeError::InvalidLastSymbol more clear by including the decoded value
@@ -7,6 +7,7 @@
   `GeneralPurpose` engine, while `Avx2` and `Neon` target one instruction set with no runtime
   detection and work in `no_std`. The engines support the standard and URL-safe alphabets.
 - Update MSRV to 1.60.0
+- Add support for custom padding symbols
 
 # 0.22.1
 

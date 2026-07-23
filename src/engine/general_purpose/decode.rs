@@ -1,6 +1,7 @@
+use crate::alphabet::Symbol;
 use crate::{
     engine::{general_purpose::INVALID_VALUE, DecodeEstimate, DecodeMetadata, DecodePaddingMode},
-    DecodeError, DecodeSliceError, PAD_BYTE,
+    DecodeError, DecodeSliceError,
 };
 
 #[doc(hidden)]
@@ -31,6 +32,7 @@ impl DecodeEstimate for GeneralPurposeEstimate {
 // We're on the fragile edge of compiler heuristics here. If this is not inlined, slow. If this is
 // inlined(always), a different slow. plain ol' inline makes the benchmarks happiest at the moment,
 // but this is fragile and the best setting changes with only minor code modifications.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 pub(crate) fn decode_helper(
     input: &[u8],
@@ -38,11 +40,12 @@ pub(crate) fn decode_helper(
     output: &mut [u8],
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
+    padding: Symbol,
     padding_mode: DecodePaddingMode,
     simd_prefix: impl FnOnce(&[u8], usize, &mut [u8]) -> (usize, usize),
 ) -> Result<DecodeMetadata, DecodeSliceError> {
     let input_complete_nonterminal_quads_len =
-        complete_quads_len(input, estimate.rem, output.len(), decode_table)?;
+        complete_quads_len(input, estimate.rem, output.len(), decode_table, padding)?;
 
     let output_complete_quad_len = input_complete_nonterminal_quads_len / 4 * 3;
 
@@ -81,6 +84,7 @@ pub(crate) fn decode_helper(
         output_complete_quad_len,
         decode_table,
         decode_allow_trailing_bits,
+        padding,
         padding_mode,
     )
 }
@@ -182,6 +186,7 @@ pub(crate) fn complete_quads_len(
     input_len_rem: usize,
     output_len: usize,
     decode_table: &[u8; 256],
+    padding: Symbol,
 ) -> Result<usize, DecodeSliceError> {
     debug_assert!(input.len() % 4 == input_len_rem);
 
@@ -189,7 +194,7 @@ pub(crate) fn complete_quads_len(
     if input_len_rem == 1 {
         let last_byte = input[input.len() - 1];
         // exclude pad bytes; might be part of padding that extends from earlier in the input
-        if last_byte != PAD_BYTE && decode_table[usize::from(last_byte)] == INVALID_VALUE {
+        if last_byte != padding.as_u8() && decode_table[usize::from(last_byte)] == INVALID_VALUE {
             return Err(DecodeError::InvalidByte(input.len() - 1, last_byte).into());
         }
     };

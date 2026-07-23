@@ -1,6 +1,7 @@
+use crate::alphabet::Symbol;
 use crate::{
     engine::{general_purpose::INVALID_VALUE, DecodeMetadata, DecodePaddingMode},
-    DecodeError, DecodeSliceError, PAD_BYTE,
+    DecodeError, DecodeSliceError,
 };
 
 /// Decode the last 0-4 bytes, checking for trailing set bits and padding per the provided
@@ -8,6 +9,7 @@ use crate::{
 ///
 /// Returns the decode metadata representing the total number of bytes decoded, including the ones
 /// indicated as already written by `output_index`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn decode_suffix(
     input: &[u8],
     input_index: usize,
@@ -15,6 +17,7 @@ pub(crate) fn decode_suffix(
     mut output_index: usize,
     decode_table: &[u8; 256],
     decode_allow_trailing_bits: bool,
+    padding: Symbol,
     padding_mode: DecodePaddingMode,
 ) -> Result<DecodeMetadata, DecodeSliceError> {
     debug_assert!((input.len() - input_index) <= 4);
@@ -31,7 +34,7 @@ pub(crate) fn decode_suffix(
 
     for (leftover_index, &b) in input[input_index..].iter().enumerate() {
         // '=' padding
-        if b == PAD_BYTE {
+        if b == padding.as_u8() {
             // There can be bad padding bytes in a few ways:
             // 1 - Padding with non-padding characters after it
             // 2 - Padding after zero or one characters in the current quad (should only
@@ -68,9 +71,11 @@ pub(crate) fn decode_suffix(
         // non-suffix '=' in trailing chunk either. Report error as first
         // erroneous padding.
         if padding_bytes_count > 0 {
-            return Err(
-                DecodeError::InvalidByte(input_index + first_padding_offset, PAD_BYTE).into(),
-            );
+            return Err(DecodeError::InvalidByte(
+                input_index + first_padding_offset,
+                padding.as_u8(),
+            )
+            .into());
         }
 
         last_symbol = b;

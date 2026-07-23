@@ -20,6 +20,7 @@
 //! associated constants of the `SimdAlphabet` trait so the kernels can inline them.
 #![allow(unsafe_code)]
 
+use crate::alphabet::Symbol;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::{
     engine::{
@@ -579,6 +580,7 @@ impl Engine for Simd {
                 output,
                 self.inner.decode_table(),
                 self.inner.config().decode_allow_trailing_bits(),
+                self.inner.padding(),
                 self.inner.config().decode_padding_mode(),
                 // SAFETY: the Avx2 backend is only selected when AVX2 was detected.
                 |i, end, o| unsafe { avx2_decode(kind, i, end, o) },
@@ -590,6 +592,7 @@ impl Engine for Simd {
                 output,
                 self.inner.decode_table(),
                 self.inner.config().decode_allow_trailing_bits(),
+                self.inner.padding(),
                 self.inner.config().decode_padding_mode(),
                 // SAFETY: the Neon backend is only selected when NEON was detected.
                 |i, end, o| unsafe { neon_decode(kind, i, end, o) },
@@ -599,6 +602,10 @@ impl Engine for Simd {
 
     fn config(&self) -> &Self::Config {
         self.inner.config()
+    }
+
+    fn padding(&self) -> Symbol {
+        self.inner.padding()
     }
 }
 
@@ -706,6 +713,7 @@ impl Engine for Avx2 {
             output,
             self.inner.decode_table(),
             self.inner.config().decode_allow_trailing_bits(),
+            self.inner.padding(),
             self.inner.config().decode_padding_mode(),
             // SAFETY: constructing this engine asserts AVX2 support.
             |i, end, o| unsafe { avx2_decode(kind, i, end, o) },
@@ -714,6 +722,10 @@ impl Engine for Avx2 {
 
     fn config(&self) -> &Self::Config {
         self.inner.config()
+    }
+
+    fn padding(&self) -> Symbol {
+        self.inner.padding()
     }
 }
 
@@ -778,6 +790,7 @@ impl Engine for Neon {
             output,
             self.inner.decode_table(),
             self.inner.config().decode_allow_trailing_bits(),
+            self.inner.padding(),
             self.inner.config().decode_padding_mode(),
             // SAFETY: this module is only compiled for targets with NEON enabled.
             |i, end, o| unsafe { neon_decode(kind, i, end, o) },
@@ -786,5 +799,9 @@ impl Engine for Neon {
 
     fn config(&self) -> &Self::Config {
         self.inner.config()
+    }
+
+    fn padding(&self) -> Symbol {
+        self.inner.padding()
     }
 }
