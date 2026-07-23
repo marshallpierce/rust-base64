@@ -200,10 +200,8 @@ mod tests {
         engine::{general_purpose, GeneralPurpose},
         tests::{assert_encode_sanity, random_engine},
     };
-    use rand::{
-        distributions::{Distribution, Uniform},
-        Rng, SeedableRng,
-    };
+    use rand::distr::{Distribution, Uniform};
+    use rand::{rngs, RngExt};
 
     #[test]
     fn decode_into_nonempty_vec_doesnt_clobber_existing_prefix() {
@@ -213,10 +211,10 @@ mod tests {
         let mut decoded_without_prefix = Vec::new();
         let mut prefix = Vec::new();
 
-        let prefix_len_range = Uniform::new(0, 1000);
-        let input_len_range = Uniform::new(0, 1000);
+        let prefix_len_range = Uniform::new(0, 1000).unwrap();
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -228,7 +226,7 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                orig_data.push(rng.gen());
+                orig_data.push(rng.random());
             }
 
             let engine = random_engine(&mut rng);
@@ -239,7 +237,7 @@ mod tests {
 
             // fill the buf with a prefix
             for _ in 0..prefix_len {
-                prefix.push(rng.gen());
+                prefix.push(rng.random());
             }
 
             decoded_with_prefix.resize(prefix_len, 0);
@@ -347,9 +345,9 @@ mod tests {
         let mut decode_buf = Vec::new();
         let mut decode_buf_copy: Vec<u8> = Vec::new();
 
-        let input_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000).unwrap();
 
-        let mut rng = rand::rngs::SmallRng::from_entropy();
+        let mut rng = rand::make_rng::<rngs::SmallRng>();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -360,7 +358,7 @@ mod tests {
             let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
-                orig_data.push(rng.gen());
+                orig_data.push(rng.random());
             }
 
             let engine = random_engine(&mut rng);
@@ -369,7 +367,7 @@ mod tests {
 
             // fill the buffer with random garbage, long enough to have some room before and after
             for _ in 0..5000 {
-                decode_buf.push(rng.gen());
+                decode_buf.push(rng.random());
             }
 
             // keep a copy for later comparison

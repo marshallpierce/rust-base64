@@ -6,7 +6,7 @@
   instruction set at runtime (AVX2 on `x86_64`, NEON on `aarch64`) and falls back to the scalar
   `GeneralPurpose` engine, while `Avx2` and `Neon` target one instruction set with no runtime
   detection and work in `no_std`. The engines support the standard and URL-safe alphabets.
-- Update MSRV to 1.60.0
+- Update MSRV to 1.71.0
 - Add support for custom padding symbols
 
 # 0.22.1

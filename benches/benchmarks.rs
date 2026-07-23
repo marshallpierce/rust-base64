@@ -6,8 +6,9 @@ use base64::{
     engine::{general_purpose::STANDARD, Engine},
     write,
 };
-use criterion::{black_box, Bencher, BenchmarkId, Criterion, Throughput};
-use rand::{Rng, SeedableRng};
+use criterion::{Bencher, BenchmarkId, Criterion, Throughput};
+use rand::{rngs, RngExt};
+use std::hint::black_box;
 use std::io::{self, Read, Write};
 
 fn do_decode_bench(b: &mut Bencher, &size: &usize) {
@@ -173,9 +174,9 @@ fn do_encode_bench_string_reuse_buf_stream(b: &mut Bencher, &size: &usize) {
 fn fill(v: &mut Vec<u8>) {
     let cap = v.capacity();
     // weak randomness is plenty; we just want to not be completely friendly to the branch predictor
-    let mut r = rand::rngs::SmallRng::from_entropy();
+    let mut r = rand::make_rng::<rngs::SmallRng>();
     while v.len() < cap {
-        v.push(r.gen::<u8>());
+        v.push(r.random::<u8>());
     }
 }
 
