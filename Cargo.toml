@@ -37,8 +37,6 @@ rustdoc-args = ["--generate-link-to-definition"]
 # 0.8.0 uses alloca, which breaks miri compilation
 criterion = "0.7.0"
 rand = "0.10.2"
-# Latest is 4.4.13 but specifies MSRV in Cargo.toml which means we can't depend
-# on it (even though we won't compile it in MSRV CI).
 clap = { version = "4.6.4", features = ["derive"] }
 strum = { version = "0.28.0", features = ["derive"] }
 # test fixtures for engine tests
