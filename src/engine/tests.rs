@@ -2,7 +2,13 @@
 #![allow(unused_variables)]
 
 use crate::alphabet::Symbol;
-#[cfg(feature = "simd-unsafe")]
+#[cfg(all(
+    feature = "simd-unsafe",
+    any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
 use crate::engine::simd::Simd;
 #[cfg(all(
     feature = "simd-unsafe",
@@ -43,7 +49,16 @@ use std::{collections, fmt, io::Read as _};
 #[case::general_purpose(GeneralPurposeWrapper)]
 #[case::naive(NaiveWrapper)]
 #[case::decoder_reader(DecoderReaderEngineWrapper)]
-#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        any(
+            target_arch = "x86_64",
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
+    ),
+    case::simd(SimdEngineWrapper)
+)]
 #[cfg_attr(
     all(
         feature = "simd-unsafe",
@@ -72,8 +87,26 @@ fn engines_supporting_arbitrary_alphabets<E: EngineWrapper>(#[case] engine_wrapp
 #[template]
 #[rstest]
 // so that there's at least one engine with no features enabled
-#[cfg_attr(not(feature = "simd-unsafe"), case::naive(NaiveWrapper))]
-#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    not(all(
+        feature = "simd-unsafe",
+        any(
+            target_arch = "x86_64",
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
+    )),
+    case::naive(NaiveWrapper)
+)]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        any(
+            target_arch = "x86_64",
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
+    ),
+    case::simd(SimdEngineWrapper)
+)]
 #[cfg_attr(
     all(
         feature = "simd-unsafe",
@@ -105,7 +138,16 @@ enum CommonAlphabet {
 #[rstest]
 #[case::general_purpose(GeneralPurposeWrapper)]
 #[case::naive(NaiveWrapper)]
-#[cfg_attr(feature = "simd-unsafe", case::simd(SimdEngineWrapper))]
+#[cfg_attr(
+    all(
+        feature = "simd-unsafe",
+        any(
+            target_arch = "x86_64",
+            all(target_arch = "aarch64", target_feature = "neon")
+        )
+    ),
+    case::simd(SimdEngineWrapper)
+)]
 #[cfg_attr(
     all(
         feature = "simd-unsafe",
@@ -1912,10 +1954,22 @@ impl EngineWrapper for DecoderReaderEngineWrapper {
     }
 }
 
-#[cfg(feature = "simd-unsafe")]
+#[cfg(all(
+    feature = "simd-unsafe",
+    any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
 struct SimdEngineWrapper;
 
-#[cfg(feature = "simd-unsafe")]
+#[cfg(all(
+    feature = "simd-unsafe",
+    any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", target_feature = "neon")
+    )
+))]
 impl EngineWrapper for SimdEngineWrapper {
     type Engine = Simd;
 
