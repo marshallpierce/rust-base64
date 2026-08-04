@@ -1,3 +1,7 @@
+# 0.23.1
+
+- Make the tests build again on non-SIMD architectures
+
 # 0.23.0
 
 - Added more consts for preconfigured configs and engines
