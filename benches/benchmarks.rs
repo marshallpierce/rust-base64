@@ -1,293 +1,466 @@
-#[macro_use]
-extern crate criterion;
-
 use base64::{
-    display,
-    engine::{general_purpose::STANDARD, Engine},
+    alphabet,
+    engine::{
+        general_purpose::{self, GeneralPurpose},
+        Engine,
+    },
     write,
 };
-use criterion::{Bencher, BenchmarkId, Criterion, Throughput};
-use rand::{rngs, RngExt};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rand::{rngs, RngExt, SeedableRng};
 use std::hint::black_box;
-use std::io::{self, Read, Write};
+use std::io::Write;
 
-fn do_decode_bench(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
-    fill(&mut v);
-    let encoded = STANDARD.encode(&v);
+const SMALL_RAW_BYTE_SIZES: &[usize] = &[
+    0, 1, 2, 3, 4, 8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024,
+];
+const LARGE_RAW_BYTE_SIZES: &[usize] = &[4096, 16_384, 65_536, 1_048_576];
+const VERY_LARGE_RAW_BYTE_SIZES: &[usize] = &[3 * 1024 * 1024, 10 * 1024 * 1024, 30 * 1024 * 1024];
 
-    b.iter(|| {
-        let orig = STANDARD.decode(&encoded);
-        black_box(&orig);
-    });
+fn input(size: usize) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(size);
+    let mut rng = rngs::SmallRng::seed_from_u64(size as u64);
+    while bytes.len() < size {
+        bytes.push(rng.random());
+    }
+    bytes
 }
 
-fn do_decode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
-    fill(&mut v);
-    let encoded = STANDARD.encode(&v);
+fn encode_benchmarks<E: Engine>(
+    c: &mut Criterion,
+    size_class: &str,
+    config: &str,
+    engine_name: &str,
+    engine: &E,
+    sizes: &[usize],
+) {
+    let mut group = c.benchmark_group(format!("encode/{size_class}/{config}/{engine_name}"));
+    group
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(3));
+    if size_class == "very_large" {
+        group.sample_size(10);
+    }
 
-    let mut buf = Vec::new();
-    b.iter(|| {
-        STANDARD.decode_vec(&encoded, &mut buf).unwrap();
-        black_box(&buf);
-        buf.clear();
-    });
+    for &size in sizes {
+        let input = input(size);
+        let output_len = engine.encode(&input).len();
+        if size > 0 {
+            group.throughput(Throughput::Bytes(size as u64));
+        }
+
+        group.bench_with_input(
+            BenchmarkId::new("allocate_raw_bytes", size),
+            &input,
+            |b, input| b.iter(|| black_box(engine.encode(black_box(input)))),
+        );
+
+        let mut slice_output = vec![0; output_len];
+        group.bench_with_input(
+            BenchmarkId::new("slice_raw_bytes", size),
+            &input,
+            |b, input| {
+                b.iter(|| {
+                    black_box(
+                        engine
+                            .encode_slice(black_box(input), black_box(&mut slice_output))
+                            .unwrap(),
+                    )
+                })
+            },
+        );
+
+        let mut reused_output = String::with_capacity(output_len);
+        group.bench_with_input(
+            BenchmarkId::new("reuse_string_raw_bytes", size),
+            &input,
+            |b, input| {
+                b.iter(|| {
+                    reused_output.clear();
+                    engine.encode_string(black_box(input), black_box(&mut reused_output));
+                    black_box(&reused_output);
+                })
+            },
+        );
+
+        let mut writer_output = Vec::with_capacity(output_len);
+        group.bench_with_input(
+            BenchmarkId::new("append_writer_vec_raw_bytes", size),
+            &input,
+            |b, input| {
+                b.iter(|| {
+                    writer_output.clear();
+                    {
+                        let mut writer = write::EncoderWriter::new(&mut writer_output, engine);
+                        writer.write_all(black_box(input)).unwrap();
+                        let _ = writer.finish().unwrap();
+                    }
+                    black_box(&writer_output);
+                })
+            },
+        );
+    }
+
+    group.finish();
 }
 
-fn do_decode_bench_slice(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
-    fill(&mut v);
-    let encoded = STANDARD.encode(&v);
+fn decode_benchmarks<E: Engine>(
+    c: &mut Criterion,
+    size_class: &str,
+    config: &str,
+    engine_name: &str,
+    engine: &E,
+    sizes: &[usize],
+) {
+    let mut group = c.benchmark_group(format!("decode/{size_class}/{config}/{engine_name}"));
+    group
+        .warm_up_time(std::time::Duration::from_millis(500))
+        .measurement_time(std::time::Duration::from_secs(3));
+    if size_class == "very_large" {
+        group.sample_size(10);
+    }
 
-    let mut buf = vec![0; size];
-    b.iter(|| {
-        STANDARD.decode_slice(&encoded, &mut buf).unwrap();
-        black_box(&buf);
-    });
+    for &size in sizes {
+        let raw_input = input(size);
+        let encoded = engine.encode(&raw_input);
+        let size_label = format!("raw_bytes_{size}_encoded_bytes_{}", encoded.len());
+        if !encoded.is_empty() {
+            group.throughput(Throughput::Bytes(encoded.len() as u64));
+        }
+
+        group.bench_with_input(
+            BenchmarkId::new("allocate", &size_label),
+            &encoded,
+            |b, encoded| b.iter(|| black_box(engine.decode(black_box(encoded)).unwrap())),
+        );
+
+        let mut slice_output = vec![0; size];
+        group.bench_with_input(
+            BenchmarkId::new("slice", &size_label),
+            &encoded,
+            |b, encoded| {
+                b.iter(|| {
+                    black_box(
+                        engine
+                            .decode_slice(black_box(encoded), black_box(&mut slice_output))
+                            .unwrap(),
+                    )
+                })
+            },
+        );
+
+        let mut reused_output = Vec::with_capacity(size);
+        group.bench_with_input(
+            BenchmarkId::new("reuse_vec", &size_label),
+            &encoded,
+            |b, encoded| {
+                b.iter(|| {
+                    reused_output.clear();
+                    engine
+                        .decode_vec(black_box(encoded), black_box(&mut reused_output))
+                        .unwrap();
+                    black_box(&reused_output);
+                })
+            },
+        );
+    }
+
+    group.finish();
 }
 
-fn do_decode_bench_stream(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
-    fill(&mut v);
-    let encoded = STANDARD.encode(&v);
-
-    let mut buf = vec![0; size];
-    buf.clear();
-
-    b.iter(|| {
-        let mut cursor = io::Cursor::new(&encoded[..]);
-        let mut decoder = base64::read::DecoderReader::new(&mut cursor, &STANDARD);
-        decoder.read_to_end(&mut buf).unwrap();
-        buf.clear();
-        black_box(&buf);
-    });
+#[derive(Clone, Copy)]
+enum InvalidCase {
+    Beginning,
+    Middle,
+    End,
+    TrailingBits,
+    Padding,
+    ScalarTail,
 }
 
-fn do_encode_bench(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    b.iter(|| {
-        let e = STANDARD.encode(&v);
-        black_box(&e);
-    });
-}
+impl InvalidCase {
+    const ALL: [Self; 6] = [
+        Self::Beginning,
+        Self::Middle,
+        Self::End,
+        Self::TrailingBits,
+        Self::Padding,
+        Self::ScalarTail,
+    ];
 
-fn do_encode_bench_display(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    b.iter(|| {
-        let e = format!("{}", display::Base64Display::new(&v, &STANDARD));
-        black_box(&e);
-    });
-}
-
-fn do_encode_bench_reuse_buf(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    let mut buf = String::new();
-    b.iter(|| {
-        STANDARD.encode_string(&v, &mut buf);
-        buf.clear();
-    });
-}
-
-fn do_encode_bench_slice(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    // conservative estimate of encoded size
-    let mut buf = vec![0; v.len() * 2];
-    b.iter(|| STANDARD.encode_slice(&v, &mut buf).unwrap());
-}
-
-#[cfg(all(
-    feature = "simd-unsafe",
-    feature = "std",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-))]
-fn do_encode_bench_slice_simd(b: &mut Bencher, &size: &usize) {
-    let engine = base64::engine::Simd::standard(base64::engine::general_purpose::PAD);
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    // conservative estimate of encoded size
-    let mut buf = vec![0; v.len() * 2];
-    b.iter(|| engine.encode_slice(&v, &mut buf).unwrap());
-}
-
-#[cfg(all(
-    feature = "simd-unsafe",
-    feature = "std",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-))]
-fn do_decode_bench_slice_simd(b: &mut Bencher, &size: &usize) {
-    let engine = base64::engine::Simd::standard(base64::engine::general_purpose::PAD);
-    let mut v: Vec<u8> = Vec::with_capacity(size * 3 / 4);
-    fill(&mut v);
-    let encoded = engine.encode(&v);
-
-    let mut buf = vec![0; size];
-    b.iter(|| {
-        engine.decode_slice(&encoded, &mut buf).unwrap();
-        black_box(&buf);
-    });
-}
-
-fn do_encode_bench_stream(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-    let mut buf = Vec::with_capacity(size * 2);
-
-    b.iter(|| {
-        buf.clear();
-        let mut stream_enc = write::EncoderWriter::new(&mut buf, &STANDARD);
-        stream_enc.write_all(&v).unwrap();
-        stream_enc.flush().unwrap();
-    });
-}
-
-fn do_encode_bench_string_stream(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-
-    b.iter(|| {
-        let mut stream_enc = write::EncoderStringWriter::new(&STANDARD);
-        stream_enc.write_all(&v).unwrap();
-        stream_enc.flush().unwrap();
-        let _ = stream_enc.into_inner();
-    });
-}
-
-fn do_encode_bench_string_reuse_buf_stream(b: &mut Bencher, &size: &usize) {
-    let mut v: Vec<u8> = Vec::with_capacity(size);
-    fill(&mut v);
-
-    let mut buf = String::new();
-    b.iter(|| {
-        buf.clear();
-        let mut stream_enc = write::EncoderStringWriter::from_consumer(&mut buf, &STANDARD);
-        stream_enc.write_all(&v).unwrap();
-        stream_enc.flush().unwrap();
-        let _ = stream_enc.into_inner();
-    });
-}
-
-fn fill(v: &mut Vec<u8>) {
-    let cap = v.capacity();
-    // weak randomness is plenty; we just want to not be completely friendly to the branch predictor
-    let mut r = rand::make_rng::<rngs::SmallRng>();
-    while v.len() < cap {
-        v.push(r.random::<u8>());
+    fn name(self) -> &'static str {
+        match self {
+            Self::Beginning => "invalid_beginning",
+            Self::Middle => "invalid_middle",
+            Self::End => "invalid_end",
+            Self::TrailingBits => "invalid_trailing_bits",
+            Self::Padding => "invalid_padding",
+            Self::ScalarTail => "simd_prefix_invalid_scalar_tail",
+        }
     }
 }
 
-const BYTE_SIZES: [usize; 5] = [3, 50, 100, 500, 3 * 1024];
+fn invalid_input(size: usize, invalid_case: InvalidCase) -> Option<Vec<u8>> {
+    let raw_input = input(size);
+    let mut encoded = general_purpose::STANDARD.encode(raw_input).into_bytes();
 
-// Benchmarks over these byte sizes take longer so we will run fewer samples to
-// keep the benchmark runtime reasonable.
-const LARGE_BYTE_SIZES: [usize; 3] = [3 * 1024 * 1024, 10 * 1024 * 1024, 30 * 1024 * 1024];
+    match invalid_case {
+        InvalidCase::Beginning if !encoded.is_empty() => encoded[0] = b'$',
+        InvalidCase::Middle if !encoded.is_empty() => {
+            let middle = encoded.len() / 2;
+            encoded[middle] = b'$';
+        }
+        InvalidCase::End if !encoded.is_empty() => {
+            let end = encoded.len() - 1;
+            encoded[end] = b'$';
+        }
+        InvalidCase::TrailingBits => {
+            encoded = general_purpose::STANDARD
+                .encode(input(size - (size % 3)))
+                .into_bytes();
+            encoded.extend_from_slice(b"AB==");
+        }
+        InvalidCase::Padding => {
+            encoded = general_purpose::STANDARD
+                .encode(input(size - (size % 3)))
+                .into_bytes();
+            encoded.push(b'=');
+        }
+        InvalidCase::ScalarTail if encoded.len() >= 64 => {
+            let end = encoded.len() - 1;
+            encoded[end] = b'$';
+        }
+        _ => return None,
+    }
 
-fn encode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
-    let mut group = c.benchmark_group(label);
+    Some(encoded)
+}
+
+fn decode_error_benchmarks<E: Engine>(c: &mut Criterion, engine_name: &str, engine: &E) {
+    let mut group = c.benchmark_group(format!("decode/errors/standard_padded/{engine_name}"));
     group
         .warm_up_time(std::time::Duration::from_millis(500))
         .measurement_time(std::time::Duration::from_secs(3));
 
-    for size in byte_sizes {
-        group
-            .throughput(Throughput::Bytes(*size as u64))
-            .bench_with_input(BenchmarkId::new("encode", size), size, do_encode_bench)
-            .bench_with_input(
-                BenchmarkId::new("encode_display", size),
-                size,
-                do_encode_bench_display,
-            )
-            .bench_with_input(
-                BenchmarkId::new("encode_reuse_buf", size),
-                size,
-                do_encode_bench_reuse_buf,
-            )
-            .bench_with_input(
-                BenchmarkId::new("encode_slice", size),
-                size,
-                do_encode_bench_slice,
-            )
-            .bench_with_input(
-                BenchmarkId::new("encode_reuse_buf_stream", size),
-                size,
-                do_encode_bench_stream,
-            )
-            .bench_with_input(
-                BenchmarkId::new("encode_string_stream", size),
-                size,
-                do_encode_bench_string_stream,
-            )
-            .bench_with_input(
-                BenchmarkId::new("encode_string_reuse_buf_stream", size),
-                size,
-                do_encode_bench_string_reuse_buf_stream,
+    for &size in SMALL_RAW_BYTE_SIZES.iter().chain(LARGE_RAW_BYTE_SIZES) {
+        for invalid_case in InvalidCase::ALL {
+            let Some(encoded) = invalid_input(size, invalid_case) else {
+                continue;
+            };
+            let mut output = vec![0; size + 3];
+            assert!(engine.decode_slice(&encoded, &mut output).is_err());
+            group.throughput(Throughput::Bytes(encoded.len() as u64));
+            group.bench_with_input(
+                BenchmarkId::new(
+                    invalid_case.name(),
+                    format!("raw_bytes_{size}_encoded_bytes_{}", encoded.len()),
+                ),
+                &encoded,
+                |b, encoded| {
+                    b.iter(|| {
+                        black_box(engine.decode_slice(black_box(encoded), black_box(&mut output)))
+                    })
+                },
             );
-
-        #[cfg(all(
-            feature = "simd-unsafe",
-            feature = "std",
-            any(target_arch = "x86_64", target_arch = "aarch64")
-        ))]
-        group.bench_with_input(
-            BenchmarkId::new("encode_slice_simd", size),
-            size,
-            do_encode_bench_slice_simd,
-        );
+        }
     }
 
     group.finish();
 }
 
-fn decode_benchmarks(c: &mut Criterion, label: &str, byte_sizes: &[usize]) {
-    let mut group = c.benchmark_group(label);
+fn benchmark_engine<E: Engine>(
+    c: &mut Criterion,
+    config_name: &str,
+    engine_name: &str,
+    engine: &E,
+) {
+    encode_benchmarks(
+        c,
+        "latency",
+        config_name,
+        engine_name,
+        engine,
+        SMALL_RAW_BYTE_SIZES,
+    );
+    encode_benchmarks(
+        c,
+        "throughput",
+        config_name,
+        engine_name,
+        engine,
+        LARGE_RAW_BYTE_SIZES,
+    );
+    decode_benchmarks(
+        c,
+        "latency",
+        config_name,
+        engine_name,
+        engine,
+        SMALL_RAW_BYTE_SIZES,
+    );
+    decode_benchmarks(
+        c,
+        "throughput",
+        config_name,
+        engine_name,
+        engine,
+        LARGE_RAW_BYTE_SIZES,
+    );
+}
 
-    for size in byte_sizes {
-        group
-            .warm_up_time(std::time::Duration::from_millis(500))
-            .measurement_time(std::time::Duration::from_secs(3))
-            .throughput(Throughput::Bytes(*size as u64))
-            .bench_with_input(BenchmarkId::new("decode", size), size, do_decode_bench)
-            .bench_with_input(
-                BenchmarkId::new("decode_reuse_buf", size),
-                size,
-                do_decode_bench_reuse_buf,
-            )
-            .bench_with_input(
-                BenchmarkId::new("decode_slice", size),
-                size,
-                do_decode_bench_slice,
-            )
-            .bench_with_input(
-                BenchmarkId::new("decode_stream", size),
-                size,
-                do_decode_bench_stream,
-            );
+fn benchmark_config(
+    c: &mut Criterion,
+    config_name: &str,
+    alphabet: &alphabet::Alphabet,
+    _url_safe: bool,
+    config: general_purpose::GeneralPurposeConfig,
+) {
+    let scalar = GeneralPurpose::new(alphabet, config);
+    benchmark_engine(c, config_name, "general_purpose", &scalar);
 
-        #[cfg(all(
-            feature = "simd-unsafe",
-            feature = "std",
-            any(target_arch = "x86_64", target_arch = "aarch64")
-        ))]
-        group.bench_with_input(
-            BenchmarkId::new("decode_slice_simd", size),
-            size,
-            do_decode_bench_slice_simd,
-        );
+    #[cfg(all(
+        feature = "simd-unsafe",
+        feature = "std",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
+    {
+        let runtime = if _url_safe {
+            base64::engine::Simd::url_safe(config)
+        } else {
+            base64::engine::Simd::standard(config)
+        };
+        benchmark_engine(c, config_name, "simd", &runtime);
     }
 
-    group.finish();
+    #[cfg(all(feature = "simd-unsafe", target_arch = "x86_64"))]
+    {
+        let explicit = if _url_safe {
+            base64::engine::Avx2::url_safe(config)
+        } else {
+            base64::engine::Avx2::standard(config)
+        };
+        if let Some(explicit) = explicit {
+            benchmark_engine(c, config_name, "avx2", &explicit);
+        }
+    }
+
+    #[cfg(all(feature = "simd-unsafe", target_arch = "aarch64"))]
+    {
+        let explicit = if _url_safe {
+            base64::engine::Neon::url_safe(config)
+        } else {
+            base64::engine::Neon::standard(config)
+        };
+        benchmark_engine(c, config_name, "neon", &explicit);
+    }
 }
 
-fn bench(c: &mut Criterion) {
-    encode_benchmarks(c, "encode_small_input", &BYTE_SIZES[..]);
-    encode_benchmarks(c, "encode_large_input", &LARGE_BYTE_SIZES[..]);
-    decode_benchmarks(c, "decode_small_input", &BYTE_SIZES[..]);
-    decode_benchmarks(c, "decode_large_input", &LARGE_BYTE_SIZES[..]);
+fn valid_benchmarks(c: &mut Criterion) {
+    benchmark_config(
+        c,
+        "standard_padded",
+        &alphabet::STANDARD,
+        false,
+        general_purpose::PAD,
+    );
+    benchmark_config(
+        c,
+        "standard_unpadded",
+        &alphabet::STANDARD,
+        false,
+        general_purpose::NO_PAD,
+    );
+    benchmark_config(
+        c,
+        "url_safe_padded",
+        &alphabet::URL_SAFE,
+        true,
+        general_purpose::PAD,
+    );
+    benchmark_config(
+        c,
+        "url_safe_unpadded",
+        &alphabet::URL_SAFE,
+        true,
+        general_purpose::NO_PAD,
+    );
 }
 
-criterion_group!(benches, bench);
+fn invalid_benchmarks(c: &mut Criterion) {
+    decode_error_benchmarks(c, "general_purpose", &general_purpose::STANDARD);
+
+    #[cfg(all(
+        feature = "simd-unsafe",
+        feature = "std",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
+    decode_error_benchmarks(
+        c,
+        "simd",
+        &base64::engine::Simd::standard(general_purpose::PAD),
+    );
+
+    #[cfg(all(feature = "simd-unsafe", target_arch = "x86_64"))]
+    if let Some(avx2) = base64::engine::Avx2::standard(general_purpose::PAD) {
+        decode_error_benchmarks(c, "avx2", &avx2);
+    }
+
+    #[cfg(all(feature = "simd-unsafe", target_arch = "aarch64"))]
+    decode_error_benchmarks(
+        c,
+        "neon",
+        &base64::engine::Neon::standard(general_purpose::PAD),
+    );
+}
+
+fn very_large_benchmarks(c: &mut Criterion) {
+    encode_benchmarks(
+        c,
+        "very_large",
+        "standard_padded",
+        "general_purpose",
+        &general_purpose::STANDARD,
+        VERY_LARGE_RAW_BYTE_SIZES,
+    );
+    decode_benchmarks(
+        c,
+        "very_large",
+        "standard_padded",
+        "general_purpose",
+        &general_purpose::STANDARD,
+        VERY_LARGE_RAW_BYTE_SIZES,
+    );
+
+    #[cfg(all(
+        feature = "simd-unsafe",
+        feature = "std",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
+    {
+        let simd = base64::engine::Simd::standard(general_purpose::PAD);
+        encode_benchmarks(
+            c,
+            "very_large",
+            "standard_padded",
+            "simd",
+            &simd,
+            VERY_LARGE_RAW_BYTE_SIZES,
+        );
+        decode_benchmarks(
+            c,
+            "very_large",
+            "standard_padded",
+            "simd",
+            &simd,
+            VERY_LARGE_RAW_BYTE_SIZES,
+        );
+    }
+}
+
+criterion_group!(
+    benches,
+    valid_benchmarks,
+    invalid_benchmarks,
+    very_large_benchmarks
+);
 criterion_main!(benches);
