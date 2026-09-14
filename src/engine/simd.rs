@@ -99,7 +99,9 @@ enum SimdKind {
 /// encode needs more data than decode to break even.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 const SIMD_MIN_INPUT_ENCODE: usize = 128;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(target_arch = "x86_64")]
+const SIMD_MIN_INPUT_DECODE: usize = 40;
+#[cfg(target_arch = "aarch64")]
 const SIMD_MIN_INPUT_DECODE: usize = 64;
 
 /// pshufb decode validity table: maps a high nibble to a single set bit. Shared by both alphabets.
