@@ -162,6 +162,44 @@ mod avx2 {
         true
     }
 
+    #[target_feature(enable = "avx2")]
+    #[inline(never)]
+    unsafe fn encode_tail_12<A: SimdAlphabet>(input: &[u8], output: &mut [u8]) {
+        debug_assert!(input.len() >= 16);
+        debug_assert!(output.len() >= 16);
+
+        let lut = _mm_loadu_si128(A::ENCODE_LUT.as_ptr().cast());
+        #[rustfmt::skip]
+        let shuf = _mm_setr_epi8(
+            1, 0, 2, 1, 4, 3, 5, 4, 7, 6, 8, 7, 10, 9, 11, 10,
+        );
+        let mask_hi = _mm_set1_epi32(0x0fc0_fc00_u32 as i32);
+        let mul_hi = _mm_set1_epi32(0x0400_0040);
+        let mask_lo = _mm_set1_epi32(0x003f_03f0);
+        let mul_lo = _mm_set1_epi32(0x0100_0010);
+        let const51 = _mm_set1_epi8(51);
+        let const25 = _mm_set1_epi8(25);
+
+        // SAFETY: the caller provides at least 16 input bytes; `loadu` has no alignment
+        // requirement.
+        let data = _mm_loadu_si128(input.as_ptr().cast());
+        let inb = _mm_shuffle_epi8(data, shuf);
+        let t0 = _mm_and_si128(inb, mask_hi);
+        let t1 = _mm_mulhi_epu16(t0, mul_hi);
+        let t2 = _mm_and_si128(inb, mask_lo);
+        let t3 = _mm_mullo_epi16(t2, mul_lo);
+        let indices = _mm_or_si128(t1, t3);
+
+        let reduced = _mm_subs_epu8(indices, const51);
+        let gt25 = _mm_cmpgt_epi8(indices, const25);
+        let reduced = _mm_sub_epi8(reduced, gt25);
+        let ascii = _mm_add_epi8(indices, _mm_shuffle_epi8(lut, reduced));
+
+        // SAFETY: the caller provides at least 16 output bytes; `storeu` has no alignment
+        // requirement.
+        _mm_storeu_si128(output.as_mut_ptr().cast(), ascii);
+    }
+
     /// Encode leading whole 24-byte input groups (24 in -> 32 out per iteration).
     ///
     /// # Safety
@@ -220,6 +258,23 @@ mod avx2 {
             _mm256_storeu_si256(output.as_mut_ptr().add(o).cast(), ascii);
             i += 24;
             o += 32;
+        }
+        (i, o)
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub(super) unsafe fn encode_bulk_with_tail<A: SimdAlphabet>(
+        input: &[u8],
+        output: &mut [u8],
+    ) -> (usize, usize) {
+        // SAFETY: this function has the same AVX2 requirement as `encode_bulk`.
+        let (mut i, mut o) = encode_bulk::<A>(input, output);
+        if i + 16 <= input.len() && o + 16 <= output.len() {
+            // SAFETY: the condition proves the input and output lengths required by the helper;
+            // this function's contract guarantees AVX2.
+            encode_tail_12::<A>(&input[i..], &mut output[o..]);
+            i += 12;
+            o += 16;
         }
         (i, o)
     }
@@ -488,6 +543,27 @@ unsafe fn avx2_encode(kind: SimdKind, input: &[u8], output: &mut [u8]) -> (usize
     }
 }
 
+/// Dispatch the AVX2 encode kernel with a 128-bit tail to the right alphabet monomorphization.
+///
+/// # Safety
+///
+/// The running CPU must support AVX2.
+#[cfg(target_arch = "x86_64")]
+#[inline]
+unsafe fn avx2_encode_with_tail(kind: SimdKind, input: &[u8], output: &mut [u8]) -> (usize, usize) {
+    match kind {
+        // SAFETY: this function's contract guarantees AVX2, which is all the kernel requires.
+        SimdKind::Standard => avx2::encode_bulk_with_tail::<Standard>(input, output),
+        SimdKind::UrlSafe => avx2::encode_bulk_with_tail::<UrlSafe>(input, output),
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[inline]
+fn avx2_encode_uses_tail(input_len: usize) -> bool {
+    input_len > SIMD_MIN_INPUT_ENCODE && !((8..16).contains(&(input_len % 24)))
+}
+
 /// Dispatch the AVX2 decode kernel to the right alphabet monomorphization.
 ///
 /// # Safety
@@ -626,10 +702,18 @@ impl Engine for Simd {
         match self.backend {
             Backend::Scalar => self.inner.internal_encode(input, output),
             #[cfg(target_arch = "x86_64")]
-            Backend::Avx2 => encode_helper(self.inner.encode_table(), input, output, |i, o| {
-                // SAFETY: the Avx2 backend is only selected when AVX2 was detected.
-                unsafe { avx2_encode(kind, i, o) }
-            }),
+            Backend::Avx2 => {
+                if avx2_encode_uses_tail(input.len()) {
+                    return encode_helper(self.inner.encode_table(), input, output, |i, o| {
+                        // SAFETY: the Avx2 backend is only selected when AVX2 was detected.
+                        unsafe { avx2_encode_with_tail(kind, i, o) }
+                    });
+                }
+                encode_helper(self.inner.encode_table(), input, output, |i, o| {
+                    // SAFETY: the Avx2 backend is only selected when AVX2 was detected.
+                    unsafe { avx2_encode(kind, i, o) }
+                })
+            }
             #[cfg(target_arch = "aarch64")]
             Backend::Neon => encode_helper(self.inner.encode_table(), input, output, |i, o| {
                 // SAFETY: the Neon backend is only selected when NEON was detected.
@@ -768,6 +852,12 @@ impl Engine for Avx2 {
 
     fn internal_encode(&self, input: &[u8], output: &mut [u8]) -> usize {
         let kind = self.kind;
+        if avx2_encode_uses_tail(input.len()) {
+            return encode_helper(self.inner.encode_table(), input, output, |i, o| {
+                // SAFETY: constructing this engine asserts AVX2 support.
+                unsafe { avx2_encode_with_tail(kind, i, o) }
+            });
+        }
         encode_helper(self.inner.encode_table(), input, output, |i, o| {
             // SAFETY: constructing this engine asserts AVX2 support.
             unsafe { avx2_encode(kind, i, o) }
