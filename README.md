@@ -76,7 +76,8 @@ free time to give each PR the attention it deserves. I will get to everyone even
 
 ## Developing
 
-Benchmarks are in `benches/`.
+Benchmarks and instructions for focused runs and baseline comparisons are in
+[`benches/`](benches/README.md).
 
 ```bash
 cargo bench
