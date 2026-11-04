@@ -130,7 +130,8 @@ pub const fn encoded_len(bytes_len: usize, padding: bool) -> Option<usize> {
 
 /// Write padding characters.
 /// `unpadded_output_len` is the size of the unpadded but base64 encoded data.
-/// `output` is the slice where padding should be written, of length at least 2.
+/// `output` is the slice where padding should be written, long enough for up
+/// to 3 padding bytes.
 ///
 /// Returns the number of padding bytes written.
 pub(crate) fn add_padding(unpadded_output_len: usize, padding: Symbol, output: &mut [u8]) -> usize {
