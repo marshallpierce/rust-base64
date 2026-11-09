@@ -329,7 +329,7 @@ pub struct GeneralPurposeConfig {
 
 impl GeneralPurposeConfig {
     /// Create a new config with `padding` = `true`, `decode_allow_trailing_bits` = `false`, and
-    /// `decode_padding_mode = DecodePaddingMode::RequireCanonicalPadding`.
+    /// `decode_padding_mode = `[`DecodePaddingMode::RequireCanonical`].
     ///
     /// This probably matches most people's expectations, but consider disabling padding to save
     /// a few bytes unless you specifically need it for compatibility with some legacy system.
@@ -385,10 +385,10 @@ impl GeneralPurposeConfig {
     ///
     /// However, since in practice
     /// [people who learned nothing from BER vs DER seem to expect base64 to have one canonical encoding](https://eprint.iacr.org/2022/361),
-    /// the default setting is the stricter `DecodePaddingMode::RequireCanonicalPadding`.
+    /// the default setting is the stricter [`DecodePaddingMode::RequireCanonical`].
     ///
     /// Or, if "canonical" in your circumstance means _no_ padding rather than padding to the
-    /// next multiple of four, there's `DecodePaddingMode::RequireNoPadding`.
+    /// next multiple of four, there's [`DecodePaddingMode::RequireNone`].
     #[must_use]
     pub const fn with_decode_padding_mode(self, mode: DecodePaddingMode) -> Self {
         Self {
