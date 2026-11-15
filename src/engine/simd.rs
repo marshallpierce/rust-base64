@@ -446,6 +446,10 @@ unsafe fn avx2_decode(
 #[cfg(target_arch = "aarch64")]
 #[inline]
 unsafe fn neon_encode(kind: SimdKind, input: &[u8], output: &mut [u8]) -> (usize, usize) {
+    // The kernels assume little-endian lanes; on aarch64_be they produce garbage.
+    if cfg!(target_endian = "big") {
+        return (0, 0);
+    }
     match kind {
         // SAFETY: this function's contract guarantees NEON, which is all the kernel requires.
         SimdKind::Standard => neon::encode_bulk::<Standard>(input, output),
@@ -466,6 +470,9 @@ unsafe fn neon_decode(
     quads_end: usize,
     output: &mut [u8],
 ) -> (usize, usize) {
+    if cfg!(target_endian = "big") {
+        return (0, 0);
+    }
     match kind {
         // SAFETY: this function's contract guarantees NEON, which is all the kernel requires.
         SimdKind::Standard => neon::decode_bulk::<Standard>(input, quads_end, output),
