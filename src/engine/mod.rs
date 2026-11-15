@@ -190,6 +190,14 @@ pub trait Engine: Send + Sync {
         where
             E: Engine + ?Sized,
         {
+            // a single chunk is pushed in one go anyway; reserving only pays off for several
+            if input_bytes.len() > chunked_encoder::CHUNK_SIZE {
+                if let Some(len) = encoded_len(input_bytes.len(), engine.config().encode_padding())
+                {
+                    output_buf.reserve(len);
+                }
+            }
+
             let mut sink = chunked_encoder::StringSink::new(output_buf);
 
             chunked_encoder::ChunkedEncoder::new(engine)
