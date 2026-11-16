@@ -27,7 +27,7 @@ engine, API, or size. For example:
 
 ```bash
 cargo bench --bench benchmarks -- \
-  "encode/latency/standard_padded/general_purpose/slice_raw_bytes/64" --exact
+  "encode/latency/standard_padded/general_purpose/slice/64" --exact
 cargo bench --bench benchmarks -- \
   "decode/throughput/url_safe_unpadded/simd/slice"
 cargo bench --bench benchmarks -- \
@@ -48,7 +48,7 @@ On the parent commit, save a named baseline for a focused family:
 
 ```bash
 cargo bench --bench benchmarks -- \
-  "encode/latency/standard_padded/general_purpose/slice_raw_bytes" \
+  "encode/latency/standard_padded/general_purpose/slice" \
   --save-baseline parent
 ```
 
@@ -56,7 +56,7 @@ After switching to the candidate commit, compare the same family:
 
 ```bash
 cargo bench --bench benchmarks -- \
-  "encode/latency/standard_padded/general_purpose/slice_raw_bytes" \
+  "encode/latency/standard_padded/general_purpose/slice" \
   --baseline parent
 ```
 

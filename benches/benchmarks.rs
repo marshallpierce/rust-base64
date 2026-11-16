@@ -1,5 +1,5 @@
 use base64::{
-    alphabet,
+    alphabet, display,
     engine::{
         general_purpose::{self, GeneralPurpose},
         Engine,
@@ -7,9 +7,11 @@ use base64::{
     write,
 };
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rand::{rngs, RngExt, SeedableRng};
+use rand::{rngs, Rng, SeedableRng};
 use std::hint::black_box;
-use std::io::Write;
+use std::io;
+use std::io::{Read, Write};
+use strum::VariantArray;
 
 const SMALL_RAW_BYTE_SIZES: &[usize] = &[
     0, 1, 2, 3, 4, 8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024,
@@ -18,11 +20,8 @@ const LARGE_RAW_BYTE_SIZES: &[usize] = &[4096, 16_384, 65_536, 1_048_576];
 const VERY_LARGE_RAW_BYTE_SIZES: &[usize] = &[3 * 1024 * 1024, 10 * 1024 * 1024, 30 * 1024 * 1024];
 
 fn input(size: usize) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(size);
-    let mut rng = rngs::SmallRng::seed_from_u64(size as u64);
-    while bytes.len() < size {
-        bytes.push(rng.random());
-    }
+    let mut bytes = vec![0; size];
+    rngs::SmallRng::seed_from_u64(size as u64).fill_bytes(&mut bytes);
     bytes
 }
 
@@ -49,30 +48,24 @@ fn encode_benchmarks<E: Engine>(
             group.throughput(Throughput::Bytes(size as u64));
         }
 
-        group.bench_with_input(
-            BenchmarkId::new("allocate_raw_bytes", size),
-            &input,
-            |b, input| b.iter(|| black_box(engine.encode(black_box(input)))),
-        );
+        group.bench_with_input(BenchmarkId::new("allocate", size), &input, |b, input| {
+            b.iter(|| black_box(engine.encode(black_box(input))))
+        });
 
         let mut slice_output = vec![0; output_len];
-        group.bench_with_input(
-            BenchmarkId::new("slice_raw_bytes", size),
-            &input,
-            |b, input| {
-                b.iter(|| {
-                    black_box(
-                        engine
-                            .encode_slice(black_box(input), black_box(&mut slice_output))
-                            .unwrap(),
-                    )
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("slice", size), &input, |b, input| {
+            b.iter(|| {
+                black_box(
+                    engine
+                        .encode_slice(black_box(input), black_box(&mut slice_output))
+                        .unwrap(),
+                )
+            })
+        });
 
         let mut reused_output = String::with_capacity(output_len);
         group.bench_with_input(
-            BenchmarkId::new("reuse_string_raw_bytes", size),
+            BenchmarkId::new("reuse_string", size),
             &input,
             |b, input| {
                 b.iter(|| {
@@ -85,7 +78,7 @@ fn encode_benchmarks<E: Engine>(
 
         let mut writer_output = Vec::with_capacity(output_len);
         group.bench_with_input(
-            BenchmarkId::new("append_writer_vec_raw_bytes", size),
+            BenchmarkId::new("append_writer_vec", size),
             &input,
             |b, input| {
                 b.iter(|| {
@@ -96,6 +89,25 @@ fn encode_benchmarks<E: Engine>(
                         let _ = writer.finish().unwrap();
                     }
                     black_box(&writer_output);
+                })
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("display", size), &input, |b, input| {
+            b.iter(|| {
+                black_box(&format!("{}", display::Base64Display::new(input, engine)));
+            })
+        });
+
+        group.bench_with_input(
+            BenchmarkId::new("string_writer", size),
+            &input,
+            |b, input| {
+                b.iter(|| {
+                    let mut stream_enc = write::EncoderStringWriter::new(engine);
+                    stream_enc.write_all(input).unwrap();
+                    stream_enc.flush().unwrap();
+                    black_box(stream_enc.into_inner());
                 })
             },
         );
@@ -163,12 +175,27 @@ fn decode_benchmarks<E: Engine>(
                 })
             },
         );
+
+        let mut writer_decoded_output = Vec::with_capacity(size);
+        group.bench_with_input(
+            BenchmarkId::new("append_writer_vec", size),
+            &encoded,
+            |b, input| {
+                b.iter(|| {
+                    writer_decoded_output.clear();
+                    let mut cursor = io::Cursor::new(input);
+                    let mut decoder = base64::read::DecoderReader::new(&mut cursor, engine);
+                    decoder.read_to_end(&mut writer_decoded_output).unwrap();
+                    black_box(&writer_decoded_output);
+                })
+            },
+        );
     }
 
     group.finish();
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, strum::VariantArray)]
 enum InvalidCase {
     Beginning,
     Middle,
@@ -179,15 +206,6 @@ enum InvalidCase {
 }
 
 impl InvalidCase {
-    const ALL: [Self; 6] = [
-        Self::Beginning,
-        Self::Middle,
-        Self::End,
-        Self::TrailingBits,
-        Self::Padding,
-        Self::ScalarTail,
-    ];
-
     fn name(self) -> &'static str {
         match self {
             Self::Beginning => "invalid_beginning",
@@ -230,7 +248,12 @@ fn invalid_input(size: usize, invalid_case: InvalidCase) -> Option<Vec<u8>> {
             let end = encoded.len() - 1;
             encoded[end] = b'$';
         }
-        _ => return None,
+        InvalidCase::Beginning
+        | InvalidCase::Middle
+        | InvalidCase::End
+        | InvalidCase::ScalarTail => {
+            // Not applicable for the given size
+        }
     }
 
     Some(encoded)
@@ -243,7 +266,7 @@ fn decode_error_benchmarks<E: Engine>(c: &mut Criterion, engine_name: &str, engi
         .measurement_time(std::time::Duration::from_secs(3));
 
     for &size in SMALL_RAW_BYTE_SIZES.iter().chain(LARGE_RAW_BYTE_SIZES) {
-        for invalid_case in InvalidCase::ALL {
+        for invalid_case in InvalidCase::VARIANTS.iter().copied() {
             let Some(encoded) = invalid_input(size, invalid_case) else {
                 continue;
             };
@@ -311,11 +334,11 @@ fn benchmark_engine<E: Engine>(
 fn benchmark_config(
     c: &mut Criterion,
     config_name: &str,
-    alphabet: &alphabet::Alphabet,
-    _url_safe: bool,
+    scalar_alphabet: &alphabet::Alphabet,
+    simd_url_safe: bool,
     config: general_purpose::GeneralPurposeConfig,
 ) {
-    let scalar = GeneralPurpose::new(alphabet, config);
+    let scalar = GeneralPurpose::new(scalar_alphabet, config);
     benchmark_engine(c, config_name, "general_purpose", &scalar);
 
     #[cfg(all(
@@ -324,7 +347,7 @@ fn benchmark_config(
         any(target_arch = "x86_64", target_arch = "aarch64")
     ))]
     {
-        let runtime = if _url_safe {
+        let runtime = if simd_url_safe {
             base64::engine::Simd::url_safe(config)
         } else {
             base64::engine::Simd::standard(config)
@@ -334,7 +357,7 @@ fn benchmark_config(
 
     #[cfg(all(feature = "simd-unsafe", target_arch = "x86_64"))]
     {
-        let explicit = if _url_safe {
+        let explicit = if simd_url_safe {
             base64::engine::Avx2::url_safe(config)
         } else {
             base64::engine::Avx2::standard(config)
@@ -346,7 +369,7 @@ fn benchmark_config(
 
     #[cfg(all(feature = "simd-unsafe", target_arch = "aarch64"))]
     {
-        let explicit = if _url_safe {
+        let explicit = if simd_url_safe {
             base64::engine::Neon::url_safe(config)
         } else {
             base64::engine::Neon::standard(config)
