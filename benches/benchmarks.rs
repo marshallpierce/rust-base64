@@ -111,6 +111,24 @@ fn encode_benchmarks<E: Engine>(
                 })
             },
         );
+
+        let mut string_writer_output = String::with_capacity(output_len);
+        group.bench_with_input(
+            BenchmarkId::new("string_writer_reuse", size),
+            &input,
+            |b, input| {
+                b.iter(|| {
+                    string_writer_output.clear();
+                    let mut stream_enc = write::EncoderStringWriter::from_consumer(
+                        &mut string_writer_output,
+                        engine,
+                    );
+                    stream_enc.write_all(input).unwrap();
+                    stream_enc.flush().unwrap();
+                    black_box(stream_enc.into_inner());
+                })
+            },
+        );
     }
 
     group.finish();
