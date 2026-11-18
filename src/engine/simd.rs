@@ -15,9 +15,11 @@
 //!
 //! The kernels follow Wojciech Mula's vectorized base64 algorithms
 //! (<http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html> and the companion encoding note).
-//! AVX2 uses the multiply-based bit (de)interleave; NEON, which lacks the relevant multiplies, uses
-//! the shift/mask variant. Both share the same per-alphabet lookup tables, expressed as the
-//! associated constants of the `SimdAlphabet` trait so the kernels can inline them.
+//! AVX2 uses the multiply-based bit (de)interleave. NEON has no such multiplies: the encoder uses
+//! the shift/mask variant instead, and the decoder doesn't need one, since `vld4q_u8` and
+//! `vst3q_u8` (de)interleave as they load and store. Both share the same
+//! per-alphabet lookup tables, expressed as the associated constants of the `SimdAlphabet` trait so
+//! the kernels can inline them.
 #![allow(unsafe_code)]
 
 use crate::alphabet::Symbol;
@@ -323,7 +325,92 @@ mod neon {
         (i, o)
     }
 
-    /// Decode leading whole 16-byte input blocks (16 in -> 12 out per iteration).
+    /// Validate 16 base64 symbols and convert them to their 6-bit values.
+    ///
+    /// `validity` is zero in the bytes that weren't symbols of `A`'s alphabet, and the value for
+    /// those is garbage. Returning them separately lets the caller `vminq_u8` several vectors
+    /// together and check them all with one horizontal reduction.
+    ///
+    /// # Safety
+    ///
+    /// The running CPU must support NEON.
+    #[target_feature(enable = "neon")]
+    #[inline]
+    unsafe fn decode_lane<A: SimdAlphabet>(
+        data: uint8x16_t,
+        shift_lut: uint8x16_t,
+        mask_lut: uint8x16_t,
+        bitpos_lut: uint8x16_t,
+    ) -> (uint8x16_t, uint8x16_t) {
+        let hi = vshrq_n_u8::<4>(data);
+        let lo = vandq_u8(data, vdupq_n_u8(0x0f));
+
+        // `mask_lut[lo]` has a bit set for every high nibble that pairs with this low nibble to
+        // form a symbol, and `bitpos_lut[hi]` is the one bit to test it against.
+        let validity = vandq_u8(vqtbl1q_u8(mask_lut, lo), vqtbl1q_u8(bitpos_lut, hi));
+
+        let sh = vqtbl1q_u8(shift_lut, hi);
+        let eq_fixup = vceqq_u8(data, vdupq_n_u8(A::DECODE_FIXUP_CHAR as u8));
+        let shift = vbslq_u8(eq_fixup, vdupq_n_u8(A::DECODE_FIXUP_SHIFT as u8), sh);
+        (vaddq_u8(data, shift), validity)
+    }
+
+    /// Decode one 64-byte block of base64 symbols into the 48 bytes they encode.
+    ///
+    /// Returns `false` without writing anything if the block has a byte that isn't a symbol of
+    /// `A`'s alphabet.
+    ///
+    /// # Safety
+    ///
+    /// The running CPU must support NEON, `input` must be valid for reads of 64 bytes, and
+    /// `output` valid for writes of 48 bytes.
+    #[target_feature(enable = "neon")]
+    #[inline]
+    unsafe fn decode_block<A: SimdAlphabet>(
+        input: *const u8,
+        output: *mut u8,
+        shift_lut: uint8x16_t,
+        mask_lut: uint8x16_t,
+        bitpos_lut: uint8x16_t,
+    ) -> bool {
+        // SAFETY: the caller guarantees `input` is valid for 64 bytes; `vld4q_u8` needs no
+        // alignment.
+        let q = vld4q_u8(input);
+        // Deinterleaved: q.0/q.1/q.2/q.3 hold the 1st/2nd/3rd/4th symbol of each quad.
+        let (a, va) = decode_lane::<A>(q.0, shift_lut, mask_lut, bitpos_lut);
+        let (b, vb) = decode_lane::<A>(q.1, shift_lut, mask_lut, bitpos_lut);
+        let (c, vc) = decode_lane::<A>(q.2, shift_lut, mask_lut, bitpos_lut);
+        let (d, vd) = decode_lane::<A>(q.3, shift_lut, mask_lut, bitpos_lut);
+
+        // Zero marks an invalid byte and min keeps it. (`vandq_u8` would not: two valid bytes
+        // with different bits set also give zero.)
+        let validity = vminq_u8(vminq_u8(va, vb), vminq_u8(vc, vd));
+        if vminvq_u8(validity) == 0 {
+            return false;
+        }
+
+        // {00aaaaaa,00bbbbbb,00cccccc,00dddddd} -> {aaaaaabb,bbbbcccc,ccdddddd}. The two halves
+        // of each output byte don't overlap, so usra's add does the job of the or, saving an
+        // instruction. `sli` would do the same for the third byte, but Miri has no shim for
+        // `llvm.aarch64.neon.vsli`, so that one stays a plain shift and or.
+        let dec = uint8x16x3_t(
+            vsraq_n_u8::<4>(vshlq_n_u8::<2>(a), b),
+            vsraq_n_u8::<2>(vshlq_n_u8::<4>(b), c),
+            vorrq_u8(vshlq_n_u8::<6>(c), d),
+        );
+        // SAFETY: the caller guarantees `output` is valid for 48 bytes; `vst3q_u8` needs no
+        // alignment.
+        vst3q_u8(output, dec);
+        true
+    }
+
+    /// Decode every whole non-terminal quad, 64 input bytes at a time.
+    ///
+    /// `vld4q_u8` puts the first symbol of every quad in one register, the second in the next,
+    /// and so on, so merging 4x6 bits into 3 bytes is one shift pair per output register, and
+    /// `vst3q_u8` interleaves them again on the way out. The block is also the unit of
+    /// validation, so the horizontal reduction, the only vector-to-scalar stall here, runs once
+    /// per 64 bytes.
     ///
     /// # Safety
     ///
@@ -334,6 +421,10 @@ mod neon {
         quads_end: usize,
         output: &mut [u8],
     ) -> (usize, usize) {
+        // All the bounds below come from these two, which `decode_helper` guarantees.
+        debug_assert!(quads_end <= input.len(), "quads_end past the end of input");
+        debug_assert_eq!(quads_end % 4, 0, "quads_end must be whole quads");
+
         if quads_end < SIMD_MIN_INPUT_DECODE {
             return (0, 0);
         }
@@ -341,65 +432,71 @@ mod neon {
         let shift_lut = vld1q_u8(A::DECODE_SHIFT_LUT.as_ptr().cast());
         let mask_lut = vld1q_u8(A::DECODE_MASK_LUT.as_ptr());
         let bitpos_lut = vld1q_u8(BITPOS_LUT.as_ptr());
-        let low_nibble_mask = vdupq_n_u8(0x0f);
-        let fixup_char_v = vdupq_n_u8(A::DECODE_FIXUP_CHAR as u8);
-        let fixup_shift_v = vdupq_n_u8(A::DECODE_FIXUP_SHIFT as u8);
-        let zero = vdupq_n_u8(0);
-        let mm1 = vdupq_n_u32(0x003f_003f);
-        let mm2 = vdupq_n_u32(0x3f00_3f00);
-        let out_mask = vdupq_n_u32(0x00ff_ffff);
-        let pack_bytes: [u8; 16] = [
-            2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, 0x80, 0x80, 0x80, 0x80,
-        ];
-        // SAFETY: `pack_bytes` is a 16-byte array read in full by `vld1q_u8`.
-        let pack_shuf = vld1q_u8(pack_bytes.as_ptr());
 
         let mut i = 0usize;
         let mut o = 0usize;
-        // Need 16 input bytes to load; writes exactly 12 output bytes.
-        while i + 16 <= quads_end && o + 12 <= output.len() {
-            // SAFETY: `i + 16 <= quads_end <= input.len()`, so this reads 16 in-bounds bytes.
-            let data = vld1q_u8(input.as_ptr().add(i));
-            let hi = vshrq_n_u8::<4>(data);
-            let lo = vandq_u8(data, low_nibble_mask);
+        // Need 64 input bytes to load; writes exactly 48 output bytes.
+        while i + 64 <= quads_end && o + 48 <= output.len() {
+            // The guard only bounds `i` against `quads_end`; getting to `input.len()` takes the
+            // precondition above.
+            debug_assert!(i + 64 <= input.len(), "block reads past the end of input");
 
-            let m = vqtbl1q_u8(mask_lut, lo);
-            let bit = vqtbl1q_u8(bitpos_lut, hi);
-            let non_match = vceqq_u8(vandq_u8(m, bit), zero);
-            if vmaxvq_u8(non_match) != 0 {
-                // Invalid byte in this block; let the scalar decoder report the exact offset.
-                break;
+            // SAFETY: the loop guard and that precondition put `input[i..i+64]` and
+            // `output[o..o+48]` in bounds, and this function's contract guarantees NEON.
+            if !decode_block::<A>(
+                input.as_ptr().add(i),
+                output.as_mut_ptr().add(o),
+                shift_lut,
+                mask_lut,
+                bitpos_lut,
+            ) {
+                // Invalid byte in this block; leave the whole block to the scalar decoder so it
+                // can report the exact offset.
+                return (i, o);
             }
-
-            let sh = vqtbl1q_u8(shift_lut, hi);
-            let eq_fixup = vceqq_u8(data, fixup_char_v);
-            let shift = vbslq_u8(eq_fixup, fixup_shift_v, sh);
-            let values = vaddq_u8(data, shift); // {00aaaaaa|00bbbbbb|00cccccc|00dddddd} x4
-
-            // merge 4x6 bits -> 3 bytes per quad via shift/mask (no multiplies on NEON)
-            let v = vreinterpretq_u32_u8(values);
-            let x1 = vandq_u32(v, mm1); // {00aaaaaa|00000000|00cccccc|00000000}
-            let x2 = vandq_u32(v, mm2); // {00000000|00bbbbbb|00000000|00dddddd}
-            let x3 = vorrq_u32(vshlq_n_u32::<18>(x1), vshrq_n_u32::<10>(x1));
-            let x4 = vorrq_u32(vshlq_n_u32::<4>(x2), vshrq_n_u32::<24>(x2));
-            let merged = vandq_u32(vorrq_u32(x3, x4), out_mask);
-            let packed = vqtbl1q_u8(vreinterpretq_u8_u32(merged), pack_shuf); // 12 bytes in [0..12)
-
-            // Store exactly 12 bytes (8 + 4); a wider store would clobber an oversized output.
-            // SAFETY: the loop guard ensures `o + 12 <= output.len()`, so the 8-byte store at `o`
-            // and the 4-byte store at `o + 8` are both in bounds.
-            vst1_u8(output.as_mut_ptr().add(o), vget_low_u8(packed));
-            // Can't use vst1q_lane_u32 to directly write the last lane as it requires 4-byte
-            // alignment, which we don't have.
-            // Could also shift words and then use vst1_u8 again, but this way is more direct and
-            // doesn't double-write the middle word.
-            let tail = vgetq_lane_u32::<2>(vreinterpretq_u32_u8(packed));
-            core::ptr::write_unaligned(output.as_mut_ptr().add(o + 8).cast::<u32>(), tail);
-
-            i += 16;
-            o += 12;
+            i += 64;
+            o += 48;
         }
-        (i, o)
+        if i >= quads_end {
+            return (i, o);
+        }
+
+        // Less than a block left. Finish it with one more block, rewound to end at `quads_end`.
+        // Up to 60 bytes get decoded a second time, but the overlapping output bytes are only
+        // written the same values again, and the scalar decoder is left with nothing to do.
+        const _: () = assert!(
+            SIMD_MIN_INPUT_DECODE >= 64,
+            "decode_bulk rewinds a whole 64-byte block from quads_end"
+        );
+        let block_i = quads_end - 64;
+        let block_o = block_i / 4 * 3;
+
+        // No room for the block. Only possible if the loop stopped on its output guard too,
+        // which `decode_helper` doesn't allow; the scalar decoder takes the rest if it happens.
+        if block_o + 48 > output.len() {
+            return (i, o);
+        }
+        // The block also has to reach back far enough to cover what the loop left, not just fit.
+        debug_assert!(block_i <= i, "rewound block skips {}..{}", i, block_i);
+        debug_assert_eq!(block_i % 4, 0, "rewound block splits a quad");
+        debug_assert!(
+            block_i + 64 <= input.len(),
+            "rewound block reads past the end of input"
+        );
+
+        // SAFETY: the check and asserts above put `input[block_i..block_i+64]` and
+        // `output[block_o..block_o+48]` in bounds, and this function's contract guarantees NEON.
+        if !decode_block::<A>(
+            input.as_ptr().add(block_i),
+            output.as_mut_ptr().add(block_o),
+            shift_lut,
+            mask_lut,
+            bitpos_lut,
+        ) {
+            // The loop already checked everything before `i`, so the bad byte is at or after it.
+            return (i, o);
+        }
+        (quads_end, block_o + 48)
     }
 }
 
