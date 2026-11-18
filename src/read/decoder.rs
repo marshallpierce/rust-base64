@@ -152,25 +152,20 @@ impl<'e, E: Engine, R: io::Read> DecoderReader<'e, E, R> {
             )
             .map_err(|dse| match dse {
                 DecodeSliceError::DecodeError(de) => {
+                    let pad = self.engine.padding().as_u8();
+                    if let Some(first_pad_offset) = self.padding_offset {
+                        // Anything after an earlier padded quad is invalid at the first padding
+                        // byte, as in a one-shot decode. That too reports a lone trailing invalid
+                        // byte (like `\n`) where it is, so keep that one.
+                        let trailing_byte = matches!(de, DecodeError::InvalidByte(offset, byte)
+                            if b64_len_to_decode % 4 == 1 && offset + 1 == b64_len_to_decode && byte != pad);
+                        if !trailing_byte {
+                            return DecodeError::InvalidByte(first_pad_offset, pad);
+                        }
+                    }
                     match de {
                         DecodeError::InvalidByte(offset, byte) => {
-                            match (byte, self.padding_offset) {
-                                // if there was padding in a previous block of decoding that happened to
-                                // be correct, and we now find more padding that happens to be incorrect,
-                                // to be consistent with non-reader decodes, record the error at the first
-                                // padding
-                                (byte, Some(first_pad_offset))
-                                    if byte == self.engine.padding().as_u8() =>
-                                {
-                                    DecodeError::InvalidByte(
-                                        first_pad_offset,
-                                        self.engine.padding().as_u8(),
-                                    )
-                                }
-                                _ => {
-                                    DecodeError::InvalidByte(self.input_consumed_len + offset, byte)
-                                }
-                            }
+                            DecodeError::InvalidByte(self.input_consumed_len + offset, byte)
                         }
                         DecodeError::InvalidLength(len) => {
                             DecodeError::InvalidLength(self.input_consumed_len + len)
