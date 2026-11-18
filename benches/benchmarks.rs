@@ -11,6 +11,7 @@ use rand::{rngs, Rng, SeedableRng};
 use std::hint::black_box;
 use std::io;
 use std::io::{Read, Write};
+use std::time::Duration;
 use strum::VariantArray;
 
 const SMALL_RAW_BYTE_SIZES: &[usize] = &[
@@ -35,8 +36,8 @@ fn encode_benchmarks<E: Engine>(
 ) {
     let mut group = c.benchmark_group(format!("encode/{size_class}/{config}/{engine_name}"));
     group
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(3));
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(3));
     if size_class == "very_large" {
         group.sample_size(10);
     }
@@ -144,8 +145,8 @@ fn decode_benchmarks<E: Engine>(
 ) {
     let mut group = c.benchmark_group(format!("decode/{size_class}/{config}/{engine_name}"));
     group
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(3));
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(3));
     if size_class == "very_large" {
         group.sample_size(10);
     }
@@ -213,7 +214,7 @@ fn decode_benchmarks<E: Engine>(
     group.finish();
 }
 
-#[derive(Clone, Copy, strum::VariantArray)]
+#[derive(Clone, Copy, Debug, strum::VariantArray)]
 enum InvalidCase {
     Beginning,
     Middle,
@@ -271,6 +272,7 @@ fn invalid_input(size: usize, invalid_case: InvalidCase) -> Option<Vec<u8>> {
         | InvalidCase::End
         | InvalidCase::ScalarTail => {
             // Not applicable for the given size
+            return None;
         }
     }
 
@@ -280,8 +282,8 @@ fn invalid_input(size: usize, invalid_case: InvalidCase) -> Option<Vec<u8>> {
 fn decode_error_benchmarks<E: Engine>(c: &mut Criterion, engine_name: &str, engine: &E) {
     let mut group = c.benchmark_group(format!("decode/errors/standard_padded/{engine_name}"));
     group
-        .warm_up_time(std::time::Duration::from_millis(500))
-        .measurement_time(std::time::Duration::from_secs(3));
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(3));
 
     for &size in SMALL_RAW_BYTE_SIZES.iter().chain(LARGE_RAW_BYTE_SIZES) {
         for invalid_case in InvalidCase::VARIANTS.iter().copied() {
@@ -289,7 +291,10 @@ fn decode_error_benchmarks<E: Engine>(c: &mut Criterion, engine_name: &str, engi
                 continue;
             };
             let mut output = vec![0; size + 3];
-            assert!(engine.decode_slice(&encoded, &mut output).is_err());
+            assert!(
+                engine.decode_slice(&encoded, &mut output).is_err(),
+                "size {size} case {invalid_case:?}"
+            );
             group.throughput(Throughput::Bytes(encoded.len() as u64));
             group.bench_with_input(
                 BenchmarkId::new(
