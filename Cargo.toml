@@ -42,6 +42,7 @@ strum = { version = "0.28.0", features = ["derive"] }
 # test fixtures for engine tests
 rstest = "0.26.1"
 rstest_reuse = "0.7.0"
+getrandom = "0.4.3"
 
 [features]
 default = ["std", "simd-unsafe"]

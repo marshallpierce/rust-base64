@@ -44,12 +44,15 @@ jobs:
           key: project-cache-v7-<< parameters.rust_img >>-<< parameters.toolchain_override >>-{{ checksum "Cargo.toml" }}
       - run:
           name: Setup toolchain
+          # install `just` as a binary since `apt` doesn't have it on old rust images,
+          # using `--tag` to avoid rate limited GitHub API calls to find the latest version
           command: |
             if [[ '<< parameters.toolchain_override >>' != '__msrv__' ]]
             then
               rustup toolchain add '<< parameters.toolchain_override >>'
               rustup default '<< parameters.toolchain_override >>'
             fi
+            curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin/ --tag 1.59.0
       - run:
           name: Log rustc version
           command: rustc --version
@@ -127,102 +130,12 @@ jobs:
           name: Build docs
           command: cargo doc --verbose
       - run:
-          name: Test unsafe simd with miri x64 with stacked borrows
-          # enable non-runtime-detected simd
-          environment:
-            RUSTFLAGS: "-C target-feature=+avx2"
+          name: Test unsafe simd with miri
           command: |
             if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
             then
               rustup component add miri
-              cargo miri test --target x86_64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri aarch64 with stacked borrows
-          # enable non-runtime-detected simd
-          environment:
-            RUSTFLAGS: "-C target-feature=+neon"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              cargo miri test --target aarch64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test with miri ppc64 to ensure non-simd architectures build
-          # any architecture without SIMD implemented is fine for this
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              cargo miri test --target powerpc64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri x64 with tree borrows
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-tree-borrows"
-            RUSTFLAGS: "-C target-feature=+avx2"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              rustup component add miri
-              cargo miri test --target x86_64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri aarch64 with tree borrows
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-tree-borrows"
-            RUSTFLAGS: "-C target-feature=+neon"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              cargo miri test --target aarch64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri x64 with strict provenance
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-strict-provenance"
-            RUSTFLAGS: "-C target-feature=+avx2"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              rustup component add miri
-              cargo miri test --target x86_64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri aarch64 with strict provenance
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-strict-provenance"
-            RUSTFLAGS: "-C target-feature=+neon"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              cargo miri test --target aarch64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri x64 with many seeds
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-many-seeds=0..4"
-            RUSTFLAGS: "-C target-feature=+avx2"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              rustup component add miri
-              cargo miri test --target x86_64-unknown-linux-gnu miri
-            fi
-      - run:
-          name: Test unsafe simd with miri aarch64 with many seeds
-          # enable non-runtime-detected simd
-          environment:
-            MIRIFLAGS: "-Zmiri-many-seeds=0..4"
-            RUSTFLAGS: "-C target-feature=+neon"
-          command: |
-            if [[ '<< parameters.toolchain_override >>' = 'nightly' ]]
-            then
-              cargo miri test --target aarch64-unknown-linux-gnu miri
+              just miri-test
             fi
       - run:
           name: Confirm fuzzers can run
