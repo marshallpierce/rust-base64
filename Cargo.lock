@@ -79,6 +79,7 @@ version = "0.23.1"
 dependencies = [
  "clap",
  "criterion",
+ "getrandom 0.4.3",
  "rand 0.10.2",
  "rstest",
  "rstest_reuse",

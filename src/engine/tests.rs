@@ -674,7 +674,10 @@ fn miri_quick_test<E: EngineWrapper>(
     let mut encoded_oracle = vec![0; orig_data.len() * 2];
     let mut decoded = orig_data.clone();
 
-    let mut rng = rand::rng();
+    // default rng uses ChaCha, which uses neon instructions that aren't valid on big endian aarch64
+    let mut seed = [0; 32];
+    getrandom::fill(&mut seed).unwrap();
+    let mut rng = rand::rngs::Xoshiro256PlusPlus::from_seed(seed);
     let engine = E::common_alphabet(alphabet);
     let oracle = NaiveWrapper::common_alphabet(alphabet);
 
