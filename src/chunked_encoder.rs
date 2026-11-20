@@ -8,6 +8,10 @@ use alloc::string::String;
 use core::str;
 
 /// The output mechanism for `ChunkedEncoder`'s encoded bytes.
+const BUF_SIZE: usize = 1024;
+/// Input bytes encoded per chunk.
+pub(crate) const CHUNK_SIZE: usize = BUF_SIZE / 4 * 3;
+
 pub trait Sink {
     type Error;
 
@@ -26,9 +30,6 @@ impl<'e, E: Engine + ?Sized> ChunkedEncoder<'e, E> {
     }
 
     pub fn encode<S: Sink>(&self, bytes: &[u8], sink: &mut S) -> Result<(), S::Error> {
-        const BUF_SIZE: usize = 1024;
-        const CHUNK_SIZE: usize = BUF_SIZE / 4 * 3;
-
         let mut buf = [0; BUF_SIZE];
         for chunk in bytes.chunks(CHUNK_SIZE) {
             let mut len = self.engine.internal_encode(chunk, &mut buf);
