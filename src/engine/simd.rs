@@ -113,6 +113,55 @@ mod avx2 {
     use super::{SimdAlphabet, BITPOS_LUT, SIMD_MIN_INPUT_DECODE, SIMD_MIN_INPUT_ENCODE};
     use core::arch::x86_64::*;
 
+    #[target_feature(enable = "avx2")]
+    #[inline(never)]
+    unsafe fn decode_tail_16<A: SimdAlphabet>(input: &[u8], output: &mut [u8]) -> bool {
+        debug_assert!(input.len() >= 16);
+        debug_assert!(output.len() >= 12);
+
+        // SAFETY: the caller provides at least 16 input bytes; `loadu` has no alignment
+        // requirement.
+        let data = _mm_loadu_si128(input.as_ptr().cast());
+        let shift_lut = _mm_loadu_si128(A::DECODE_SHIFT_LUT.as_ptr().cast());
+        let mask_lut = _mm_loadu_si128(A::DECODE_MASK_LUT.as_ptr().cast());
+        let bitpos_lut = _mm_loadu_si128(BITPOS_LUT.as_ptr().cast());
+        let low_nibble_mask = _mm_set1_epi8(0x0f);
+        let zero = _mm_setzero_si128();
+
+        let hi_nibbles = _mm_and_si128(_mm_srli_epi32(data, 4), low_nibble_mask);
+        let lo_nibbles = _mm_and_si128(data, low_nibble_mask);
+        let m = _mm_shuffle_epi8(mask_lut, lo_nibbles);
+        let bit = _mm_shuffle_epi8(bitpos_lut, hi_nibbles);
+        let non_match = _mm_cmpeq_epi8(_mm_and_si128(m, bit), zero);
+        if _mm_movemask_epi8(non_match) != 0 {
+            return false;
+        }
+
+        let fixup_char = _mm_set1_epi8(A::DECODE_FIXUP_CHAR);
+        let fixup_shift = _mm_set1_epi8(A::DECODE_FIXUP_SHIFT);
+        let merge_mul1 = _mm_set1_epi32(0x0140_0140);
+        let merge_mul2 = _mm_set1_epi32(0x0001_1000);
+        #[rustfmt::skip]
+        let pack_shuf = _mm_setr_epi8(
+            2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12, -1, -1, -1, -1,
+        );
+
+        let sh = _mm_shuffle_epi8(shift_lut, hi_nibbles);
+        let eq_fixup = _mm_cmpeq_epi8(data, fixup_char);
+        let shift = _mm_blendv_epi8(sh, fixup_shift, eq_fixup);
+        let values = _mm_add_epi8(data, shift);
+        let merged = _mm_maddubs_epi16(values, merge_mul1);
+        let packed = _mm_madd_epi16(merged, merge_mul2);
+        let shuffled = _mm_shuffle_epi8(packed, pack_shuf);
+
+        // SAFETY: the caller provides at least 12 output bytes. Store exactly 12 bytes so an
+        // oversized output remains untouched after the decoded data.
+        _mm_storel_epi64(output.as_mut_ptr().cast(), shuffled);
+        let tail = _mm_extract_epi32::<2>(shuffled) as u32;
+        core::ptr::write_unaligned(output.as_mut_ptr().add(8).cast::<u32>(), tail);
+        true
+    }
+
     /// Encode leading whole 24-byte input groups (24 in -> 32 out per iteration).
     ///
     /// # Safety
@@ -246,6 +295,25 @@ mod avx2 {
             _mm_storel_epi64(output.as_mut_ptr().add(o + 16).cast(), hi);
             i += 32;
             o += 24;
+        }
+        (i, o)
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub(super) unsafe fn decode_bulk_with_tail<A: SimdAlphabet>(
+        input: &[u8],
+        quads_end: usize,
+        output: &mut [u8],
+    ) -> (usize, usize) {
+        // SAFETY: this function has the same AVX2 requirement as `decode_bulk`.
+        let (mut i, mut o) = decode_bulk::<A>(input, quads_end, output);
+        if i + 16 <= quads_end && o + 12 <= output.len() {
+            // SAFETY: the condition proves the input and output lengths required by the helper;
+            // this function's contract guarantees AVX2.
+            if decode_tail_16::<A>(&input[i..], &mut output[o..]) {
+                i += 16;
+                o += 12;
+            }
         }
         (i, o)
     }
@@ -433,10 +501,18 @@ unsafe fn avx2_decode(
     quads_end: usize,
     output: &mut [u8],
 ) -> (usize, usize) {
+    if quads_end % 32 < 16 {
+        return match kind {
+            // SAFETY: this function's contract guarantees AVX2, which is all the kernel requires.
+            SimdKind::Standard => avx2::decode_bulk::<Standard>(input, quads_end, output),
+            SimdKind::UrlSafe => avx2::decode_bulk::<UrlSafe>(input, quads_end, output),
+        };
+    }
+
     match kind {
         // SAFETY: this function's contract guarantees AVX2, which is all the kernel requires.
-        SimdKind::Standard => avx2::decode_bulk::<Standard>(input, quads_end, output),
-        SimdKind::UrlSafe => avx2::decode_bulk::<UrlSafe>(input, quads_end, output),
+        SimdKind::Standard => avx2::decode_bulk_with_tail::<Standard>(input, quads_end, output),
+        SimdKind::UrlSafe => avx2::decode_bulk_with_tail::<UrlSafe>(input, quads_end, output),
     }
 }
 
