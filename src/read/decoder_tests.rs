@@ -9,7 +9,10 @@ use rand::{Rng as _, RngExt};
 use super::decoder::{DecoderReader, BUF_SIZE};
 use crate::{
     alphabet,
-    engine::{general_purpose::STANDARD, Engine, GeneralPurpose},
+    engine::{
+        general_purpose::{GeneralPurposeConfig, STANDARD},
+        DecodePaddingMode, Engine, GeneralPurpose,
+    },
     tests::{random_alphabet, random_config, random_engine},
     DecodeError,
 };
@@ -378,6 +381,39 @@ fn internal_padding_error_with_short_read_concatenated_texts_invalid_byte_error(
                 engine.padding.as_u8()
             ),
             read_decode_err
+        );
+    }
+}
+
+#[test]
+fn data_after_padded_chunk_reports_first_padding() {
+    let canonical = GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::RequireCanonical),
+    );
+    for (engine, input) in [
+        (STANDARD, &b"GA4=5"[..]),
+        (STANDARD, &b"pQCWTb1kpKGEHeNQ9nU=JZ"[..]),
+        (canonical, &b"xicbJ8WgiQ==3L"[..]),
+    ] {
+        let expected = engine.decode(input).unwrap_err();
+
+        // 1-byte reads make the reader decode one quad at a time, so the padded quad ends a chunk
+        let mut decoder = DecoderReader::new(input, &engine);
+        let mut buf = [0_u8; 1];
+        let err = loop {
+            match decoder.read(&mut buf) {
+                Ok(0) => panic!("expected an error for {:?}", input),
+                Ok(_) => {}
+                Err(e) => break e,
+            }
+        };
+        assert_eq!(
+            &expected,
+            err.into_inner()
+                .unwrap()
+                .downcast_ref::<DecodeError>()
+                .unwrap()
         );
     }
 }
