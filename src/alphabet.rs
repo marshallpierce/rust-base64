@@ -1,7 +1,9 @@
 //! Provides [Alphabet] and constants for alphabets commonly used in the wild.
 
+#[cfg(base64_core_error)]
+use core::error;
 use core::{array, convert, fmt};
-#[cfg(any(feature = "std", test))]
+#[cfg(all(not(base64_core_error), any(feature = "std", test)))]
 use std::error;
 
 /// Unsurprisingly, there are 64 symbols in a Base64 alphabet.
@@ -242,7 +244,7 @@ impl fmt::Display for ParseAlphabetError {
     }
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(base64_core_error, feature = "std", test))]
 impl error::Error for ParseAlphabetError {}
 
 /// The standard alphabet (with `+` and `/`) specified in [RFC 4648][].

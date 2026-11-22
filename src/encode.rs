@@ -4,8 +4,10 @@ use crate::engine::general_purpose::STANDARD;
 use crate::engine::{Config, Engine};
 #[cfg(any(feature = "alloc", test))]
 use alloc::string::String;
+#[cfg(base64_core_error)]
+use core::error;
 use core::fmt;
-#[cfg(any(feature = "std", test))]
+#[cfg(all(not(base64_core_error), any(feature = "std", test)))]
 use std::error;
 
 /// Encode arbitrary octets as base64 using the [`STANDARD` engine](STANDARD).
@@ -160,7 +162,7 @@ impl fmt::Display for EncodeSliceError {
     }
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(base64_core_error, feature = "std", test))]
 impl error::Error for EncodeSliceError {}
 
 #[cfg(test)]

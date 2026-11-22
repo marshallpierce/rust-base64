@@ -1,3 +1,7 @@
+# Unreleased
+
+- Implement `core::error::Error` for `DecodeError`, `DecodeSliceError`, `EncodeSliceError` and `ParseAlphabetError` without the `std` feature, on toolchains where it exists (Rust 1.81+, detected by a build script). MSRV is unchanged.
+
 # 0.23.1
 
 - Make the tests build again on non-SIMD architectures
