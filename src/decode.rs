@@ -1,8 +1,10 @@
 use crate::engine::{general_purpose::STANDARD, DecodeEstimate, Engine};
 #[cfg(any(feature = "alloc", test))]
 use alloc::vec::Vec;
+#[cfg(base64_core_error)]
+use core::error;
 use core::fmt;
-#[cfg(any(feature = "std", test))]
+#[cfg(all(not(base64_core_error), any(feature = "std", test)))]
 use std::error;
 
 /// Errors that can occur while decoding.
@@ -83,7 +85,7 @@ impl fmt::Debug for DecodeError {
     }
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(base64_core_error, feature = "std", test))]
 impl error::Error for DecodeError {}
 
 /// Errors that can occur while decoding into a slice.
@@ -104,7 +106,7 @@ impl fmt::Display for DecodeSliceError {
     }
 }
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(base64_core_error, feature = "std", test))]
 impl error::Error for DecodeSliceError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
