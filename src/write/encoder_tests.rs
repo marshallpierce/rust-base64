@@ -352,16 +352,7 @@ fn retrying_writes_that_error_with_interrupted_works() {
                 bytes_consumed += input_len;
             }
 
-            loop {
-                let res = stream_encoder.finish();
-                match res {
-                    Ok(_) => break,
-                    Err(e) => match e.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        _ => panic!("{:?}", e), // bail
-                    },
-                }
-            }
+            let _ = stream_encoder.finish().unwrap();
 
             assert_eq!(orig_len, bytes_consumed);
         }
@@ -413,13 +404,12 @@ fn writes_that_only_write_part_of_input_and_sometimes_interrupt_produce_correct_
 
                 // retry on interrupt
                 match res {
-                    Ok(len) => bytes_consumed += len,
-                    Err(e) => match e.kind() {
-                        io::ErrorKind::Interrupted => continue,
-                        _ => {
-                            panic!("should not see other errors");
-                        }
-                    },
+                    Ok(0) => assert_eq!(0, input_len),
+                    Ok(len) => {
+                        assert!(len <= input_len);
+                        bytes_consumed += len;
+                    }
+                    Err(e) => assert_eq!(io::ErrorKind::Interrupted, e.kind()),
                 }
             }
 
@@ -509,7 +499,7 @@ struct InterruptingWriter<'a, W: 'a + Write, R: 'a + Rng> {
 
 impl<'a, W: Write, R: Rng> Write for InterruptingWriter<'a, W, R> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.rng.random_range(0.0..1.0) <= self.fraction {
+        if self.rng.random_bool(self.fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
@@ -517,7 +507,7 @@ impl<'a, W: Write, R: Rng> Write for InterruptingWriter<'a, W, R> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        if self.rng.random_range(0.0..1.0) <= self.fraction {
+        if self.rng.random_bool(self.fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
@@ -537,21 +527,109 @@ struct PartialInterruptingWriter<'a, W: 'a + Write, R: 'a + Rng> {
 
 impl<'a, W: Write, R: Rng> Write for PartialInterruptingWriter<'a, W, R> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.rng.random_range(0.0..1.0) > self.no_interrupt_fraction {
+        if !self.rng.random_bool(self.no_interrupt_fraction) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "interrupted"));
         }
 
-        if self.rng.random_range(0.0..1.0) <= self.full_input_fraction || buf.is_empty() {
+        if buf.len() <= 1 || self.rng.random_bool(self.full_input_fraction) {
             // pass through the buf untouched
             self.w.write(buf)
         } else {
             // only use a prefix of it
-            self.w
-                .write(&buf[0..(self.rng.random_range(0..(buf.len() - 1)))])
+            let end = if buf.len() == 2 {
+                1
+            } else {
+                self.rng.random_range(1..(buf.len() - 1))
+            };
+            self.w.write(&buf[..end])
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
         self.w.flush()
     }
+}
+
+/// Accepts everything, except that its `fail_at`-th call to `write` fails with `ErrorKind::Other`.
+struct FailOneWrite {
+    out: Vec<u8>,
+    calls: usize,
+    fail_at: usize,
+}
+
+impl Write for FailOneWrite {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.calls += 1;
+        if self.calls == self.fail_at {
+            return Err(io::Error::new(io::ErrorKind::Other, "transient"));
+        }
+        self.out.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn finish_retried_after_a_write_error_writes_the_final_bytes_once() {
+    let engine = GeneralPurpose::new(&STANDARD, PAD);
+    // (input, the write call that finish makes first: write_all already made one per whole triple)
+    for (input, fail_at) in [(&b"a"[..], 1), (b"ab", 1), (b"abcd", 2), (b"abcde", 2)] {
+        let writer = FailOneWrite {
+            out: Vec::new(),
+            calls: 0,
+            fail_at,
+        };
+        let mut enc = EncoderWriter::new(writer, &engine);
+        enc.write_all(input).unwrap();
+        assert!(enc.finish().is_err());
+        let writer = enc.finish().unwrap();
+        assert_eq!(
+            core::str::from_utf8(engine.encode(input).as_bytes()).unwrap(),
+            core::str::from_utf8(&writer.out[..]).unwrap(),
+            "input {:?}",
+            input
+        );
+    }
+}
+
+/// Passes writes on to `inner`; panics after many calls, so a write loop that never ends fails the
+/// test instead of hanging it.
+#[derive(Debug)]
+struct CallLimit<W: Write> {
+    inner: W,
+    calls: usize,
+}
+
+impl<W: Write> Write for CallLimit<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.calls += 1;
+        assert!(self.calls < 1_000, "write called {} times", self.calls);
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+#[test]
+fn flush_finish_and_drop_return_when_the_writer_is_full() {
+    let engine = GeneralPurpose::new(&STANDARD, PAD);
+    // room for 2 of the 4 bytes that encode `abc`
+    let mut slice = [0_u8; 2];
+    {
+        let writer = CallLimit {
+            inner: &mut slice[..],
+            calls: 0,
+        };
+        let mut enc = EncoderWriter::new(writer, &engine);
+        assert_eq!(3, enc.write(b"abc").unwrap());
+        assert_eq!(io::ErrorKind::WriteZero, enc.flush().unwrap_err().kind());
+        assert_eq!(io::ErrorKind::WriteZero, enc.finish().unwrap_err().kind());
+        // and the drop returns
+    }
+    assert_eq!(b"YW", &slice);
 }
