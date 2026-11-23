@@ -555,3 +555,91 @@ impl<'a, W: Write, R: Rng> Write for PartialInterruptingWriter<'a, W, R> {
         self.w.flush()
     }
 }
+
+/// Accepts everything, except that its `fail_at`-th call to `write` fails with `ErrorKind::Other`.
+struct FailOneWrite {
+    out: Vec<u8>,
+    calls: usize,
+    fail_at: usize,
+}
+
+impl Write for FailOneWrite {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.calls += 1;
+        if self.calls == self.fail_at {
+            return Err(io::Error::new(io::ErrorKind::Other, "transient"));
+        }
+        self.out.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+// TODO: This is a bug.
+#[should_panic(expected = "`left == right` failed: input [97]")]
+fn finish_retried_after_a_write_error_writes_the_final_bytes_once() {
+    let engine = GeneralPurpose::new(&STANDARD, PAD);
+    // (input, the write call that finish makes first: write_all already made one per whole triple)
+    for (input, fail_at) in [(&b"a"[..], 1), (b"ab", 1), (b"abcd", 2), (b"abcde", 2)] {
+        let writer = FailOneWrite {
+            out: Vec::new(),
+            calls: 0,
+            fail_at,
+        };
+        let mut enc = EncoderWriter::new(writer, &engine);
+        enc.write_all(input).unwrap();
+        assert!(enc.finish().is_err());
+        let writer = enc.finish().unwrap();
+        assert_eq!(
+            core::str::from_utf8(engine.encode(input).as_bytes()).unwrap(),
+            core::str::from_utf8(&writer.out[..]).unwrap(),
+            "input {:?}",
+            input
+        );
+    }
+}
+
+/// Passes writes on to `inner`; panics after many calls, so a write loop that never ends fails the
+/// test instead of hanging it.
+#[derive(Debug)]
+struct CallLimit<W: Write> {
+    inner: W,
+    calls: usize,
+}
+
+impl<W: Write> Write for CallLimit<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.calls += 1;
+        assert!(self.calls < 1_000, "write called {} times", self.calls);
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+#[test]
+// TODO: This is a bug.
+#[should_panic(expected = "write called 1000 times")]
+fn flush_finish_and_drop_return_when_the_writer_is_full() {
+    let engine = GeneralPurpose::new(&STANDARD, PAD);
+    // room for 2 of the 4 bytes that encode `abc`
+    let mut slice = [0_u8; 2];
+    {
+        let writer = CallLimit {
+            inner: &mut slice[..],
+            calls: 0,
+        };
+        let mut enc = EncoderWriter::new(writer, &engine);
+        assert_eq!(3, enc.write(b"abc").unwrap());
+        assert_eq!(io::ErrorKind::WriteZero, enc.flush().unwrap_err().kind());
+        assert_eq!(io::ErrorKind::WriteZero, enc.finish().unwrap_err().kind());
+        // and the drop returns
+    }
+    assert_eq!(b"YW", &slice);
+}
